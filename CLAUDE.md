@@ -14,7 +14,7 @@ node server/test.mjs      # endurance race server: real races against the local 
 node tools/serve.mjs 8124     # dev server from this folder; open /index.html, /dist/web/index.html or /tools/host-mock.html
 ```
 
-The project moved from a Mac to a Windows PC (2026-11-23). The PC has Node 24 and no Python, so use `tools/serve.mjs` (also what `.claude/launch.json` runs). There is no git repo yet: the owner asked not to initialise one for now. When testing in a browser, mute the game (`__GAME.game.audio.setMuted(true)`, which doesn't touch saved volumes).
+The project moved from a Mac to a Windows PC (2026-11-23). The PC has Node 24 and no Python, so use `tools/serve.mjs` (also what `.claude/launch.json` runs). Git: private repo `devteamzerochill/avalanche-run` (set up 2026-11-23 for the Colyseus Cloud deploy, which pulls the whole project because the race server runs `src/core/`). `main` started empty; work goes on branches and pull requests. When testing in a browser, mute the game (`__GAME.game.audio.setMuted(true)`, which doesn't touch saved volumes).
 
 Build outputs in `dist/`:
 - `web/`: multi-file web build.
