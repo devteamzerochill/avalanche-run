@@ -1,0 +1,9 @@
+# Keep every text file with Unix line endings, as written, on every machine.
+* text=auto eol=lf
+# Binary assets
+*.png binary
+*.jpg binary
+*.mp3 binary
+*.ogg binary
+*.wav binary
+*.glb binary

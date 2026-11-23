@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Avalanche Run · fake zerochill.com host</title>
+<!--
+  Development stand-in for the zerochill.com game page. It hosts the game in an
+  iframe and answers the bridge messages the way the live backend behaves per
+  the API handoff (2026-11-23), so every path can be tested without touching
+  real data. It is also a reference for the website side: see
+  WEBSITE_INTEGRATION.md. Nothing here talks to a network.
+-->
+<style>
+  :root{color-scheme:dark;--bg:#0b1626;--panel:#13233a;--line:#24405f;--text:#e6f1ff;--dim:#8ba6c4;--ok:#5dea9a;--bad:#ff7a6b;--acc:#7fe3ff}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui,sans-serif;display:flex;gap:16px;padding:16px;height:100vh}
+  #frame{flex:1;min-width:280px;border:1px solid var(--line);border-radius:12px;background:#000}
+  aside{width:360px;flex:none;display:flex;flex-direction:column;gap:12px;overflow:auto}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+  h1{font-size:16px;margin:0 0 4px}
+  h2{font-size:13px;margin:0 0 8px;color:var(--acc);text-transform:uppercase;letter-spacing:.5px}
+  label{display:flex;align-items:center;gap:8px;margin:4px 0}
+  select,button{font:inherit;background:#0b1626;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:5px 8px}
+  button{cursor:pointer}
+  .row{display:flex;gap:6px;flex-wrap:wrap}
+  #log{font:12px/1.35 ui-monospace,monospace;white-space:pre-wrap;max-height:40vh;overflow:auto;margin:0}
+  #log .in{color:var(--acc)} #log .out{color:var(--ok)} #log .api{color:var(--dim)} #log .err{color:var(--bad)}
+  p.dim{color:var(--dim);margin:4px 0 0;font-size:12px}
+  @media (max-width:800px){body{flex-direction:column;height:auto}#frame{height:80vh}aside{width:auto}}
+</style>
+</head>
+<body>
+<iframe id="frame" title="Avalanche Run" allow="autoplay; fullscreen"></iframe>
+<aside>
+  <section>
+    <h1>Fake zerochill.com host</h1>
+    <p class="dim">Answers the game's bridge messages with responses shaped like the live API. No network calls; data resets on reload.</p>
+  </section>
+  <section>
+    <h2>Player</h2>
+    <label><input type="checkbox" id="signedIn" checked> Signed in</label>
+    <label>Game build <select id="build"><option value="../index.html">Dev source (index.html)</option><option value="../dist/web/index.html">Built (dist/web)</option></select></label>
+  </section>
+  <section>
+    <h2>Multiplayer race (local)</h2>
+    <label><input type="checkbox" id="race"> Race on (needs the local Supabase and race server)</label>
+    <label>Race as <select id="racer"><option value="0">Test account 1</option><option value="1">Test account 2</option><option value="2">Test account 3</option></select></label>
+    <p class="dim">The real page hands over its own session token. Here it signs a local test account in to the local Supabase.</p>
+  </section>
+  <section>
+    <h2>Next score submission</h2>
+    <label><select id="scenario">
+      <option value="normal">Normal (counted; reward if over threshold)</option>
+      <option value="noreward">Counted, no reward (cap / cooldown)</option>
+      <option value="reject">Rejected (distance out of range)</option>
+      <option value="flaky">Network fails twice, then succeeds</option>
+      <option value="lost">Saved, but the answer was lost (retry sees a duplicate)</option>
+      <option value="down">Network down (all 5 attempts fail)</option>
+      <option value="badkey">Malformed key (P0 exception, no retry)</option>
+      <option value="session">Session lost (sign in again)</option>
+      <option value="slow">Slow (3 s)</option>
+    </select></label>
+    <label><input type="checkbox" id="sticky"> Keep this scenario (otherwise back to Normal after one use)</label>
+    <label><input type="checkbox" id="fast" checked> Fast retries (delays ×0.2)</label>
+  </section>
+  <section>
+    <h2>Board</h2>
+    <div class="row">
+      <button id="seed">Fill with 30 test riders</button>
+      <button id="clear">Empty board</button>
+      <button id="push">Push board to game</button>
+    </div>
+    <p class="dim" id="summary"></p>
+  </section>
+  <section>
+    <h2>Messages</h2>
+    <pre id="log"></pre>
+  </section>
+</aside>
+<script>
+(() => {
+  const GAME = 'avalanche_run';
+  const CEILING = 1000000;
+  const $ = (id) => document.getElementById(id);
+  const frame = $('frame');
+  const origin = location.origin;
+
+  // ---- fake backend state (shapes follow the handoff) ----------------------
+  const me = { username: 'you_test', display_name: 'You (test account)', avatar_url: null };
+  const db = {
+    players: [], // {username, display_name, avatar_url, best}
+    myBest: 0, // today's best_distance
+    allTime: { username: 'record_test', display_name: 'Record Holder (test)', avatar_url: null, score: 9120 },
+    keys: new Map(), // p_key -> stored distance
+    runs: [], // issued run ids
+    bar: { game_id: GAME, metric: 'score', threshold: 1000, base_threshold: 1000, label: 'Ride 1,000 m', base_label: 'Ride 1,000 m', assist_pct: 0, genuine_fails: 0, next_ease_in: null, next_threshold: null, date: today(), cleared: false, clears_today: 0, runs_today: 0, per_run_xp: 50, xp_today: 0, earned_today: 0, daily_max_xp: 200, daily_max: 200, exhausted: false, xp_blocked_by_cap: false },
+  };
+
+  function today() { return new Date().toISOString().slice(0, 10); }
+  function uuid() { return crypto.randomUUID ? crypto.randomUUID() : '11111111-1111-4111-8111-' + String(Date.now()).slice(-12).padStart(12, '0'); }
+
+  function seedPlayers(n) {
+    const names = ['Kestrel', 'Juniper', 'Bolt', 'Mossy', 'Glint', 'Tundra', 'Pika', 'Ridge', 'Sable', 'Wren'];
+    db.players = [];
+    for (let i = 0; i < n; i++) db.players.push({ username: 'test_' + (i + 1), display_name: i % 4 === 3 ? null : names[i % names.length] + ' ' + (i + 1) + ' (test)', avatar_url: i % 5 === 0 ? 'https://example.invalid/broken.png' : null, best: Math.round(400 + Math.random() * 4200) });
+  }
+
+  // landing_board(p_game, p_limit): daily rows, own row, all-time record.
+  function landingBoard(limit) {
+    limit = Math.max(1, Math.min(25, limit || 10));
+    const rows = db.players.filter((p) => p.best > 0).map((p) => ({ username: p.username, display_name: p.display_name, avatar_url: p.avatar_url, score: p.best, you: false }));
+    if (db.myBest > 0) rows.push(Object.assign({ score: db.myBest, you: true }, me));
+    rows.sort((a, b) => b.score - a.score);
+    rows.forEach((r, i) => (r.rank = i + 1));
+    const strip = (r) => ({ rank: r.rank, username: r.username, display_name: r.display_name, avatar_url: r.avatar_url, score: r.score });
+    const mine = $('signedIn').checked ? rows.find((r) => r.you) : null;
+    return { game: GAME, scope: 'daily', metric: 'score', lower_better: false, date_key: today(), players: rows.length, top: rows.slice(0, limit).map(strip), me: mine ? strip(mine) : null, record: db.allTime };
+  }
+
+  // submit_avalanche_score(p_distance, p_key, p_run_id) live behaviour.
+  function submitScore({ p_distance, p_key, p_run_id }, scenario) {
+    if (!$('signedIn').checked || scenario === 'session') throw { code: 'P0001', message: 'not authenticated' };
+    const key = p_key || null;
+    if (key && (key.length < 8 || key.length > 128 || scenario === 'badkey')) throw { code: 'P0001', message: 'invalid idempotency key' };
+    if (!Number.isInteger(p_distance) || p_distance < 0 || p_distance > CEILING || scenario === 'reject') return { ok: false, rejected: true, reason: 'distance out of range', counted: false };
+    if (key && db.keys.has(key)) return { ok: true, distance: db.keys.get(key), counted: true, duplicate: true, xp_awarded: false, xp: 0, coins: 0, credits_pending: 0, xp_reason: 'duplicate', pop: null };
+    if (key) db.keys.set(key, p_distance);
+    db.myBest = Math.max(db.myBest, p_distance);
+    if (p_distance > db.allTime.score) db.allTime = Object.assign({ score: p_distance }, me);
+    const b = db.bar;
+    b.runs_today++;
+    const capped = scenario === 'noreward' || b.exhausted;
+    const cleared = p_distance >= b.threshold;
+    let xp = 0;
+    if (cleared && !capped) {
+      xp = Math.min(b.per_run_xp, b.daily_max_xp - b.xp_today);
+      b.xp_today += xp;
+      b.earned_today = b.xp_today;
+      b.clears_today++;
+      b.cleared = true;
+      b.exhausted = b.xp_today >= b.daily_max_xp;
+    }
+    const pop = { metric: b.metric, value: p_distance, threshold: b.threshold, label: b.label, cleared, run_index: b.runs_today, tier: cleared ? 'full' : 'none', xp, xp_blocked_by_cap: cleared && capped };
+    return { ok: true, distance: p_distance, counted: true, duplicate: false, xp_awarded: xp > 0, xp, coins: xp > 0 ? 10 : 0, credits_pending: 0, xp_reason: xp > 0 ? 'daily_run' : capped ? 'cap' : 'below threshold', pop, run_id_seen: !!p_run_id };
+  }
+
+  // ---- website-side helpers (what the real page already has) ---------------
+  const latestRun = new Map(); // attempt -> run id
+  let startSeq = 0;
+  let netFails = 0;
+
+  async function startGameRun(attempt) {
+    const seq = ++startSeq;
+    if (!$('signedIn').checked) return log('api', 'start_game_run skipped: not signed in');
+    await wait(120);
+    const id = uuid();
+    db.runs.push(id);
+    log('api', 'start_game_run → ' + id);
+    // A late answer for an older attempt must not replace the current one.
+    if (seq === startSeq) latestRun.set(attempt, id);
+  }
+
+  function takeScenario() {
+    const s = $('scenario').value;
+    if (!$('sticky').checked) $('scenario').value = 'normal';
+    return s;
+  }
+
+  // score-submit.ts behaviour: up to five attempts with the same payload,
+  // P0 errors and JSON rejections return at once.
+  async function submitWithRetries(payload, scenario) {
+    const delays = [700, 1400, 2800, 5600];
+    const k = $('fast').checked ? 0.2 : 1;
+    if (scenario === 'flaky') netFails = 2;
+    for (let i = 0; i < 5; i++) {
+      try {
+        await wait(scenario === 'slow' ? 3000 : 150);
+        if (scenario === 'lost' && i === 0) {
+          // The server stores the run but the answer never arrives; the retry sees a duplicate.
+          log('api', 'submit_avalanche_score stored → ' + JSON.stringify(submitScore(payload, 'normal')));
+          throw { network: true, message: 'response lost' };
+        }
+        if (scenario === 'down' || netFails > 0) {
+          netFails = Math.max(0, netFails - 1);
+          throw { network: true, message: 'Failed to fetch' };
+        }
+        const res = submitScore(payload, scenario);
+        log('api', 'submit_avalanche_score ' + JSON.stringify(payload) + ' → ' + JSON.stringify(res));
+        return { res };
+      } catch (err) {
+        log('err', 'submit attempt ' + (i + 1) + ' failed: ' + err.message);
+        if (err.code && err.code.startsWith('P0')) return { err };
+        if (i < 4) await wait(delays[i] * k);
+      }
+    }
+    return { err: { network: true, message: 'gave up after 5 attempts' } };
+  }
+
+  async function handleEnd(m) {
+    const scenario = takeScenario();
+    const payload = { p_distance: Math.max(0, Math.round(m.score)), p_key: m.key };
+    const runId = latestRun.get(m.attempt);
+    if (runId) payload.p_run_id = runId;
+    const { res, err } = await submitWithRetries(payload, scenario);
+    let status = 'failed';
+    let reason = '';
+    if (res && res.rejected) { status = 'rejected'; reason = res.reason || ''; }
+    else if (res && res.duplicate) status = 'duplicate';
+    else if (res && res.counted) status = 'counted';
+    else if (err && /not authenticated|session/.test(err.message)) status = 'signin';
+    else if (err) reason = err.message;
+    send({ type: 'submit_result', attempt: m.attempt, status, reason, result: res || null });
+    pushAll();
+  }
+
+  // ---- bridge --------------------------------------------------------------
+  function send(msg) {
+    msg = Object.assign({ source: 'zerochill', protocol: 1 }, msg);
+    frame.contentWindow.postMessage(msg, origin);
+    log('out', '→ ' + JSON.stringify(msg, (k, v) => (k === 'token' && v ? '(token)' : v)).slice(0, 260));
+  }
+
+  function pushAll() {
+    send({ type: 'session', signedIn: $('signedIn').checked });
+    send({ type: 'board', board: landingBoard(25) });
+    send({ type: 'bars', bar: Object.assign({}, db.bar) });
+    send({ type: 'daily_best', best: $('signedIn').checked ? db.myBest : null });
+    summary();
+  }
+
+  window.addEventListener('message', (e) => {
+    if (e.source !== frame.contentWindow || e.origin !== origin) return;
+    const m = e.data;
+    if (!m || m.source !== 'avalanche-run' || !m.protocol) return;
+    log('in', '← ' + JSON.stringify(m));
+    if (m.type === 'hello' || m.type === 'refresh') pushAll();
+    else if (m.type === 'attempt_start') startGameRun(m.attempt);
+    else if (m.type === 'attempt_end' || m.type === 'retry') handleEnd(m);
+    else if (m.type === 'race_token') raceToken().then((t) => send({ type: 'race_token', token: t ? t.access_token : null, expiresAt: t ? t.expires_at : null }));
+  });
+
+  // race_token: a session for the local race server, from a local test account.
+  async function raceToken() {
+    if (!$('signedIn').checked) return null;
+    try {
+      const { CONFIG } = await import('../src/config.js');
+      const L = CONFIG.online.local;
+      const a = (await (await fetch('../supabase/local-standins/test-account.json')).json()).accounts[+$('racer').value];
+      const r = await fetch(L.url + '/auth/v1/token?grant_type=password', { method: 'POST', headers: { apikey: L.anonKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: a.email, password: a.password }) });
+      const j = await r.json();
+      return j.access_token ? j : null;
+    } catch (err) {
+      log('api', 'race_token: ' + err.message);
+      return null;
+    }
+  }
+
+  // ---- panel ---------------------------------------------------------------
+  function wait(ms) { return new Promise((r) => setTimeout(r, ms)); }
+  function log(kind, text) {
+    const n = document.createElement('div');
+    n.className = kind;
+    n.textContent = new Date().toISOString().slice(11, 19) + ' ' + text;
+    $('log').prepend(n);
+  }
+  function summary() {
+    $('summary').textContent = `Players today: ${landingBoard(25).players} · your best today: ${db.myBest} · XP today ${db.bar.xp_today}/${db.bar.daily_max_xp} · keys stored: ${db.keys.size} · runs issued: ${db.runs.length}`;
+  }
+  function load() {
+    frame.src = $('build').value + '?portrait' + ($('race').checked ? '&race' : '') + '&host=' + encodeURIComponent(origin);
+  }
+  $('build').onchange = load;
+  $('race').onchange = load;
+  $('racer').onchange = load;
+  $('signedIn').onchange = pushAll;
+  $('seed').onclick = () => { seedPlayers(30); pushAll(); };
+  $('clear').onclick = () => { db.players = []; db.myBest = 0; pushAll(); };
+  $('push').onclick = pushAll;
+  window.__mockDb = db; // for console tweaks, e.g. __mockDb.bar.threshold = 500
+  seedPlayers(12);
+  summary();
+  load();
+})();
+</script>
+</body>
+</html>

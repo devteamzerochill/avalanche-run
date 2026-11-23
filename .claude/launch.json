@@ -1,0 +1,21 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "avalanche-dev",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tools/serve.mjs",
+        "8124"
+      ],
+      "port": 8124
+    },
+    { "name": "race-server",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "server/index.mjs",
+        "--cycle=60"
+      ],
+      "port": 2567
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "name": "avalanche-run-race-server",
+  "private": true,
+  "type": "module",
+  "description": "Endurance race server (Colyseus). Replays every rider's inputs with the game's own simulation.",
+  "scripts": {
+    "start": "node index.mjs",
+    "test": "node test.mjs",
+    "build": "node -e \"console.log('no build step: plain JavaScript')\""
+  },
+  "dependencies": {
+    "@colyseus/core": "0.18.29",
+    "@colyseus/schema": "5.0.50",
+    "@colyseus/sdk": "0.18.10",
+    "@colyseus/tools": "0.18.11",
+    "@colyseus/ws-transport": "0.18.5"
+  }
+}
