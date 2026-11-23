@@ -1,0 +1,92 @@
+# Decisions
+
+1. **Rider model replaced.** The prototype's `flex.glb` is an unrigged 43,770-vertex mesh (417 KB). The rider is now a procedural jointed figure with IK limbs: tiny, poseable for grabs, and skinnable for unlocks. The 8 sounds are reused.
+2. **No shadow maps, no post-processing.** Blob shadows and a custom snow shader instead, for 60 fps on mid-range phones.
+3. **Crevasses run down the slope** and are longer than any jump. The prototype's 2–3 m cross-slope cracks "could not be jumped", which contradicted what the player saw. You can hop across one sideways for a bonus.
+4. **Carving is brake-aware.** The board never asks for more lateral speed than its edge can stop before the target line, so low grip means a slower slide, not an overshoot into a hazard.
+5. **Fairness by construction, checked independently.** The generator plans a safe line first; a separate validator in the tests sweeps a reachability front and shares no code with it.
+6. **Simulation uses only + − × ÷ √** at a fixed 60 Hz, so runs replay identically across engines. Ghosts and Proof of Play re-simulate recorded inputs.
+7. **Riders and boards are cosmetic only**, so the daily leaderboard stays fair.
+8. **CPU riders on the leaderboard are labelled "CPU"** and seeded from the date. They are stand-ins, not fake players.
+9. **The avalanche eases off slightly when you are far ahead** (0.94 → 0.99 of cruise), so a clean run stays tense without pinning the meter.
+10. **Time cap (300 s) applies only to the playable-ad build.**
+11. **Zero-dependency build.** No Node/npm was installed on this machine, so the bundler is a small script in `tools/build.mjs`; three.js r160 is vendored in `vendor/`.
+12. **Speed ramp kept from the prototype** (26 → 61 m/s in 39 s), so most of a long run is at top speed; difficulty then grows through density and biomes.
+
+## Arcade restyle (second pass)
+
+13. **Look moved to a bright arcade racer.** Toon-shaded props (three-step ramp), saturated per-biome palettes (blue forest, cyan crystal glacier, neon purple night), a painted sky with puffy clouds, sun rays, a rainbow and neon aurora. All original art: no characters, tunes or assets from existing games.
+14. **The piste is dressed as a race track.** Red-and-white kerbs, a dashed centre line, candy-striped poles, a checkered gate at the start and every 500 m, snowmen and balloons along the sides.
+15. **Dash pads added** (the one new mechanic): arrow pads on the safe line give 1.25 s of boost. Never deadly, always optional, so fairness is untouched. Simulation version bumped to 3, which discards older ghosts.
+16. **Flakes are drawn as spinning gold coins**; they are still the same currency.
+17. **3-2-1-GO countdown** before each run. The simulation does not advance during it.
+18. **Ride music is a procedural chiptune** (original four-chord loop, tempo follows speed); the sampled track plays on menus. New synthesised effects for coins, jumps, dash, countdown and drift sparks.
+19. **Grabs spin the rider**, boosts leave a rainbow exhaust, drifts throw sparks, and the HUD uses outlined, slanted arcade lettering.
+
+## Cohesion pass (third pass)
+
+20. **The world wears the UI's ink.** Trees, rocks, props, coins, snowmen, balloons, avalanche boulders and the rider have navy inverted-hull outlines; the snow is cel-shaded in flat bands; the mountains have white caps and colour bands.
+21. **The avalanche is a towering wall, not a creature.** A 17–24 m cel-shaded wave of snow, drawn closer than the simulated gap (60 m of lead reads as about 33 m) so it is a presence rather than a distant ridge. It swells and its flanks reach further with danger. (A face was tried and removed.)
+22. **Rear-view mirror.** The chase camera faces downhill, so the wall was only ever felt. A small second render pass shows it chasing you; the frame flashes red above 60 % danger. It is skipped on the lowest quality level.
+23. **Weather and speed.** Snow falls in every biome, spindrift blows across the piste, debris flies past when the wall is close, and the board leaves twin light streaks that grow with speed and turn rainbow on boost.
+
+24. **Strokes are light.** 3D outlines are under half their first width and UI text strokes are about 2 px, so the ink reads as an accent rather than a heavy comic line.
+
+## Fourth pass
+
+25. **The avalanche is a lobe, not a horizon.** About 40 m wide with rounded ends, and drawn close (60 m of lead reads as about 25 m).
+26. **Every death ends under the snow.** After a crash the wall keeps coming, the camera turns to face it, and it rolls over the rider before the end card. The simulation and the stated cause of death are unchanged.
+27. **The mirror is a glance, not a fixture.** It pops in for a few seconds every 12 s, after a stumble, and whenever danger is above 50 %.
+28. **Sound on every interaction.** About thirty more synthesised cues: menus, purchases, toggles, pause, grab release, the perfect-landing window, combo lost, ice, moguls, cliff, piste edge, top speed, ghost pass, mirror, danger beeps, burial, score tally, new best, missions and streaks.
+29. **Logo is an SVG lockup** (ribbon, peak, snow-capped gold lettering), the same in every language.
+
+## Fifth pass
+
+30. **Arcade UI motion.** Diagonal-bar screen wipes between menu and run; a zone title card (bands sliding in from both sides) at the start and at every biome change; scrolling stripe and polka-dot patterns on the title band, PLAY button, panel and end-card headers and the avalanche meter; marching dotted lines; staggered pop, slide and flip entrances; score count-up. All of it is off with Reduced motion.
+31. **Snow trail is a carved groove.** A shaded channel with bright raised lips that lasts about 150 m and widens in a drift, plus a V-shaped plume off both edges that grows with speed.
+32. **Menu avalanche sits 15 m behind the rider.**
+
+## Sixth pass
+
+33. **Two UI colour themes.** Glacier (navy ink, glacier blues, frost white) is the default; Arcade (the original yellow, red and navy) is kept intact and selectable in Settings → Colour theme. The theme is a body class (`theme-glacier`) over CSS variables, so reverting is a one-line default change in `src/systems/save.js`. The 3D world is not themed.
+34. **Glacier has one warm accent.** Coral (#ff7a6b) is reserved for danger and mistakes: the hot avalanche meter, the mirror alert, stumble and sloppy banners, the late-landing ring and the cause-of-death box.
+
+## Seventh pass
+
+35. **Feedback text lives at the side.** Near miss, close call, grab, perfect, clean, dash, stumble, milestones and ghost messages are small chips in a feed on the left edge, never over the piste. Only the 3-2-1-GO countdown uses the centre.
+36. **Coins redesigned.** Darker two-tone coin with a rim and an embossed snowflake, almost no glow. A wave runs down each line (spin, bob, swell), coins grow as you approach, and a collected coin bursts into shards and flies to the HUD counter.
+
+## Eighth pass
+
+37. **Slow motion is drawn between simulation ticks.** The simulation still steps at a fixed 60 Hz; for drawing, the rider is carried forward by the time not yet simulated, so slow motion moves every frame instead of every fifth.
+38. **Announcer uses the browser's speech synthesis.** No audio files, three languages, follows the effects volume, and has its own on/off switch in Settings. Voice quality depends on the device. Urgent lines (countdown, wipeout, avalanche warning) interrupt; flavour lines are dropped if something was just said.
+39. **Glacier is the default in every path** (markup, and any save without a theme). Toasts sit at the bottom of the screen in portrait and above the card in landscape.
+40. **Hyped announcer.** Each call has several line variants (never the same twice in a row), a delivery mood (hype: fast and high; urgent; a big "ohhh" for wipeouts), music ducks while it talks, and big moments get a crowd roar or a horn stab. It prefers neural or enhanced voices where the device has them.
+41. **Music starts on the first touch.** Browsers block audio until the player interacts, so the title music now begins on the first tap, click or key anywhere, instead of waiting for the first run to finish.
+42. **Announcer voice is off for now.** `CONFIG.announcer = false` disables it and hides its setting; the module, lines and stingers stay in place to switch back on. Crowd roars and horn stabs on big moments still play.
+
+## Ninth pass
+
+43. **Particles run on game time.** Spray, sparks and snowfall now use a clock that slows with slow motion, so the board's spray trails behind the rider instead of shooting ahead of it in the tutorial.
+44. **Auto quality ignores frame caps.** Safari in Low Power Mode caps pages at a steady 30 fps; the old rule read that as an overloaded GPU and dropped to the lowest quality. Quality now only steps down when frames are also uneven, or below ~22 fps.
+45. **Benchmark mode.** `?fps` shows a live readout; `?bench=20` plays a 20 s bot run and reports frame statistics; `tools/bench.py` serves the game and records results from any browser to `bench-results.jsonl`.
+46. **Spray is anchored to the board's tail at any frame rate.** The particle clock now advances at the start of a frame, so new particles are drawn exactly where they were emitted, and every board effect is emitted from the tail. Before, spray drew one frame ahead of its birth point, which at Safari's 30 fps put it near the front of the board.
+47. **The rider is the Zero Chill fox.** It replaces the human figure (entry 1) and keeps the same IK skeleton and poses, so gameplay is unchanged. The head is one sculpted mesh: a deformed sphere with a snout, cheek tufts and painted orange/cream fur masks. It also has big eyes with confident brows, a ":3" smirk, leaf-shaped ears with white tufts, a fur-stroke texture, and a bushy white-tipped tail that streams out with speed and wags at rest. It keeps the mascot's headphones and hoodie (with the chest print). Big all-black snowboard goggles (black frame, strap and glossy lens) cover the top half of the face, in place of the mascot's shades. The eyes under them are not drawn; `GOGGLES_DOWN` in `rider.js` brings them back. Every rider skin is a fox: Zero (the mascot), Ranger, Blush, Arctic and Silver. Ink outlines are left off the small face parts so the face reads cleanly.
+48. **A human-like bot for videos and attract mode.** `HumanBot` keeps the test bot's brain but plays through human hands. It acts after a 0.13–0.25 s reaction delay (faster when danger is close), drags a finger on a slightly underdamped spring capped at a thumb's top speed, wobbles a few centimetres, and carves lazy S-turns when the slope ahead is clear. It tricks on about 90 % of jumps with enough air, and its releases are mostly in the perfect window, sometimes late. A `distracted` flag makes it stop reading the slope, so a scripted wipeout looks natural. The test bot is unchanged.
+49. **Frame-exact video capture.** `?record` swaps in a virtual clock (timers, animation frames, `performance.now`, CSS animations, and an `OfflineAudioContext` suspended at every frame boundary). `tools/record.swift` drives it in a WebKit view, snapshots each frame and encodes H.264 at a true 60 fps with the game audio muxed in as AAC. No ffmpeg or browser install is needed, and capture speed does not affect smoothness. `tools/record-scenario.js` holds the script (title → play → wipeout → end card → title); `tools/probe.swift` checks the output.
+50. **The web player is locked to portrait.** `dist/avalanche-run.html` and the artifact set `__PORTRAIT` (dev: `?portrait`). On wide screens the game sits in a centred 9:16 frame; on a phone held sideways a card asks you to turn it upright and any run in progress pauses. In this mode the stylesheet's landscape and wide-screen rules are off and its portrait rules always apply. Viewport-width sizes follow the game frame through `--vw`/`--vh`. The playable ad keeps its landscape layout.
+51. **The portrait frame is a fixed 450×800 layout, scaled to fit.** On any screen wider than 9:16 the game lays out once at phone size and the whole frame is scaled uniformly (`src/ui/frame.js`), so every screen shows the identical layout instead of one that drifts in proportion. Upright phones still use their own full screen. The renderer uses the frame's layout size and a pixel ratio raised by the scale (capped at 2.6), so it stays sharp. The rear-view mirror and the coin fly-to-counter convert screen pixels back to frame pixels. Zone-title slides use pixels rather than viewport widths.
+52. **The fox looks downhill while riding.** Ride, tuck, air, grab, landing and stumble poses turn the head to face the direction of travel. Only the menu poses (idle, cheer) look back at the camera.
+
+## zerochill.com integration (2026-11-23)
+
+53. **The score is the website's formula: whole metres plus near-miss bonuses.** `score = floor(metres) + 25 × combo per near miss`, the same metric the old game on zerochill.com sends as `p_distance`, so the daily board, rewards and tournaments stay comparable. Tricks, clean jumps and crevasse hops still pay off through boosts, combos, the avalanche gap and their own trick-points stat (`stats.trickScore`), but no longer add to the score. The game shows the same number it submits. Simulation version bumped to 4, which drops older ghosts.
+54. **The website hosts the game in an iframe and makes every API call.** The page keeps its existing client, session handling and retry helper; the game only reports attempts over `postMessage` (`src/systems/host.js`) and shows what comes back. The game holds no keys or tokens. Host mode is opt-in (`?host=<page origin>` inside an iframe), so the artifact and dev builds stay fully local. Contract: `WEBSITE_INTEGRATION.md`; API reference: `docs/api-handoff-2026-11-23.md`.
+55. **Server data reuses the existing screens.** Title: "Best today" is the higher of local and server, plus a slim Daily Reward bar. Ranks: the real daily board (up to 25 rows, your row even outside them, player count, all-time record) replaces the CPU riders. End card: the save status (Saving, Saved · #rank, Already saved, Not counted, Couldn't save + Retry, Sign in again + Retry) and the server's reward result. The game never computes rewards, caps or eligibility. Without a host, everything falls back to the local versions.
+56. **Only runs a person plays are submitted.** Bot, recorded (`?record`) and test (`?test`) runs never open or submit an attempt, and switching the bot on mid-run drops that run's submission. Restarting or quitting mid-run abandons the attempt without a score, as before.
+57. **Live test mode talks to the real backend directly.** With `?live` (outside an iframe) the game plays the website's part of the bridge itself (`src/systems/live.js`): plain `fetch` calls to the documented endpoints, the website's retry rules (five attempts, the same key, no retry on `P0` errors or rejections), best-effort `start_game_run`, and the daily-best read filtered by user id. Players sign in with email and password inside the game; the password goes straight to the auth endpoint and is never stored, and the session lives in `sessionStorage` for that tab only. Only the public URL and anon key are in `CONFIG.online`. It is for testing before the website switches over: every counted run lands on the real public daily board (there is no test flag for Avalanche Run). The owner tests with their personal account.
+58. **Snowflakes, unlocks, missions and the daily streak move to the server (slice 1 of the server APIs).** Built and tested on a local Supabase (`supabase/`), then handed to Lovable as one migration that only adds objects (`LOVABLE_HANDOFF.md`). `submit_avalanche_run` wraps the existing `submit_avalanche_score` unchanged and adds the game's progression from a run summary the game sends (`stats`); values are clamped until Proof of Play. Snowflakes stay an Avalanche Run currency, separate from site XP and coins. Signed in, the game shows and spends the server profile; signed out it uses the device save, which server data never overwrites. The first sign-in starts a fresh server profile (no import). Later slices: Proof of Play with a server seed, ghosts, tournaments.
+
+## Endurance race (2026-11-23)
+
+59. **A live endurance race every 5 minutes, decided by the server.** Players pay a fixed Shards entry fee to check in; 2 to 50 riders share one seed; the last rider alive wins 90% of the pot and 10% is burned. Fewer than 2 riders: everyone is refunded. It runs on a Colyseus server (not Supabase Realtime) that replays every rider's inputs with the game's own simulation and alone decides deaths and the winner; phones simulate locally on the server's clock for instant controls. Same-tick deaths are ranked by distance; an exact tie splits the prize. A rider whose inputs stop arriving is out, with no refund. After 150 s the avalanche speeds up until nobody can survive, so races end inside the cycle. Racing needs a zerochill.com sign-in. Design and the local prototype: `docs/endurance-race.md`.

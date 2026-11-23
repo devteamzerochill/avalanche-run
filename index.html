@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0c1c35">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Avalanche Run</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232F7FD8'/%3E%3Cpath d='M4 52 26 18l10 14 8-10 16 30z' fill='%23fff'/%3E%3Cpath d='M0 64h64V50L44 40 24 52 0 44z' fill='%23dfeefa'/%3E%3C/svg%3E">
+<!--BUILD:STYLE-->
+<link rel="stylesheet" href="src/ui/style.css">
+<!--/BUILD:STYLE-->
+</head>
+<body class="theme-glacier">
+<div id="app">
+  <div id="game"></div>
+  <canvas id="speedfx"></canvas>
+  <div id="frost"></div>
+  <div id="flash"></div>
+
+  <div id="hud" class="off">
+    <div class="hud-tl">
+      <div class="dist"><span id="distNum">0</span><small>m</small></div>
+      <div class="sub"><span class="flk">❄ <b id="hudFlakes">0</b></span><span class="kmh"><b id="hudSpeed">0</b> <span data-i18n="hud.kmh"></span></span></div>
+    </div>
+    <button id="pauseBtn" class="icon-btn" data-ui aria-label="Pause"><i></i><i></i></button>
+    <div id="raceHud" class="race-hud hidden">
+      <div class="rh-card"><b id="rhPlace">#1</b><div class="rh-side"><span id="rhLeft"></span><span id="rhGap"></span></div></div>
+      <div class="rh-strip" id="rhStrip"><i class="me"></i></div>
+    </div>
+    <div id="raceTags"></div>
+    <div id="meter"><div id="meterFill"></div><div id="meterRider"></div><span data-i18n="hud.avalanche"></span></div>
+    <div id="mirror"><b>!</b></div>
+    <div id="feed"></div>
+    <div id="combo"></div>
+    <div id="banner"><div id="bannerBig"></div><div id="bannerSmall"></div></div>
+    <div id="ring"><i></i></div>
+    <div id="hint"><div id="hand"></div><div id="hintText"></div></div>
+    <button id="jumpBtn" data-ui data-i18n="hud.jump"></button>
+  </div>
+
+  <div id="title" class="screen">
+    <div class="title-top">
+      <div class="chip" id="tDaily"></div>
+      <button id="tAccount" class="chip acct hidden" data-ui></button>
+      <div class="chip gold">❄ <b id="tFlakes">0</b></div>
+    </div>
+    <div class="logo" role="img" aria-label="Avalanche Run">
+      <svg viewBox="0 0 640 340" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="lgGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--lg-a,#fff789)"/><stop offset=".5" style="stop-color:var(--lg-b,#ffd21e)"/><stop offset="1" style="stop-color:var(--lg-c,#ff7a1e)"/></linearGradient>
+          <linearGradient id="lgPeak" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5fb4ff"/><stop offset="1" stop-color="#1b4fd6"/></linearGradient>
+          <linearGradient id="lgRibbon" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--lg-r1,#ff5470)"/><stop offset="1" style="stop-color:var(--lg-r2,#e01846)"/></linearGradient>
+          <clipPath id="lgRunClip"><text x="322" y="296" text-anchor="middle" textLength="430" lengthAdjust="spacingAndGlyphs" class="lg-run">RUN</text></clipPath>
+        </defs>
+        <!-- peak with the avalanche breaking off it -->
+        <g class="lg-peak">
+          <path d="M150 262 L318 22 L372 96 L404 62 L520 262 Z" fill="url(#lgPeak)" stroke="#14182a" stroke-width="7" stroke-linejoin="round"/>
+          <path d="M318 22 L372 96 L404 62 L436 118 L410 138 L384 112 L356 146 L326 110 L296 142 L270 92 Z" fill="#fff" stroke="#14182a" stroke-width="5" stroke-linejoin="round"/>
+        </g>
+        <g class="lg-puffs" fill="#fff" stroke="#14182a" stroke-width="5">
+          <circle cx="92" cy="206" r="30"/><circle cx="132" cy="176" r="36"/><circle cx="180" cy="198" r="30"/><circle cx="60" cy="238" r="24"/><circle cx="118" cy="232" r="34"/><circle cx="168" cy="240" r="26"/>
+          <circle cx="548" cy="214" r="26"/><circle cx="584" cy="238" r="22"/><circle cx="516" cy="240" r="24"/>
+        </g>
+        <path d="M70 238a34 34 0 0 1 60 -30a40 40 0 0 1 62 14" fill="none" stroke="#bfe0ff" stroke-width="6" stroke-linecap="round"/>
+        <!-- speed streaks -->
+        <g class="lg-streaks" stroke-linecap="round" stroke-width="9">
+          <path d="M18 196h70" stroke="#35d6ff"/><path d="M0 232h96" stroke="#fff"/><path d="M30 268h62" style="stroke:var(--reward)"/>
+        </g>
+        <!-- ribbon -->
+        <g transform="rotate(-4 320 96)">
+          <path d="M62 62h516l-22 36l22 36h-516l22 -36z" style="fill:var(--lg-r3,#a80f34)" stroke="#14182a" stroke-width="6" stroke-linejoin="round"/>
+          <path d="M96 50h448l14 84h-476z" fill="url(#lgRibbon)" stroke="#14182a" stroke-width="7" stroke-linejoin="round"/>
+          <path d="M104 60h432" style="stroke:var(--lg-r4,#ff9db0)" stroke-width="5" stroke-linecap="round"/>
+          <text x="320" y="116" text-anchor="middle" textLength="408" lengthAdjust="spacingAndGlyphs" class="lg-word">AVALANCHE</text>
+        </g>
+        <!-- RUN -->
+        <g transform="rotate(-4 320 240)">
+          <text x="328" y="308" text-anchor="middle" textLength="430" lengthAdjust="spacingAndGlyphs" class="lg-run" fill="#14182a" stroke="#14182a" stroke-width="20" stroke-linejoin="round">RUN</text>
+          <text x="322" y="296" text-anchor="middle" textLength="430" lengthAdjust="spacingAndGlyphs" class="lg-run" fill="url(#lgGold)" stroke="#14182a" stroke-width="16" stroke-linejoin="round" paint-order="stroke">RUN</text>
+          <g clip-path="url(#lgRunClip)">
+            <path d="M80 140h500v52q-22 26 -44 0q-20 -22 -40 4q-24 30 -50 -2q-18 -22 -40 2q-26 28 -52 -2q-20 -22 -42 4q-24 28 -50 -2q-22 -24 -44 2q-28 30 -58 -4q-20 -22 -40 -2z" fill="#fff"/>
+            <path d="M80 268h500v40h-500z" style="fill:var(--lg-d,#ff5a1e)" opacity=".35"/>
+          </g>
+          <path d="M108 322q214 26 428 -6" fill="none" stroke="#14182a" stroke-width="15" stroke-linecap="round"/>
+          <path d="M108 322q214 26 428 -6" fill="none" style="stroke:var(--lg-u,#35d6ff)" stroke-width="8" stroke-linecap="round"/>
+        </g>
+      </svg>
+    </div>
+    <p class="tag" data-i18n="title.tag"></p>
+    <div class="bests">
+      <div><b id="tBestToday">0</b><span data-i18n="title.bestToday"></span></div>
+      <div><b id="tBest">0</b><span data-i18n="title.best"></span></div>
+      <div><b id="tStreak">1</b><span id="tStreakLabel"></span></div>
+    </div>
+    <div id="tPlay" class="play-card">
+      <div class="pc pc-solo">
+        <div class="pc-head"><b data-i18n="title.solo"></b></div>
+        <div class="pc-mid"><span data-i18n="title.bestToday"></span><b id="tSoloBest"></b><small id="tSoloSub"></small></div>
+        <button id="playBtn" class="btn primary big" data-ui data-i18n="title.play"></button>
+      </div>
+      <div id="tRace" class="pc pc-race hidden" data-ui>
+        <div class="pc-head"><b id="rcTitle"></b><span class="rc-live" id="rcLive"></span></div>
+        <div class="pc-mid"><span id="rcLbl"></span><b class="rc-clock" id="rcClock"></b><span class="rc-stats"><b id="rcPot"></b><b id="rcRiders"></b></span></div>
+        <button id="rcGo" class="btn primary big rc-go" data-ui></button>
+      </div>
+    </div>
+    <div class="nav">
+      <button data-ui data-panel="missions"><i>🎯</i><span data-i18n="nav.missions"></span><em id="navDot"></em><b class="nav-bar hidden" id="navReward"><i></i></b></button>
+      <button data-ui data-panel="shop"><i>🏂</i><span data-i18n="nav.riders"></span></button>
+      <button data-ui data-panel="ranks"><i>🏆</i><span data-i18n="nav.ranks"></span></button>
+      <button data-ui data-panel="settings"><i>⚙️</i><span data-i18n="nav.settings"></span></button>
+      <button data-ui data-panel="how"><i>❔</i><span data-i18n="nav.how"></span></button>
+    </div>
+    <button id="titleCta" class="btn cta hidden" data-ui></button>
+  </div>
+
+  <div id="panel" class="overlay hidden" data-ui>
+    <div class="card">
+      <div class="card-head"><h2 id="panelTitle"></h2><button id="panelClose" class="icon-btn x" data-ui aria-label="Close">✕</button></div>
+      <div id="panelBody" class="card-body"></div>
+    </div>
+  </div>
+
+  <div id="pause" class="overlay hidden" data-ui>
+    <div class="card small">
+      <h2 data-i18n="ui.paused"></h2>
+      <button id="resumeBtn" class="btn primary" data-ui data-i18n="ui.resume"></button>
+      <button id="restartBtn" class="btn" data-ui data-i18n="ui.restart"></button>
+      <button id="pauseSettingsBtn" class="btn" data-ui data-i18n="nav.settings"></button>
+      <button id="quitBtn" class="btn ghost" data-ui data-i18n="ui.quit"></button>
+    </div>
+  </div>
+
+  <div id="end" class="overlay hidden" data-ui>
+    <div class="card end-card">
+      <div class="end-head"><h2 id="endTitle"></h2></div>
+      <p id="endCause"></p>
+      <div class="end-score"><b id="endScore">0</b><span data-i18n="end.metres"></span></div>
+      <div id="endBest" class="newbest hidden" data-i18n="end.newBest"></div>
+      <div id="endRank" class="rank"></div>
+      <div id="endOnline" class="online hidden"></div>
+      <div class="tiles">
+        <div><b id="endSpeed">0</b><span data-i18n="end.topSpeed"></span></div>
+        <div><b id="endNear">0</b><span data-i18n="end.nearMisses"></span></div>
+        <div><b id="endCombo">0</b><span data-i18n="end.bestCombo"></span></div>
+        <div><b id="endTricks">0</b><span data-i18n="end.tricks"></span></div>
+        <div><b id="endFlakes">0</b><span data-i18n="end.flakes"></span></div>
+        <div><b id="endToday">0</b><span data-i18n="end.bestToday"></span></div>
+      </div>
+      <div id="endMissions"></div>
+      <div class="end-btns">
+        <button id="againBtn" class="btn primary" data-ui data-i18n="ui.again"></button>
+        <button id="backBtn" class="btn" data-ui data-i18n="ui.back"></button>
+      </div>
+      <button id="endCta" class="btn cta hidden" data-ui></button>
+      <p class="fine" data-i18n="end.daily"></p>
+    </div>
+  </div>
+
+  <div id="zone"><div class="zband"></div><div class="zband2"></div><div class="zdots"></div><div class="zname" id="zoneName"></div><div class="zsub" id="zoneSub"></div></div>
+  <div id="wipe"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <div id="toasts"></div>
+  <div id="loader"><div class="spin"></div><span data-i18n="ui.loading">LOADING…</span></div>
+</div>
+<!--BUILD:SCRIPT-->
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
+<script type="module" src="src/main.js"></script>
+<!--/BUILD:SCRIPT-->
+<div id="rotate" aria-live="polite"><i></i><span data-i18n="ui.rotate"></span></div>
+</body>
+</html>

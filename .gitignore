@@ -1,0 +1,27 @@
+# Installed packages (server/: npm install)
+node_modules/
+
+# Build output (node tools/build.mjs)
+dist/
+
+# Gameplay videos and local benchmark runs
+videos/
+bench-results.jsonl
+
+# Secrets and per-machine settings
+.env
+.env.*
+.colyseus-cloud.json
+.claude/settings.local.json
+
+# Local throwaway accounts (recreate: node server/test-accounts.mjs)
+supabase/local-standins/test-account.json
+
+# Supabase CLI state
+supabase/.temp/
+supabase/.branches/
+
+# OS and editor clutter
+.DS_Store
+Thumbs.db
+*.log

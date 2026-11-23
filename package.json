@@ -1,0 +1,1 @@
+{"type":"module","name":"avalanche-run","version":"2.0.0","private":true,"scripts":{"build":"node tools/build.mjs","test":"node tests/run.mjs","serve":"node tools/serve.mjs"}}
