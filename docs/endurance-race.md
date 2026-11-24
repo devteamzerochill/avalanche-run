@@ -52,6 +52,14 @@ Until those exist, the local build uses stand-in test Shards.
 - **Legal:** paid entry for a prize can be regulated skill gaming, or gambling, in some places, especially if Shards can be bought with money or exchanged for value. Check before going live.
 - **Bots:** the game is deterministic, so a bot could play for someone. Agreed defence (below): a win that follows the game's own bot voids the race. A bot written from scratch is not caught yet.
 
+## Before publishing (owner, 2026-11-24)
+
+**Remove the practice riders.** They exist only for local testing and must not ship. Today they are already limited to the local stack (they sign in to the local Supabase, and the server exempts them from the bot check only when its Supabase URL is local), but at publish time take them out entirely:
+- `server/bots.mjs` (the practice riders) and `server/test-accounts.mjs` (their accounts).
+- The `practice` option in `server/index.mjs` and `server/race-room.mjs` (the `@avalanche.test` exemption from the bot check).
+- The `&racebot` test switch in `beginRace` (`src/main.js`).
+- Their mentions in `CLAUDE.md`, this file and `server/test.mjs` (its 'bot' rider relies on the exemption; give that test another way to win fairly).
+
 ## Open
 
 - Check-in window and countdown timings. (Entry fee: the owner kept 10 test Shards for testing, 2026-11-23; revisit against real Shard balances before going live.)
