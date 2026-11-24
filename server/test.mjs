@@ -7,7 +7,8 @@ import { randomUUID } from 'node:crypto';
 import { Client } from '@colyseus/sdk';
 import { CONFIG } from '../src/config.js';
 import { Sim } from '../src/core/sim.js';
-import { Bot } from '../src/core/bot.js';
+import { Bot, HumanBot } from '../src/core/bot.js';
+import { judgeRide } from './scripted.mjs';
 import { quantise, Playback } from '../src/core/replay.js';
 import { test, eq, ok, report } from '../tests/harness.mjs';
 import { startRaceServer } from './index.mjs';
@@ -209,6 +210,33 @@ test('a win that follows the bot is voided and every entry refunded', () => {
   eq(G.balance, 100, 'bot refunded, no prize');
   eq(H.balance, 100, 'the other rider refunded');
   eq(G.stats.races + '|' + G.stats.wins, '0|0', 'a voided race is not on the record');
+});
+
+test('a short win that follows the human-like bot is caught (fewer than 5 jumps)', () => {
+  // 20 s rides on the live race slope: too short for the jump-timing check.
+  let caught = 0;
+  let short = 0;
+  for (let k = 1; k <= 10; k++) {
+    const seed = k * 7919;
+    const sim = new Sim(seed, { ramp: CONFIG.race.ramp });
+    const bot = new HumanBot(k * 31);
+    const runs = [];
+    while (sim.phase === 'ride' && sim.tick < 1200) {
+      const i = quantise(bot.decide(sim));
+      const tx = Math.round(i.tx * 100);
+      const fl = (i.jump ? 1 : 0) | (i.grab ? 2 : 0);
+      const last = runs[runs.length - 1];
+      if (last && last[1] === tx && last[2] === fl) last[0]++;
+      else runs.push([1, tx, fl]);
+      sim.step(i);
+      sim.events.length = 0;
+    }
+    const v = judgeRide(seed, CONFIG.race.ramp, runs);
+    if (v.jumps < 5) short++;
+    if (v.scripted) caught++;
+  }
+  ok(short >= 8, 'most 20 s rides have fewer than 5 jumps (' + short + '/10)');
+  ok(caught >= 9, 'caught ' + caught + '/10');
 });
 
 test('fair winners are judged and paid (no false call on the tie race)', () => {

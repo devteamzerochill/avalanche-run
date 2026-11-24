@@ -63,12 +63,12 @@ Until those exist, the local build uses stand-in test Shards.
 ## Open
 
 - Check-in window and countdown timings. (Entry fee: the owner kept 10 test Shards for testing, 2026-11-23; revisit against real Shard balances before going live.)
-- Legal: the owner's view (2026-11-23) is that store approval settles it; not yet checked, since the game runs on the website (no store review) and store approval is not legal clearance. Decide before real Shards.
+- Legal: checked 2026-11-24 (`docs/race-legal-check.md`); the owner kept paid entry, limited by the Terms (DECISIONS 61).
 
 **Hosting (owner, 2026-11-23): Colyseus Cloud.** Its docs require the `defineServer()` setup, and by default it runs one process per CPU in every region; the race needs exactly one process in one region (one race cycle). The website side is in `RACE_HANDOFF.md` (draft).
 - Done: `server/index.mjs` uses `defineServer`; `server/ecosystem.config.cjs` pins PM2 to one fork process; `@colyseus/tools` is installed (Colyseus hands `listen()` to it on Cloud); `npm run build` is a no-op. Names come from `avalanche_player_name` (local stand-in in `shards_wallet.sql`); `race_board` is PL/pgSQL so it can be created before that function exists.
 - Website path: the game asks the page for `race_token` and connects with it (`src/systems/host.js`). `tools/host-mock.html` has "Race on" and signs a local test account in to answer it. Checked: connect as the chosen account, signed out (no in-game sign-in button), back in.
-- Not done: the deploy. `npx @colyseus/cloud deploy` needs a git repository with a remote (Cloud pulls the code from it), and the server imports the game's `src/` from outside `server/`, so the repository must hold both. Choose one region and enter SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_KEY in Cloud's settings.
+- Not done: the deploy. The repository is ready (GitHub, `main`); the steps are in "Colyseus Cloud setup" below. It waits on the owner creating the Cloud app and on the zerochill.com Supabase settings.
 
 ## Colyseus Cloud setup (prepared 2026-11-24)
 
@@ -154,6 +154,7 @@ Built and tested on this PC with the local Supabase and test Shards. Nothing is 
 **Bot defence (2026-11-23, owner chose: void the race, refund all)**
 - There is no back office or anyone to review replays, so the server decides on its own. When a race ends, the server replays each winner's inputs next to a shadow copy of the game's `Bot` that sees the same slope (`server/scripted.mjs`). If the win follows the bot, the race is voided: nobody is paid, nothing is burned, every fee goes back, and the standings are kept with the reason (`race_void`, status `voided`, `void_reason`). A voided race is not on anyone's record. Riders see "RACE VOIDED" with "Entries refunded".
 - Flagged as scripted (after at least 5 s of riding): the same target as the shadow on 90% of the ticks it aims off the centre line (the plain bot), or steering within 0.5 m of the shadow on 75% of ticks at the best delay up to 24 ticks, with a mean gap of 0.45 m or less, and at least 5 jumps with 90% of them 0-6 ticks after the shadow's (the human-like bot).
+- Short races (added 2026-11-24): a win with fewer than 5 jumps is too short to judge jump timing, and before this a human-like bot win in a short race was paid. Now, on ticks where the shadow aims off the centre line, steering within 0.5 m of it on 72% of them with a mean gap of 0.38 m or less, at least 5 s of such ticks, and every jump (if any) on the shadow's cue, is scripted. Measured on 40 HumanBot rides on the race slope: caught 27/40 at 10 s (most have under 5 s of off-centre steering), 38/40 at 20 s, 39/40 at 30 s, 40/40 at 45 s. In a real local race (practice exemption off) a 17.9 s HumanBot win with 2 jumps was voided.
 - Calibrated on the owner's real run (seed 3424911021, 57 s) against three seeds of each bot: exact matches 0.2% (human) vs 100% (bot); following 45% / 1.02 m / 5 of 19 jumps on cue (human) vs 84-88% / 0.22-0.32 m / every jump (human-like bot, full races and 60 s runs). Only one human run was available, so collect more real races before real stakes.
 - The client no longer runs `?bot` or `__GAME.bot` in a race. The local practice riders (`@avalanche.test` accounts) are exempt so practice races still pay out; the exemption is off whenever the server talks to a non-local Supabase.
 - Checking a winner replays the whole race once (about 0.3 s of server time for a 190 s race), only for place-1 riders.
@@ -161,8 +162,5 @@ Built and tested on this PC with the local Supabase and test Shards. Nothing is 
 
 **Known gaps**
 - A hidden tab stops sending inputs and is dropped after 3 s (as agreed: a drop is a death).
-- The website will need to pass display names (locally they come from the sign-up metadata).
 - A bot written from scratch (not the game's own) is not detected; the check only catches riders who follow the shipped bot.
-- A bot win in a very short race (everyone else out within about 30 s) is not judged: too few jumps to tell (needs 5). Seen 2026-11-23: a 24 s win with 2 jumps passed; a 55 s win with 9 jumps was voided.
-- The winner's run stops when the result arrives, with the WINNER! banner (seen 2026-11-23 in a local race won with `&racebot`, then a rematch from it against both riders' ghosts).
-- On the website, the page will need to hand the game a session token (DECISIONS 54 changes).
+- A bot win in a race shorter than about 10 s of steering is not judged (too little to tell). From 2026-11-24 a short win (fewer than 5 jumps) is judged on steering away from the centre line instead of jump timing; no real human short ride has been measured against it yet, so collect some before real Shards.

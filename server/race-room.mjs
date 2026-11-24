@@ -291,7 +291,7 @@ export class EnduranceRoom extends Room {
     // every fee goes back (local practice riders are exempt).
     const flagged = rows.filter(({ x, place }) => place === 1 && !x.practice).filter(({ x }) => {
       const v = judgeRide(r.seed, this.ramp, x.runs);
-      this.log('judge', x.name, JSON.stringify({ exact: +v.exact.toFixed(3), follow: +v.follow.toFixed(3), gap: +v.meanGap.toFixed(2), lag: v.lag, jumps: v.onCue + '/' + v.jumps, scripted: v.scripted }));
+      this.log('judge', x.name, JSON.stringify({ exact: +v.exact.toFixed(3), follow: +v.follow.toFixed(3), off: +v.followOff.toFixed(3), gap: +v.meanGap.toFixed(2), lag: v.lag, jumps: v.onCue + '/' + v.jumps, scripted: v.scripted }));
       return v.scripted;
     });
     let res;
