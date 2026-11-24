@@ -13,6 +13,7 @@ What the zerochill.com backend and page need so the multiplayer race can run aga
 | Shards wallet and player names | zerochill.com Supabase | You provide four small functions (below) |
 | House account for the 10% fee | zerochill.com Supabase | You create it and set it in the config (below) |
 | Session token for the game | `/den/avalanche-run` page | You add two messages |
+| Terms of Service | zerochill.com | You update them for paid races (below) |
 
 The race server talks to Supabase with the project URL, the anon key and the **service role key**. The owner enters these in Colyseus Cloud's encrypted settings. The service key is never in the game, the page or any repository.
 
@@ -75,6 +76,16 @@ The race server must know who a player is, so the game needs the player's own Su
 
 The game sends the token only to the race server, which checks it once with `/auth/v1/user`. The existing score path (`start_game_run`, `submit_avalanche_score` / `submit_avalanche_run`) is untouched; race results never count as daily runs.
 
+## 5. Update the Terms
+
+The race takes a paid entry (Shards, which players can buy) for a Shards prize, with a 10% house fee. Today's Terms say the opposite in section 6: "No purchase is ever needed to enter an event or win a prize". The owner decided (2026-11-24) to keep paid entry and to set who may race in the Terms only; the game and the server don't check age or location. Please update the Terms before races go live. Suggested points, for you to word to fit:
+
+- **Section 6:** events are free to enter, **except the Avalanche Run multiplayer race**, which has a Shards entry fee.
+- **Who may enter paid races:** 18 or older, and not resident in or playing from a place where paid skill contests are not allowed. List at least: Arizona, Arkansas, Delaware, Louisiana, Montana, South Carolina and Tennessee (see `docs/race-legal-check.md` for why these).
+- **How it works:** the last rider standing wins 90% of the pot; ties split it and any odd Shard goes with the fee; the other 10% is a house fee; fewer than 2 riders, or a win the server finds was played by a bot, refunds every entry; a rider who disconnects is out with no refund; the server's replay decides every result.
+
+The game's race panel shows these rules in short form ("Record" tab and How to play). Send us the link to the final Terms and we'll link it from the race panel.
+
 ## Guarantees to check
 
 - **The browser can't touch Shards.** Only the race server (service role) can call the ledger, and only through the four functions above.
@@ -90,8 +101,9 @@ On a local Supabase with stand-in Shards, `node server/test.mjs` passes 11/11: c
 
 1. Where Shards live, and that the three wallet functions can wrap them in the same transaction.
 2. Where display names live, for `avalanche_player_name`.
-3. The house account is created and set in `avalanche_race_config.house_user`.
-4. A test check-in and refund with a throwaway account.
+3. The Terms are updated for paid races (section 5).
+4. The house account is created and set in `avalanche_race_config.house_user`.
+5. A test check-in and refund with a throwaway account.
 
 ## Our side
 

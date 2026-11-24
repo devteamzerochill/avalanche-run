@@ -2,6 +2,10 @@
 
 Done without a lawyer, at the owner's request. This is a research summary of public sources, not legal advice. It covers the United States in most detail, because the site's Terms are under Wyoming law and most of the public material is American; other countries are only flagged.
 
+## Owner's decision (2026-11-24)
+
+**Keep paid entry as designed, with the 10% house fee.** Who may enter paid races (18+, not in the listed states) is set in the site's Terms only; nothing in the game or the server checks age or location. The website team is asked to update the Terms (`RACE_HANDOFF.md` section 5). The owner accepts the remaining risk; the options below stay on record.
+
 ## Bottom line
 
 **As designed, the race carries real gambling risk in parts of the US, and it conflicts with zerochill.com's own Terms.** The game itself isn't the problem: it is skill-based. The risk comes from what goes in and what comes out:
