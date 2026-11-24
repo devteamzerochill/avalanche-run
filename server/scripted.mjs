@@ -10,7 +10,8 @@
 // Short rides (fewer than 5 jumps, measured 2026-11-24 on 40 HumanBot rides
 // of 10-45 s): on ticks where the shadow aims off the centre line, the
 // HumanBot steers within 0.5 m of it 67-86% of the time with a mean gap of
-// at most 0.37 m; no human short ride was available to measure.
+// at most 0.37 m. Two real wins by the owner (24 s and 45 s, 2026-11-24)
+// scored 39-46% at 0.76-0.78 m, and jumped 13-22 times, far from the bot.
 // The thresholds sit well inside the bot side, because a false call takes a
 // real win away. A bot someone has written from scratch is not caught by this.
 import { Sim } from '../src/core/sim.js';
