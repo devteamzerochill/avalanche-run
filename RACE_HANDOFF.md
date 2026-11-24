@@ -71,6 +71,8 @@ The race server must know who a player is, so the game needs the player's own Su
 - Game to page: `{ type: 'race_token' }` when it needs a token (joining, or reconnecting after the old one expired).
 - Page to game: `{ type: 'race_token', token, expiresAt }` with the current session's `access_token` and `expires_at`, refreshed through the existing client first if it expires within a minute. `token: null` when signed out.
 
+- If the site sends a Content Security Policy, allow the race server in `connect-src` (`wss://<race server host>`; the owner sends the exact address after the first deploy). Without it the race can't connect.
+
 The game sends the token only to the race server, which checks it once with `/auth/v1/user`. The existing score path (`start_game_run`, `submit_avalanche_score` / `submit_avalanche_run`) is untouched; race results never count as daily runs.
 
 ## Guarantees to check
@@ -93,4 +95,4 @@ On a local Supabase with stand-in Shards, `node server/test.mjs` passes 11/11: c
 
 ## Our side
 
-Done and tested locally: the race server in Colyseus Cloud's setup (`defineServer`, one PM2 process), names through `avalanche_player_name`, and the game's side of `race_token` (try it in `tools/host-mock.html` with "Race on"). Still to do: the first deploy to Colyseus Cloud (one region), with the three Supabase settings entered there.
+Done and tested locally: the race server in Colyseus Cloud's setup (`defineServer`, one PM2 process), names through `avalanche_player_name`, and the game's side of `race_token` (try it in `tools/host-mock.html` with "Race on"). Still to do, in order: the first deploy to Colyseus Cloud (one region), with the three Supabase settings entered there; then point the game at the deployed server (`CONFIG.race.server`, today `ws://localhost:2567`) and hand over the rebuilt game files together with its `wss://` address.

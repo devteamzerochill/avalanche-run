@@ -49,7 +49,7 @@ Until those exist, the local build uses stand-in test Shards.
 
 ## Risks to settle before real Shards
 
-- **Legal:** paid entry for a prize can be regulated skill gaming, or gambling, in some places, especially if Shards can be bought with money or exchanged for value. Check before going live.
+- **Legal:** checked without a lawyer on 2026-11-24, see `docs/race-legal-check.md`. Shards can be bought with money, so a paid entry for a Shards prize is risky in several US states, and it conflicts with the site's Terms ("No purchase is ever needed to enter an event or win a prize"). The 10% house cut adds to the risk. Options there; the owner decides before real Shards.
 - **Bots:** the game is deterministic, so a bot could play for someone. Agreed defence (below): a win that follows the game's own bot voids the race. A bot written from scratch is not caught yet.
 
 ## Before publishing (owner, 2026-11-24)
