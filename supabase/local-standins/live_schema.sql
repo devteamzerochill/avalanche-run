@@ -70,7 +70,7 @@ end;
 $$;
 
 -- submit_avalanche_score(p_distance, p_key, p_run_id) returns jsonb (handoff section 5).
-create or replace function public.submit_avalanche_score(p_distance integer, p_key text default null, p_run_id text default null)
+create or replace function public.submit_avalanche_score(p_distance integer, p_key text default null, p_run_id text default null, p_metres integer default null)
 returns jsonb
 language plpgsql
 security definer
@@ -155,8 +155,8 @@ as $$
 $$;
 
 revoke all on function public.start_game_run(text) from public, anon;
-revoke all on function public.submit_avalanche_score(integer, text, text) from public, anon;
+revoke all on function public.submit_avalanche_score(integer, text, text, integer) from public, anon;
 grant execute on function public.start_game_run(text) to authenticated;
-grant execute on function public.submit_avalanche_score(integer, text, text) to authenticated;
+grant execute on function public.submit_avalanche_score(integer, text, text, integer) to authenticated;
 grant execute on function public.landing_board(text, integer) to anon, authenticated;
 grant execute on function public.daily_pop_bars(date) to anon, authenticated;

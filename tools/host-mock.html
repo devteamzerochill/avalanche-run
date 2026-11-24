@@ -119,7 +119,8 @@
   }
 
   // submit_avalanche_score(p_distance, p_key, p_run_id) live behaviour.
-  function submitScore({ p_distance, p_key, p_run_id }, scenario) {
+  function submitScore({ p_distance, p_key, p_run_id, p_metres }, scenario) {
+    const metres = Number.isInteger(p_metres) ? Math.min(Math.max(p_metres, 0), p_distance) : p_distance;
     if (!$('signedIn').checked || scenario === 'session') throw { code: 'P0001', message: 'not authenticated' };
     const key = p_key || null;
     if (key && (key.length < 8 || key.length > 128 || scenario === 'badkey')) throw { code: 'P0001', message: 'invalid idempotency key' };
@@ -131,7 +132,7 @@
     const b = db.bar;
     b.runs_today++;
     const capped = scenario === 'noreward' || b.exhausted;
-    const cleared = p_distance >= b.threshold;
+    const cleared = metres >= b.threshold;
     let xp = 0;
     if (cleared && !capped) {
       xp = Math.min(b.per_run_xp, b.daily_max_xp - b.xp_today);
@@ -141,7 +142,7 @@
       b.cleared = true;
       b.exhausted = b.xp_today >= b.daily_max_xp;
     }
-    const pop = { metric: b.metric, value: p_distance, threshold: b.threshold, label: b.label, cleared, run_index: b.runs_today, tier: cleared ? 'full' : 'none', xp, xp_blocked_by_cap: cleared && capped };
+    const pop = { metric: b.metric, value: metres, threshold: b.threshold, label: b.label, cleared, run_index: b.runs_today, tier: cleared ? 'full' : 'none', xp, xp_blocked_by_cap: cleared && capped };
     return { ok: true, distance: p_distance, counted: true, duplicate: false, xp_awarded: xp > 0, xp, coins: xp > 0 ? 10 : 0, credits_pending: 0, xp_reason: xp > 0 ? 'daily_run' : capped ? 'cap' : 'below threshold', pop, run_id_seen: !!p_run_id };
   }
 
@@ -200,6 +201,7 @@
   async function handleEnd(m) {
     const scenario = takeScenario();
     const payload = { p_distance: Math.max(0, Math.round(m.score)), p_key: m.key };
+    if (m.stats && Number.isFinite(m.stats.distance)) payload.p_metres = Math.max(0, Math.floor(m.stats.distance));
     const runId = latestRun.get(m.attempt);
     if (runId) payload.p_run_id = runId;
     const { res, err } = await submitWithRetries(payload, scenario);
