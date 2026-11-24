@@ -654,10 +654,9 @@ class Game {
     const p = v.passes.shift();
     let line = p && (p.now < 0 ? [t('race.passed', { name: p.name }), 'good'] : [t('race.passedBy', { name: p.name }), 'bad']);
     const near = ahead && behind ? (ahead.d - mine < mine - behind.d ? ahead : behind) : ahead || behind;
-    if (!line && near && tick - Math.max(v.said, v.at) > 12 * 60) {
-      const n = Math.round(Math.abs(near.d - mine));
-      line = [t(near.d > mine ? 'race.isAhead' : 'race.isBehind', { name: near.name, n }), 'dash'];
-    }
+    // A rider level with you is plain to see; "0 m behind" would say nothing.
+    const n = near && Math.round(Math.abs(near.d - mine));
+    if (!line && n >= 3 && tick - Math.max(v.said, v.at) > 12 * 60) line = [t(near.d > mine ? 'race.isAhead' : 'race.isBehind', { name: near.name, n }), 'dash'];
     if (line) {
       this.ui.callout(line[0], line[1]);
       v.said = tick;
