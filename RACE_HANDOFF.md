@@ -60,7 +60,7 @@ The 10% of each pot that the winner doesn't get goes to one Zero Chill account. 
 
 - Each settled race credits it once with `pot − prize`: the 10% plus any odd Shard left when a tie splits the prize. Ref: `avalanche race <id> house fee`.
 - Cancelled and voided races take no fee; everyone gets their entry back.
-- **Until `house_user` is set, the fee is burned** (nobody receives it), as in the original design. Fees burned before then are not paid later, so please set it before races go live.
+- **The race does not wait for this account.** Races open, run and pay the winner as normal without it; until `house_user` is set, the 10% is simply burned (nobody receives it). Fees burned before then are not paid later, so set it as soon as the account exists.
 - Changing `house_user` later applies to races settled from then on.
 
 ## 4. Page changes
