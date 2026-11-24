@@ -112,11 +112,11 @@ export const CONFIG = {
     comboMax: 5,
     milestoneEvery: 500, // (P) m
     // Trick points (perfect landings, clean jumps, grabs, crevasse hops) count in
-    // the score. The game sets `tricks` at start-up: on everywhere except runs
-    // zerochill.com scores, which wait for `tricksLive` (set it true once the
-    // site accepts the higher scores; LOVABLE_HANDOFF.md, DECISIONS 63).
+    // the score. The game sets `tricks` at start-up; `tricksLive` lets them into
+    // runs zerochill.com scores too (on since 2026-11-25, owner; DECISIONS 63, 65).
+    // The site's Daily Reward bar and run check read the metres sent alongside.
     tricks: false,
-    tricksLive: false,
+    tricksLive: true,
   },
 
   surface: { glacier: 0.62, ice: 0.35, mogul: 0.6, storm: 0.85 },
