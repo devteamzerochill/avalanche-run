@@ -887,3 +887,8 @@ body.has-race .btn.big.rc-go small{font-size:calc(10px*var(--s))}
 .buy-confirm .cost{font-size:calc(26px*var(--s));font-weight:900;font-style:italic;color:var(--reward)}
 .buy-confirm .btns{display:flex;gap:10px;width:100%}
 .buy-confirm .btns .btn{flex:1}
+/* Panels redraw when race data arrives (every pot or rider change). These blocks
+   have their own entrance, so like the rows above they carry on from where the
+   opening got to (--since) instead of playing again on every redraw. */
+.card-body .race-hero,.card-body .race-in,.card-body .pod,.card-body .tiles div{animation-delay:calc(var(--d0,0s) - var(--since,0s))}
+.card-body .tiles div:nth-child(1){--d0:.4s}.card-body .tiles div:nth-child(2){--d0:.47s}.card-body .tiles div:nth-child(3){--d0:.54s}
