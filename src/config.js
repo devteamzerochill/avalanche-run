@@ -29,6 +29,7 @@ export const CONFIG = {
     ramp: { from: 190, rate: 0.3, denseFrom: 7000, denseTo: 11000, denseRows: 0.7, denseExtra: 1.5 },
     sendEvery: 6, // ticks of input per message (10 a second)
     ghosts: 6, // nearest other riders drawn
+    slopeCount: 3, // seconds of 3-2-1 on the slope after the lobby clock reaches 0
   },
   version: 4, // bump when sim or generator behaviour changes (invalidates ghosts)
   tick: 1 / 60,
@@ -248,6 +249,12 @@ export const BOARDS = [
   { id: 'ember', cost: -1, deck: '#2B0F12', stripe: '#FF5B2E', edge: '#FFD23F' },
   { id: 'aurora', cost: 400, deck: '#1B1740', stripe: '#3FD0F5', edge: '#7A5CFF' },
 ];
+
+// Race quick chat (DECISIONS 66): the only things riders can say to each
+// other. Phrases are i18n keys `chat.<id>`, so each player reads them in their
+// own language; `e_` ids are emotes shown as they are (QUICK_EMOTES).
+export const QUICK_CHAT = ['hi', 'gl', 'gg', 'wow', 'close', 'again', 'e_wave', 'e_fire', 'e_laugh', 'e_cool', 'e_cry', 'e_snow'];
+export const QUICK_EMOTES = { e_wave: '👋', e_fire: '🔥', e_laugh: '😂', e_cool: '😎', e_cry: '😭', e_snow: '❄️' };
 
 // Mission pool. `stat` is a key of the run summary (see sim.summary()).
 // `total: true` missions accumulate across runs.

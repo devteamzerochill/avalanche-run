@@ -119,6 +119,14 @@ class Game {
       host: () => this.host,
       race: () => this.race,
       raceCheckIn: () => this.race && this.race.checkIn(),
+      raceWithdraw: () => this.race && this.race.withdraw(),
+      raceSay: (id) => this.race && this.race.say(id),
+      specStep: (dir) => this.specStep(dir),
+      specLeave: () => {
+        this.stopSpectate();
+        this.ui.closePanel(true);
+        this.toTitle();
+      },
       raceState: () => (this.raceMode ? { inRace: true, me: this.raceMode.me, out: this.state === 'end', dist: this.raceMode.outDist != null ? this.raceMode.outDist : Math.floor(this.sim.dist) } : null),
       raceConnect: () => this.syncRace(true),
       raceRematch: () => {
@@ -215,7 +223,7 @@ class Game {
       if (this.state === 'title') this.ui.tickDaily();
       if (this.race) {
         if (this.state === 'title') this.ui.raceButton();
-        if (this.ui.panelName === 'race') this.ui.raceTick();
+        if (this.ui.panelName === 'race' || this.ui.panelName === 'lobby') this.ui.raceTick();
       }
     }, 1000);
     window.addEventListener('error', (e) => console.error('game error', e.message));
@@ -348,6 +356,8 @@ class Game {
   // --- flow ---------------------------------------------------------------
   play(replay) {
     if (this.ui.panelName || this.wiping) return;
+    // Checked in to a race: the lobby, not a solo run (DECISIONS 66).
+    if (this.ui.raceIn() && !this.raceMode) return this.ui.openPanel('lobby');
     this.audio.unlock();
     this.audio.play('start');
     this.audio.play('whoosh');
@@ -471,13 +481,29 @@ class Game {
     if (type === 'go' && this.raceMode && m.race === this.raceMode.id) this.raceMode.go = true;
     if (type === 'rematch' && !this.raceMode) m.race ? this.beginRematch(m) : this.ui.toast(t('race.noRematch'));
     if (type === 'riders' && this.raceMode) this.raceStanding(m);
-    if (type === 'checkin') this.audio.play(m.ok ? 'buy' : 'deny');
+    if (type === 'checkin') {
+      this.audio.play(m.ok ? 'buy' : 'deny');
+      if (m.ok && this.state === 'title') this.ui.closePanel(), this.ui.openPanel('lobby');
+    }
+    if (type === 'withdraw' && m.ok && this.ui.panelName === 'lobby') {
+      this.ui.closePanel(true);
+      this.ui.openPanel('race');
+    }
+    // Checked in from before a reload, or another tab: back to the lobby.
+    if ((type === 'hello' || type === 'next') && this.state === 'title' && !this.raceMode && this.ui.raceIn() && this.ui.panelName !== 'lobby') this.ui.closePanel(true), this.ui.openPanel('lobby');
+    // No longer in (left from another tab, or the race was cancelled): out of the lobby.
+    if ((type === 'next' || type === 'cancelled') && this.ui.panelName === 'lobby' && !this.raceMode && !this.ui.raceIn()) {
+      this.ui.closePanel(true);
+      this.ui.openPanel('race');
+    }
+    if (type === 'chat') this.ui.chatHeard(m);
     if (type === 'results' && this.raceMode && m.race === this.raceMode.id) {
       const mine = m.standings.find((x) => x.i === this.raceMode.me);
       this.ui.raceTab = 'results';
       // The last rider standing has won: the run ends here, no riding on alone.
       const riding = this.state === 'play';
       if (riding) this.finishRace();
+      this.stopSpectate();
       const won = mine && mine.place === 1 && !m.voided;
       if (won) this.celebrate(m.each);
       else this.audio.play('tally');
@@ -491,6 +517,8 @@ class Game {
     // Positions arrive 10 times a second: only the counters change, so the
     // panel's buttons stay put under the player's finger.
     if (this.ui.panelName === 'race') type === 'riders' ? this.ui.raceTick() : this.ui.renderPanel();
+    // The lobby keeps its buttons still: the chat log updates itself (chatHeard).
+    if (this.ui.panelName === 'lobby' && ['next', 'checkin', 'withdraw', 'countdown', 'status', 'balance'].includes(type)) this.ui.renderPanel();
     if (this.ui.panelName === 'ranks' && type === 'board') this.ui.renderPanel();
   }
 
@@ -499,12 +527,16 @@ class Game {
   beginRace(info) {
     if (this.raceMode && this.raceMode.id === info.id) return;
     if (info.started) return; // too late to ride this one
-    this.ui.closePanel();
+    // The lobby stays up over the slope until its clock reaches 0.
+    if (this.ui.panelName !== 'lobby') {
+      this.ui.closePanel(true);
+      this.ui.openPanel('lobby');
+    }
     // No pausing a race (see pause()), so no pause button either.
     this.ui.el.hud.classList.add('racing');
     this.wiping = false;
     this.attempt = null;
-    this.raceMode = { id: info.id, me: info.me, goAt: info.goAt, go: false, batch: [], ticks: 0, from: 0, shown: false, ghosts: new Map(), snapAt: 0, alive: new Map() };
+    this.raceMode = { id: info.id, seed: info.seed, ramp: info.ramp, me: info.me, goAt: info.goAt, go: false, batch: [], ticks: 0, from: 0, shown: false, ghosts: new Map(), snapAt: 0, alive: new Map() };
     this.newSim(info.seed, { ramp: info.ramp });
     // Races are ridden by hand: the server voids a win that follows the bot.
     this.bot = null;
@@ -601,7 +633,7 @@ class Game {
     const q = this.raceMode;
     for (const [i, , , , flags] of m.r) {
       const alive = !!(flags & 1);
-      if (q.alive.get(i) && !alive && i !== q.me && this.state === 'play') this.ui.callout(t('race.isOut', { name: this.race.nameOf(i) }), 'bad race-out');
+      if (q.alive.get(i) && !alive && i !== q.me && (this.state === 'play' || this.state === 'spectate')) this.ui.callout(t('race.isOut', { name: this.race.nameOf(i) }), 'bad race-out');
       q.alive.set(i, alive);
     }
     if (this.state !== 'play') return;
@@ -710,6 +742,102 @@ class Game {
     q.ticks = 0;
   }
 
+  // --- spectating (DECISIONS 67) ---------------------------------------------
+  // Out of the race while others still ride: follow one of them. The world is
+  // drawn around a stand-in Sim on the same slope, placed on the followed
+  // rider every frame from the server's positions (as their ghost would be);
+  // the player's own finished Sim is kept and comes back when it ends.
+  specRiders() {
+    const q = this.raceMode;
+    return [...q.ghosts.values()].filter((g) => g.flags & 1 && g.i !== q.me).sort((a, b) => b.d - a.d);
+  }
+
+  startSpectate() {
+    const q = this.raceMode;
+    const lead = q ? this.specRiders()[0] : null;
+    if (!lead || (this.race.results && this.race.results.race === q.id)) return false;
+    q.spec = { own: this.sim, target: -1, sim: null };
+    this.specFollow(lead.i);
+    this.state = 'spectate';
+    this.buried = false;
+    this.rider.root.visible = true;
+    this.shadow.visible = true;
+    this.ui.whiteout(0);
+    this.ui.showHud(false);
+    this.audio.setRide(true);
+    return true;
+  }
+
+  specFollow(i) {
+    const q = this.raceMode;
+    const s = q.spec;
+    const g = q.ghosts.get(i);
+    s.target = i;
+    // The course is only kept ahead of the furthest point reached, so going
+    // back to a rider further up the slope needs a fresh stand-in.
+    if (!s.sim || (g && g.d < s.sim.dist - 10)) s.sim = new Sim(q.seed, { ramp: q.ramp });
+    s.disp = s.x = s.y = null;
+    this.sim = s.sim;
+    s.snap = true;
+  }
+
+  specStep(dir) {
+    const q = this.raceMode;
+    if (!q || !q.spec) return;
+    const list = this.specRiders();
+    if (!list.length) return;
+    const k = list.findIndex((g) => g.i === q.spec.target);
+    this.specFollow(list[(k + dir + list.length) % list.length].i);
+    this.audio.play('tap');
+  }
+
+  stepSpectate(dt) {
+    const q = this.raceMode;
+    const s = q && q.spec;
+    if (!s) return;
+    let g = q.ghosts.get(s.target);
+    if (!g || !(g.flags & 1)) {
+      // The followed rider went out: on to the leader.
+      const next = this.specRiders()[0];
+      if (next) this.specFollow(next.i);
+      g = next;
+    }
+    if (!g) return this.ui.spectate({ over: true });
+    const sim = s.sim;
+    // Eight ticks behind the server's clock, like the ghosts, so updates are in hand.
+    const tick = Math.floor((this.race.now() - q.goAt) / 1000 / CONFIG.tick) - 8;
+    const target = g.d + g.v * clamp((tick - g.tick) * CONFIG.tick, 0, 1);
+    if (s.disp == null || Math.abs(target - s.disp) > 15) s.disp = target;
+    else s.disp += g.v * dt + (target - s.disp) * Math.min(1, dt * 2);
+    const px = s.x;
+    s.x = s.x == null ? g.x : s.x + (g.x - s.x) * Math.min(1, dt * 8);
+    s.y = s.y == null ? g.y : s.y + (g.y - s.y) * Math.min(1, dt * 10);
+    sim.course.ensure(s.disp + CONFIG.lane.viewDist + 80);
+    Object.assign(sim, { dist: s.disp, x: s.x, y: s.y, v: g.v, vx: px == null ? 0 : (s.x - px) / Math.max(dt, 1e-3), air: !!(g.flags & 2), grab: !!(g.flags & 4), tick, gap: 40 });
+    sim.danger = clamp(1 - sim.gap / CONFIG.avalanche.maxGap, 0, 1);
+    sim.biome = sim.updateBiome();
+    sim.events.length = 0;
+    if (s.snap) {
+      s.snap = false;
+      this.camera.snap({ mode: 'ride', x: s.x, ground: this.stage.terrain.groundStep(s.disp) });
+    }
+    const list = this.specRiders();
+    this.ui.spectate({ name: this.race.nameOf(g.i), place: 1 + list.filter((x) => x.d > g.d).length, dist: Math.floor(g.d), left: list.length, many: list.length > 1 });
+  }
+
+  stopSpectate() {
+    const q = this.raceMode;
+    if (!q || !q.spec) return;
+    this.sim = q.spec.own;
+    q.spec = null;
+    if (this.state === 'spectate') {
+      this.state = 'end';
+      this.rider.root.visible = false;
+      this.shadow.visible = false;
+    }
+    this.ui.spectate(null);
+  }
+
   finishRace() {
     this.state = 'end';
     this.endT = 0;
@@ -725,6 +853,7 @@ class Game {
 
   endRace() {
     if (!this.raceMode) return;
+    this.stopSpectate();
     this.raceMode = null;
     this.ui.el.hud.classList.remove('racing');
     for (const r of this.raceGhosts) r.root.visible = false;
@@ -757,7 +886,7 @@ class Game {
     this.raceProject();
     const near = [];
     for (const g of q.ghosts.values()) {
-      if (!(g.flags & 1)) continue;
+      if (!(g.flags & 1) || (q.spec && g.i === q.spec.target)) continue;
       if (Math.abs(g.show - sim.dist) < 140) near.push(g);
     }
     near.sort((a, b) => Math.abs(a.show - sim.dist) - Math.abs(b.show - sim.dist));
@@ -1221,7 +1350,7 @@ class Game {
   }
 
   frame(dt, first) {
-    const sim = this.sim;
+    let sim = this.sim;
     const st = this.stage;
     const terrain = st.terrain;
     const set = this.profile.settings;
@@ -1234,7 +1363,10 @@ class Game {
       // A race starts on the server's word, not when the local count runs out.
       if (this.raceMode) this.countT = this.raceMode.go ? 0 : Math.max(0.01, (this.raceMode.goAt - this.race.now()) / 1000);
       const n = Math.ceil(this.countT / (this.raceMode ? 1 : 0.8));
-      if (n !== this.countShown && n > 0) {
+      // A race: the lobby counts to 0, then a short 3-2-1 on the slope.
+      const lobby = this.raceMode && this.ui.panelName === 'lobby';
+      if (lobby && this.countT <= CONFIG.race.slopeCount) this.ui.closePanel(true);
+      if (n !== this.countShown && n > 0 && !(lobby && this.countT > CONFIG.race.slopeCount)) {
         this.countShown = n;
         this.ui.banner(String(n), '', 'count', 0.8);
         this.audio.play('count');
@@ -1262,6 +1394,8 @@ class Game {
       this.perf.span('sim', 'sim');
       if (!this.raceMode && !this.rematch) this.coach(dt);
       if (sim.phase === 'over') this.finish();
+    } else if (this.state === 'spectate') {
+      this.stepSpectate(dt);
     } else if (this.state === 'end') {
       this.endT += dt;
       if (this.rematch) {
@@ -1274,7 +1408,7 @@ class Game {
         }
       } else if (this.raceMode) {
         // After the burial, the race panel: riders left, then the result.
-        if (!this.raceMode.shown && this.endT > 1.6) {
+        if (!this.raceMode.shown && this.endT > 1.6 && !this.startSpectate()) {
           this.raceMode.shown = true;
           this.ui.openPanel('race');
         }
@@ -1291,6 +1425,8 @@ class Game {
       }
     }
     if (this.state === 'paused' && !first) return;
+    // Spectating starts or stops above and swaps the Sim: draw the one now in place.
+    sim = this.sim;
 
     // The simulation only moves in whole 60 Hz ticks. In slow motion that is one
     // tick every few frames, which stutters, so for drawing we carry the rider
@@ -1307,7 +1443,7 @@ class Game {
       if (sim.air) sim.y = Math.max(0, sim.y + sim.vy * lead);
     }
 
-    const riding = this.state === 'play' && sim.phase === 'ride';
+    const riding = (this.state === 'play' || this.state === 'spectate') && sim.phase === 'ride';
     const wipe = sim.phase !== 'ride';
     const title = this.state === 'title';
     const speed01 = clamp((sim.v - 30) / 30, 0, 1);

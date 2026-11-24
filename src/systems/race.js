@@ -46,6 +46,7 @@ export class RaceClient {
     this.results = null; // the last race's result
     this.cancelled = null;
     this.checkinMsg = '';
+    this.chat = []; // quick chat heard in this lobby or race: { name, id, me, at }
   }
 
   now() {
@@ -136,6 +137,18 @@ export class RaceClient {
       this.checkinMsg = m.ok ? '' : m.reason || 'check-in failed';
       this.emit('checkin', m);
     });
+    room.onMessage('withdraw', (m) => {
+      if (typeof m.balance === 'number') this.balance = m.balance;
+      this.checkinMsg = m.ok ? '' : m.reason || 'could not leave';
+      this.emit('withdraw', m);
+    });
+    room.onMessage('chat', (m) => {
+      // One lobby or race at a time: a new one starts a fresh log.
+      if (this.chatRace !== m.race) (this.chat = []), (this.chatRace = m.race);
+      this.chat.push(Object.assign({ at: performance.now() }, m));
+      if (this.chat.length > 30) this.chat.shift();
+      this.emit('chat', m);
+    });
     room.onMessage('cancelled', (m) => {
       this.cancelled = m;
       this.emit('cancelled', m);
@@ -183,6 +196,15 @@ export class RaceClient {
 
   checkIn() {
     if (this.room) this.room.send('checkin');
+  }
+
+  // Leave the lobby: the server cancels the check-in and refunds the fee.
+  withdraw() {
+    if (this.room) this.room.send('withdraw');
+  }
+
+  say(id) {
+    if (this.room) this.room.send('chat', { id });
   }
 
   // A batch of this rider's inputs, [count, txCm, flags] runs from tick `from`.
