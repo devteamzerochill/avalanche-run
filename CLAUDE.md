@@ -36,7 +36,7 @@ The live site hosts the game in an iframe; the page makes every API call and the
 
 ## Published artifact
 
-The game is published at https://claude.ai/artifact/JnTQMKbipLCs5inWNdTe4D (version 4 since 2026-11-23, shared "anyone with the link"). To update it, rebuild and publish `dist/avalanche-run-artifact.html` to that URL. A new session must read the artifact first, then publish with `url`.
+The game is published at https://claude.ai/artifact/JnTQMKbipLCs5inWNdTe4D (version 5 since 2026-11-24, shared "anyone with the link"). To update it, rebuild and publish `dist/avalanche-run-artifact.html` to that URL. A new session must read the artifact first, then publish with `url`.
 
 ## Gameplay video
 
