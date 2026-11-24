@@ -60,7 +60,10 @@ export async function startRaceServer(opts = {}) {
     greet: false,
     ...(process.env.SERVE_GAME === '1' ? { express: serveGame } : {}),
   });
-  await server.listen(port);
+  // Colyseus Cloud: its socket behind the proxy, and the 'ready' signal PM2 waits for (wait_ready).
+  // Imported only there: @colyseus/tools loads server/.env as it loads, which must never reach the tests.
+  if (process.env.COLYSEUS_CLOUD !== undefined) await (await import('@colyseus/tools')).listen(server);
+  else await server.listen(port);
   // One race cycle for the whole game: the room is made here, once, and
   // players only ever join it. This needs exactly one process (see
   // ecosystem.config.cjs); a second process would run a second, separate cycle.
@@ -69,8 +72,9 @@ export async function startRaceServer(opts = {}) {
   return { server, port, roomId: room.roomId };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  // Only when started directly: tests import this file and must stay on the local stack.
+// Started directly, or by PM2 (Colyseus Cloud; there argv[1] is PM2's own launcher).
+// Tests import this file and must stay on the local stack.
+if ((process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) || process.env.pm_id !== undefined) {
   const envFile = fileURLToPath(new URL('.env', import.meta.url));
   if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
   const { port } = await startRaceServer();
