@@ -272,7 +272,9 @@ declare
   v_last_day integer;
   v_extra jsonb;
 begin
-  v_res := submit_avalanche_score(p_distance, p_key, p_run_id);
+  -- The metres ridden (p_stats.distance) feed the Daily Reward bar and the run check (DECISIONS 65).
+  v_res := submit_avalanche_score(p_distance, p_key, p_run_id,
+    case when jsonb_typeof(p_stats->'distance') = 'number' then floor((p_stats->>'distance')::numeric)::integer end);
   if v_uid is null or not coalesce((v_res->>'counted')::boolean, false) or v_key is null then
     return v_res;
   end if;

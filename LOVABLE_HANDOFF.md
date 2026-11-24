@@ -53,7 +53,7 @@ What changes on the site's side:
 4. **Rewards.** Reward thresholds on the score (Daily Reward bars, XP) will be reached sooner. Please say whether they need retuning.
 5. **Stats clamps.** `submit_avalanche_run` caps `p_stats` by what a run of that score could produce. A higher score only loosens those caps, so the migration needs no change.
 
-Please confirm: (a) the rate limit (or that the check stays in observe mode), (b) the switch date, (c) what happens to all-time bests and tournaments, (d) whether rewards need retuning.
+**Answered 2026-11-24 (DECISIONS 65):** the game sends `p_metres`, and `submit_avalanche_score` (migration 0312) feeds the Daily Reward bar and the run check from metres, so the rate limit and reward thresholds stay as they are; the switch happens when the new game replaces the old one, at a UTC midnight; all-time bests stay; no tournament is running.
 
 ## Tested locally
 

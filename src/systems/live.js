@@ -197,6 +197,9 @@ export class LiveBackend {
 
   async submit(m) {
     const args = { p_distance: Math.max(0, Math.round(m.score)), p_key: m.key };
+    // Metres ridden, apart from the score: the site's Daily Reward bar and run
+    // check measure metres, while the score also carries trick points (DECISIONS 65).
+    if (m.stats && Number.isFinite(m.stats.distance)) args.p_metres = Math.max(0, Math.floor(m.stats.distance));
     const run = this.runs.get(m.attempt);
     if (run) args.p_run_id = run;
     if (this.profileApi) args.p_stats = m.stats || {};
