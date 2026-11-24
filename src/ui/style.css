@@ -677,9 +677,19 @@ body.reduced .race-hero,body.reduced .race-in,body.reduced .race-hero.soon .cloc
 .rh-strip i.me{left:50%;width:calc(12px*var(--s));height:calc(12px*var(--s));margin:calc(-6px*var(--s)) 0 0 calc(-6px*var(--s));background:var(--accent);box-shadow:0 0 0 2px #fff;z-index:1}
 .rh-strip i.lead{background:var(--reward)}
 .rh-strip i.edge{opacity:.55}
-/* Name tags over the other riders, in the callout style; the leader gets a crown. */
-#raceTags span{position:absolute;left:0;top:0;padding:1px 6px 2px;border-radius:6px;background:color-mix(in srgb,var(--ink) 55%,transparent);border:1.5px solid rgba(255,255,255,.5);color:#fff;font-weight:900;font-style:italic;font-size:calc(9.5px*var(--s));white-space:nowrap;transition:opacity .25s}
-#raceTags span::after{content:'';position:absolute;left:50%;bottom:-5px;margin-left:-4px;border:4px solid transparent;border-top-color:rgba(255,255,255,.5);border-bottom:0}
+/* The riders just ahead and just behind, by name: below the AVALANCHE label
+   and clear of the meter, which runs down the right edge under the card. */
+.rh-near{display:flex;flex-direction:column;margin:calc(19px*var(--s)) calc(26px*var(--s)) 0 calc(4px*var(--s));font-weight:900;font-style:italic;font-size:calc(10px*var(--s));line-height:1.25;color:#fff;text-shadow:0 1px 0 var(--ink),0 0 3px var(--ink)}
+.rh-near span{display:flex;gap:4px;min-width:0}
+.rh-near span:empty{display:none}
+.rh-near em{font-style:inherit;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rh-near i{font-style:inherit;font-variant-numeric:tabular-nums}
+#rhAhead i{color:#ff7a8a}
+#rhBehind i{color:var(--good)}
+/* Name tags over the other riders: light and see-through, so they mark a
+   rider without hiding the slope; the leader gets a crown. */
+#raceTags span{position:absolute;left:0;top:0;padding:0 5px 1px;border-radius:5px;background:color-mix(in srgb,var(--ink) 35%,transparent);border:1px solid rgba(255,255,255,.4);color:#fff;font-weight:900;font-style:italic;font-size:calc(9px*var(--s));white-space:nowrap;text-shadow:0 1px 1px rgba(0,0,0,.5);transition:opacity .25s}
+#raceTags span::after{content:'';position:absolute;left:50%;bottom:-4px;margin-left:-3px;border:3px solid transparent;border-top-color:rgba(255,255,255,.4);border-bottom:0}
 #raceTags span.lead{border-color:var(--reward);color:var(--reward)}
 #raceTags span.lead::before{content:'👑 '}
 #raceTags span.lead::after{border-top-color:var(--reward)}

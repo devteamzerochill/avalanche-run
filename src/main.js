@@ -575,7 +575,7 @@ class Game {
       // Carried forward by the render lead like the rider (see lead).
       const dz = s.dist + s.v * this.lead - sim.dist;
       r.root.position.z = -dz;
-      if (this.state === 'play' && dz > -2) {
+      if (this.state === 'play' && dz > -6) {
         r.root.getWorldPosition(v);
         v.y += 2.3;
         v.project(cam);
@@ -588,7 +588,8 @@ class Game {
       q.hudAt = sim.tick;
       const others = live.map((g) => g.sim.dist);
       const best = others.length ? Math.max(...others) : null;
-      this.ui.raceHud({ left: live.length + (sim.phase === 'ride' ? 1 : 0), place: 1 + others.filter((d) => d > sim.dist).length, gap: best == null ? null : Math.round(sim.dist - best), pack: others.map((d) => ({ rel: d - sim.dist, lead: d === best && d > sim.dist })) });
+      const list = live.map((g) => ({ id: q.riders.indexOf(g), name: g.name, d: g.sim.dist }));
+      this.ui.raceHud({ left: live.length + (sim.phase === 'ride' ? 1 : 0), place: 1 + others.filter((d) => d > sim.dist).length, gap: best == null ? null : Math.round(sim.dist - best), pack: others.map((d) => ({ rel: d - sim.dist, lead: d === best && d > sim.dist })), ...this.rivals(q, list, sim.dist) });
     }
   }
 
@@ -611,13 +612,62 @@ class Game {
     }
     const mine = this.sim.dist;
     this.raceProject();
-    const others = m.r.filter((r) => r[0] !== q.me && r[4] & 1).map((r) => (q.ghosts.has(r[0]) ? q.ghosts.get(r[0]).show : r[1]));
+    const list = m.r.filter((r) => r[0] !== q.me && r[4] & 1).map((r) => ({ id: r[0], name: this.race.nameOf(r[0]), d: q.ghosts.has(r[0]) ? q.ghosts.get(r[0]).show : r[1] }));
+    const others = list.map((r) => r.d);
     const place = 1 + others.filter((d) => d > mine).length;
     const best = others.length ? Math.max(...others) : null;
     // Leading: the lead over the next rider. Behind: the distance to the leader.
     const gap = best == null ? null : Math.round(mine - best);
-    q.leader = best != null && best > mine ? m.r.find((r) => r[0] !== q.me && r[4] & 1 && (q.ghosts.has(r[0]) ? q.ghosts.get(r[0]).show : r[1]) === best)[0] : q.me;
-    this.ui.raceHud({ left: m.left, place, gap, pack: others.map((d) => ({ rel: d - mine, lead: d === best && d > mine })) });
+    q.leader = best != null && best > mine ? list.find((r) => r.d === best).id : q.me;
+    this.ui.raceHud({ left: m.left, place, gap, pack: others.map((d) => ({ rel: d - mine, lead: d === best && d > mine })), ...this.rivals(q, list, mine) });
+  }
+
+  // The riders either side of this one, by name, for the race card; and now and
+  // then a line in the side feed about them (a pass either way, or, after a
+  // quiet spell, where the nearest one is), so a race feels like riding with
+  // people. list: [{ id, name, d }] of the other riders still in.
+  rivals(q, list, mine) {
+    let ahead = null, behind = null;
+    for (const r of list) {
+      if (r.d > mine && (!ahead || r.d < ahead.d)) ahead = r;
+      if (r.d <= mine && (!behind || r.d > behind.d)) behind = r;
+    }
+    const v = q.riv || (q.riv = { side: new Map(), at: this.sim.tick, said: -1e9 });
+    const tick = this.sim.tick;
+    v.passes = v.passes || [];
+    for (const r of list) {
+      // 2 m either side before a pass counts, so riders level don't flicker.
+      const rel = r.d - mine;
+      const was = v.side.get(r.id);
+      const now = rel > 2 ? 1 : rel < -2 ? -1 : was;
+      v.side.set(r.id, now);
+      if (!was || now === was || this.sim.t <= 3) continue;
+      // Passed and passed back before it was said: nothing happened.
+      const undo = v.passes.some((p) => p.id === r.id);
+      v.passes = v.passes.filter((p) => p.id !== r.id);
+      if (!undo) v.passes.push({ id: r.id, now, name: r.name });
+    }
+    // At most one line every 2.5 s, so the feed never fills up with rivals;
+    // a pass waits its turn (and is dropped if that rider is out by then).
+    if (this.state !== 'play' || tick - v.said <= 150) return this.rivalGaps(ahead, behind, mine);
+    v.passes = v.passes.filter((p) => list.some((r) => r.id === p.id));
+    const p = v.passes.shift();
+    let line = p && (p.now < 0 ? [t('race.passed', { name: p.name }), 'good'] : [t('race.passedBy', { name: p.name }), 'bad']);
+    const near = ahead && behind ? (ahead.d - mine < mine - behind.d ? ahead : behind) : ahead || behind;
+    if (!line && near && tick - Math.max(v.said, v.at) > 12 * 60) {
+      const n = Math.round(Math.abs(near.d - mine));
+      line = [t(near.d > mine ? 'race.isAhead' : 'race.isBehind', { name: near.name, n }), 'dash'];
+    }
+    if (line) {
+      this.ui.callout(line[0], line[1]);
+      v.said = tick;
+    }
+    return this.rivalGaps(ahead, behind, mine);
+  }
+
+  rivalGaps(ahead, behind, mine) {
+    const gapOf = (r) => r && { name: r.name, gap: Math.round(r.d - mine) };
+    return { ahead: gapOf(ahead), behind: gapOf(behind) };
   }
 
   // Each other rider's position carried forward to this rider's current tick:
@@ -755,7 +805,7 @@ class Game {
       // (see lead); carry the ghost the same, or it shudders against the rider.
       r.root.position.z = -(g.disp + g.vs * this.lead - sim.dist);
       // Name tag above the rider's head, in frame pixels.
-      if (this.state === 'play' && g.disp + g.vs * this.lead - sim.dist > -2) {
+      if (this.state === 'play' && g.disp + g.vs * this.lead - sim.dist > -6) {
         r.root.getWorldPosition(v);
         v.y += 2.3;
         v.project(cam);
