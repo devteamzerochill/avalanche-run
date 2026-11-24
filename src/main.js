@@ -45,6 +45,12 @@ class Game {
     initLocalServices(this.store);
     // zerochill.com bridge; inactive unless the page opts in with ?host=<origin>.
     this.host = new Host();
+    // Trick points count in the score, except on runs the real zerochill.com
+    // backend scores (the page hosting us, or ?live against it) until the site
+    // has agreed to the higher scores (CONFIG.score.tricksLive).
+    const live = this.host.live;
+    const realSite = !!this.host.origin || (!!live && live.url !== CONFIG.online.local.url.replace(/\/$/, ''));
+    CONFIG.score.tricks = CONFIG.score.tricksLive || !realSite;
     this.attempt = null;
     // Endurance race (?race): the race server replays every rider and decides
     // the result; this side streams inputs and draws the others as ghosts.
