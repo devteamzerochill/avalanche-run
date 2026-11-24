@@ -456,7 +456,11 @@ export class UI {
     if (m.voided) html += `<div class="race-hero res void"><b class="clock">✖</b><div><span class="lbl">${esc(t('race.voided'))}</span><p>${esc(t('race.voidedWhy'))}</p></div></div>`;
     else if (mine) {
       const won = mine.place === 1;
-      html += `<div class="race-hero res${won ? ' won' : ''}"><b class="clock">#${mine.place}</b><div><span class="lbl">${esc(t(won ? 'race.winner' : 'race.placeLbl'))}</span><p>${esc(won ? t('race.youWon', { n: m.each }) : t('race.ofN', { n: S.length }))}</p></div></div>`;
+      // Time alive decides the race; say by how much the rider just ahead outlasted this one.
+      const above = !won && S.find((x) => x.place === mine.place - 1);
+      const gap = above && above.tick > mine.tick ? (above.tick - mine.tick) / 60 : 0;
+      const by = gap ? `<small class="race-by">${esc(t('race.outlasted', { name: above.name, s: gap < 1 ? gap.toFixed(2) : gap.toFixed(1) }))}</small>` : '';
+      html += `<div class="race-hero res${won ? ' won' : ''}"><b class="clock">#${mine.place}</b><div><span class="lbl">${esc(t(won ? 'race.winner' : 'race.placeLbl'))}</span><p>${esc(won ? t('race.youWon', { n: m.each }) : t('race.ofN', { n: S.length }))}</p>${by}</div></div>`;
     } else html += `<h4 class="race-sec">${esc(t('race.results'))}</h4>`;
 
     const medal = (p) => ['🥇', '🥈', '🥉'][p - 1] || p;
@@ -471,6 +475,8 @@ export class UI {
     html += rest
       .map((x) => `<div class="lb rr ${x.i === me ? 'you' : ''}"><span class="n">${x.place}</span><span class="who">${esc(x.name)}</span><small>${esc(t('race.how', { s: x.time, r: raceReason(x.reason) }))}</small><span>${x.dist} m</span></div>`)
       .join('');
+    // Someone placed below a rider who went less far: say what decides the order.
+    if (S.some((x, i) => S.slice(0, i).some((y) => y.place < x.place && y.dist < x.dist))) html += `<p class="note">${esc(t('race.aliveRule'))}</p>`;
     html += m.voided
       ? `<div class="race-pay"><span>↩️ ${esc(t('race.refundChip'))}</span></div>`
       : `<div class="race-pay"><span>🏆 ${esc(t('race.prizeChip', { n: m.prize }))}</span>${m.house ? `<span>🏦 ${esc(t('race.feeChip', { n: m.house }))}</span>` : `<span>🔥 ${esc(t('race.burnChip', { n: m.burned }))}</span>`}</div>`;
