@@ -19,7 +19,8 @@ export const CONFIG = {
   // replays every rider with these same settings; it sends its own values with
   // each race, so these are the defaults both sides start from.
   race: {
-    server: 'ws://localhost:2567',
+    server: 'wss://sg-sgp-b4a82550.colyseus.cloud', // Colyseus Cloud, Singapore (since 2026-11-25)
+    localServer: 'ws://localhost:2567', // the race-server launch entry, against the local Supabase
     // The avalanche gains 0.3 m/s per second after 190 s; the best riders
     // (both test bots) are caught at about 3:55-4:10, inside the 5-minute cycle.
     // From denseFrom to denseTo m (about 2:00 to 3:00 into a race) the slope

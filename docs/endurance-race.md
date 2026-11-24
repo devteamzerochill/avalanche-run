@@ -96,7 +96,7 @@ From the Colyseus Cloud docs ([cloud](https://docs.colyseus.io/cloud), [continuo
 
 **Checked on the first deploy (2026-11-25):** Cloud keeps the whole repository (`../src/` resolves) and runs Node 24. The address serves the game. A join with a bad token is refused with "sign in to race". The race account opened a race on the live ledger. Only **one** process runs (`instances: 1`); two would run two race cycles.
 
-**Still to do when the game moves onto the site:** set `CONFIG.race.server` to `wss://sg-sgp-b4a82550.colyseus.cloud` (today `ws://localhost:2567`, which local development uses) and send that address to the website team for their CSP (`RACE_HANDOFF.md`).
+**The game races on Cloud (2026-11-25):** `CONFIG.race.server` is `wss://sg-sgp-b4a82550.colyseus.cloud`. Local Supabase sessions keep the local server (`CONFIG.race.localServer`, `ws://localhost:2567`): `?live=local`, or a page on localhost without `?live` (`tools/host-mock.html`). `?race=here` still means the server serving the page. Checked: the choice for each case, and a cross-origin join from a localhost page reaching Cloud's matchmaker. Still to do: send the address to the website team for their CSP (`RACE_HANDOFF.md`).
 
 ## Prototype (local, 2026-11-23)
 
