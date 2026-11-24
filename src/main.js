@@ -121,8 +121,9 @@ class Game {
       cta: () => openStore(),
       host: () => this.host,
       race: () => this.race,
-      raceCheckIn: () => this.race && this.race.checkIn(),
-      raceWithdraw: () => this.race && this.race.withdraw(),
+      // Server calls block input until they answer (ui.busy; done in onRace / onHost).
+      raceCheckIn: () => this.race && this.race.room && (this.ui.busy('race', t('busy.checkin')), this.race.checkIn()),
+      raceWithdraw: () => this.race && this.race.room && (this.ui.busy('race', t('busy.leave')), this.race.withdraw()),
       raceSay: (id) => this.race && this.race.say(id),
       specStep: (dir) => this.specStep(dir),
       specLeave: () => {
@@ -143,10 +144,10 @@ class Game {
       retrySave: () => {
         // Live test mode: a lost session means signing in again before retrying.
         if (this.host.live && !this.host.live.session) this.ui.openPanel('account');
-        else if (this.attempt) this.host.retry(this.attempt.id);
+        else if (this.attempt) this.ui.busy('save', t('busy.save')), this.host.retry(this.attempt.id);
       },
-      signIn: (email, password) => this.host.live.signIn(email, password),
-      signOut: () => this.host.live.signOut(),
+      signIn: (email, password) => (this.ui.busy('account', t('busy.signin')), this.host.live.signIn(email, password).finally(() => this.ui.done('account'))),
+      signOut: () => (this.ui.busy('account', t('busy.signout')), this.host.live.signOut().finally(() => this.ui.done('account'))),
       refreshOnline: () => this.host.refresh(),
       tap: (name) => {
         this.audio.unlock();
@@ -156,7 +157,7 @@ class Game {
       jumpUp: () => this.input.buttonUp(),
       setting: (k, v) => this.setSetting(k, v),
       buy: (type, id) => {
-        if (this.host.profile) this.host.buy(type, id); // the server checks the price and balance
+        if (this.host.profile) this.ui.busy('item', t('busy.buy')), this.host.buy(type, id); // the server checks the price and balance
         else if (!buy(this.profile, type, id)) this.audio.play('deny');
         else {
           this.audio.play('buy');
@@ -165,7 +166,7 @@ class Game {
         }
       },
       select: (type, id) => {
-        if (this.host.profile) this.host.select(type, id);
+        if (this.host.profile) this.ui.busy('item', t('busy.equip')), this.host.select(type, id);
         else if (select(this.profile, type, id)) {
           this.audio.play('select');
           this.applySkin();
@@ -498,6 +499,7 @@ class Game {
   }
 
   onRace(type, m) {
+    if (type === 'checkin' || type === 'withdraw' || (type === 'status' && this.race.status !== 'online')) this.ui.done('race');
     if (type === 'countdown' && m.me >= 0) {
       this.ui.raceTab = 'race';
       this.beginRace(m);
@@ -1096,6 +1098,8 @@ class Game {
   onHost(type, m) {
     if (type === 'session') this.syncRace();
     if (type === 'profile' || type === 'session') this.useProfile();
+    if (type === 'item_result') this.ui.done('item');
+    if (type === 'submit_result') this.ui.done('save');
     if (type === 'item_result') this.audio.play(m.ok ? (m.action === 'buy' ? 'buy' : 'select') : 'deny');
     if (type === 'submit_result' && this.attempt && m.attempt === this.attempt.id && this.attempt.result && this.attempt.result.avalanche) {
       const r = this.attempt.result.avalanche.streak_reward;

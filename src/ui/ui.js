@@ -77,6 +77,12 @@ export class UI {
     for (let i = 0; i < 26; i++) this.lines.push({ a: Math.random() * 6.28, r: Math.random(), l: 0.05 + Math.random() * 0.08 });
     this.bannerUntil = 0;
 
+    // While an API call is in flight, keys don't reach the game or the menus.
+    window.addEventListener('keydown', (e) => {
+      if (!this.busyKey) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    }, true);
     press($('playBtn'), () => hooks.play());
     press($('pauseBtn'), () => hooks.pause());
     press($('resumeBtn'), () => hooks.resume());
@@ -817,6 +823,23 @@ export class UI {
     }
   }
 
+  // An API call in flight: block every tap and key until it answers (or 15 s).
+  busy(key, text) {
+    this.busyKey = key;
+    $('busyText').textContent = text || t('ui.loading');
+    $('busy').classList.remove('hidden');
+    clearTimeout(this.busyTimer);
+    this.busyTimer = setTimeout(() => this.done(key), 15000);
+  }
+
+  // key: only end that call's overlay (a later call may have replaced it).
+  done(key) {
+    if (!this.busyKey || (key && this.busyKey !== key)) return;
+    this.busyKey = null;
+    clearTimeout(this.busyTimer);
+    $('busy').classList.add('hidden');
+  }
+
   toast(text) {
     const n = document.createElement('div');
     n.className = 'toast';
@@ -1034,6 +1057,7 @@ export class UI {
     if (this.panelName === 'lobby' && !force) return;
     const was = this.panelName;
     this.panelName = '';
+    this.shopConfirm = null;
     this.el.panel.classList.add('hidden');
     this.hooks.tap('panelClose');
     this.hooks.panelClosed(was);
@@ -1088,6 +1112,28 @@ export class UI {
               ? `<i class="trail-sw none"></i>`
               : `<i class="trail-sw ${it.pulse ? 'pulse' : ''}" style="--a:${it.colors[0]};--b:${it.colors[1]};--c:${it.colors[2] || it.colors[1]};${it.rainbow ? 'background:linear-gradient(90deg,#ff4d6d,#ffd23f,#3ddc97,#35d6ff,#9b6bff,#ff4d6d);background-size:200% 100%' : ''}"></i>`;
       const tab = (id, key) => `<button data-tab="${id}" class="${type === id ? 'on' : ''}">${esc(t(key))}</button>`;
+      // Confirm before buying: what it is, what it costs, and from which wallet.
+      const ask = this.shopConfirm && this.shopConfirm.type === type ? list.find((it) => it.id === this.shopConfirm.id) : null;
+      if (ask) {
+        const cost = ask.shards ? '💎 ' + ask.shards : '❄ ' + ask.cost;
+        body.innerHTML =
+          `<div class="buy-confirm"><div class="item ${ask.shards ? 'gem' : ''}"><div class="swatch">${sw(ask)}</div></div>` +
+          `<h3>${esc(t('shop.confirm', { item: t(type + '.' + ask.id) }))}</h3><div class="cost">${cost}</div>` +
+          `<p class="note">${esc(t(ask.shards ? 'shop.confirmShards' : 'shop.confirmFlakes', { n: ask.shards || ask.cost }))}</p>` +
+          `<div class="btns"><button class="btn" id="buyNo">${esc(t('shop.cancel'))}</button><button class="btn primary" id="buyYes">${esc(t('shop.buy'))}</button></div></div>`;
+        press($('buyNo'), () => {
+          this.shopConfirm = null;
+          this.hooks.tap('toggle');
+          this.renderPanel();
+        });
+        press($('buyYes'), () => {
+          this.shopConfirm = null;
+          this.hooks.buy(type, ask.id);
+          this.renderPanel();
+        });
+        body.style.setProperty('--since', ((performance.now() - (this.panelOpenedAt || 0)) / 1000).toFixed(3) + 's');
+        return;
+      }
       body.innerHTML =
         `<div class="tabs">${tab('rider', 'shop.riders')}${tab('board', 'shop.boards')}${tab('trail', 'shop.trails')}</div>` +
         `<div class="shop-wallet"><div class="chip gold">❄ <b>${p.flakes}</b></div>${shards != null ? `<div class="chip gold shards">💎 <b>${shards}</b></div>` : ''}</div><div class="grid">` +
@@ -1121,7 +1167,8 @@ export class UI {
       body.querySelectorAll('[data-buy]').forEach((b) =>
         press(b, () => {
           if (b.disabled) return;
-          this.hooks.buy(type, b.getAttribute('data-buy'));
+          this.shopConfirm = { type, id: b.getAttribute('data-buy') };
+          this.hooks.tap('toggle');
           this.renderPanel();
         })
       );
