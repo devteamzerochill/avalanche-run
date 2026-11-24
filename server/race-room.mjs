@@ -297,7 +297,7 @@ export class EnduranceRoom extends Room {
     let res;
     if (flagged.length) {
       res = await this.db.rpc('race_void', { p_race: r.id, p_results: results, p_reason: 'scripted win: ' + flagged.map(({ x }) => x.id).join(',') });
-      res = { pot: res.pot, prize: 0, each: 0, burned: 0, voided: 'scripted' };
+      res = { pot: res.pot, prize: 0, each: 0, house: 0, burned: 0, voided: 'scripted' };
       this.log('void', r.id, flagged.map(({ x }) => x.name).join(','));
     } else res = await this.db.rpc('race_settle', { p_race: r.id, p_results: results });
     const msg = {
@@ -305,6 +305,7 @@ export class EnduranceRoom extends Room {
       pot: res.pot,
       prize: res.prize,
       each: res.each,
+      house: res.house || 0, // the fee to the house account; burned while none is set
       burned: res.burned,
       voided: res.voided || null,
       standings: rows.map(({ x, place }) => ({ i: x.i, name: x.name, place, dist: Math.floor(x.dist), tick: x.alive ? x.sim.tick : x.deathTick, time: Math.round(((x.alive ? x.sim.tick : x.deathTick) / TICKS_PER_S) * 10) / 10, reason: x.alive ? (cut ? 'time up' : 'last alive') : x.reason })),

@@ -2,7 +2,7 @@
 --
 -- The race itself runs on the Colyseus race server, which replays every rider
 -- and decides the result. This migration only keeps the money straight:
--- entries, escrowed fees, the payout and the burn. Every function here is for
+-- entries, escrowed fees, the payout and the house fee. Every function here is for
 -- the race server alone (service role); players can only read.
 --
 -- It needs three wallet functions from the site, which is not part of this
@@ -17,7 +17,11 @@
 create table public.avalanche_race_config (
   id integer primary key default 1 check (id = 1),
   entry_fee integer not null default 10 check (entry_fee > 0),
-  prize_pct integer not null default 90 check (prize_pct between 0 and 100), -- the rest is burned
+  prize_pct integer not null default 90 check (prize_pct between 0 and 100), -- the rest is the house fee
+  -- The account the house fee is paid to (owner, 2026-11-24). Until one is set
+  -- the fee is burned, as before; set it with
+  --   update avalanche_race_config set house_user = '<user id>';
+  house_user uuid references auth.users (id),
   min_riders integer not null default 2,
   max_riders integer not null default 50
 );
@@ -28,10 +32,11 @@ create table public.avalanche_races (
   seed bigint not null,
   status text not null default 'open' check (status in ('open', 'racing', 'settled', 'cancelled', 'voided')),
   entry_fee integer not null,
-  prize_pct integer not null, -- the winner's share when the race opened; the rest is burned
+  prize_pct integer not null, -- the winner's share when the race opened; the rest is the house fee
   pot integer not null default 0,
   prize integer not null default 0,
-  burned integer not null default 0,
+  house integer not null default 0, -- the fee paid to house_user
+  burned integer not null default 0, -- the fee when no house_user was set
   void_reason text, -- why the race server voided it (status 'voided')
   created_at timestamptz not null default now(),
   started_at timestamptz,
@@ -137,7 +142,8 @@ end $$;
 
 -- Record the result and pay out once. p_results: [{user_id, place, death_tick,
 -- distance}] for every rider, decided by the race server. Every place-1 rider
--- shares the prize; whole Shards only, so any remainder is burned with the rest.
+-- shares the prize; whole Shards only, so any remainder joins the house fee.
+-- The fee goes to the house account, or is burned while none is set.
 create function public.race_settle(p_race text, p_results jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
@@ -147,6 +153,8 @@ declare
   v_prize integer;
   v_each integer;
   w uuid;
+  v_fee integer;
+  v_house uuid;
 begin
   select * into r from avalanche_races where id = p_race for update;
   if not found or r.status <> 'racing' then return jsonb_build_object('ok', false, 'reason', 'not racing'); end if;
@@ -163,12 +171,22 @@ begin
     update avalanche_race_entries set prize = v_each where race_id = p_race and user_id = w;
   end loop;
   v_prize := v_each * coalesce(array_length(winners, 1), 0);
-  update avalanche_races set status = 'settled', settled_at = now(), prize = v_prize, burned = pot - v_prize where id = p_race;
-  return jsonb_build_object('ok', true, 'pot', r.pot, 'prize', v_prize, 'each', v_each, 'burned', r.pot - v_prize, 'winners', to_jsonb(winners));
+  v_fee := r.pot - v_prize;
+  select house_user into v_house from avalanche_race_config where id = 1;
+  if v_house is not null and v_fee > 0 then
+    perform shards_credit(v_house, v_fee, 'avalanche race ' || p_race || ' house fee');
+  end if;
+  update avalanche_races set status = 'settled', settled_at = now(), prize = v_prize,
+    house = case when v_house is null then 0 else v_fee end,
+    burned = case when v_house is null then v_fee else 0 end
+    where id = p_race;
+  return jsonb_build_object('ok', true, 'pot', r.pot, 'prize', v_prize, 'each', v_each,
+    'house', case when v_house is null then 0 else v_fee end,
+    'burned', case when v_house is null then v_fee else 0 end, 'winners', to_jsonb(winners));
 end $$;
 
 -- The race server found the win scripted: keep the standings as evidence,
--- pay no prize, burn nothing, and give every rider their fee back.
+-- pay no prize, take no house fee, and give every rider their fee back.
 create function public.race_void(p_race text, p_results jsonb, p_reason text)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
