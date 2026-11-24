@@ -29,7 +29,11 @@ export const CONFIG = {
     ramp: { from: 190, rate: 0.3, denseFrom: 7000, denseTo: 11000, denseRows: 0.7, denseExtra: 1.5 },
     sendEvery: 6, // ticks of input per message (10 a second)
     ghosts: 6, // nearest other riders drawn
-    slopeCount: 3, // seconds of 3-2-1 on the slope after the lobby clock reaches 0
+    slopeCount: 3, // seconds of 3-2-1 on the slope after the intro
+    introSeconds: 4, // the grid flyover between the lobby clock reaching 0 and the 3-2-1 (DECISIONS 70)
+    // The start grid (DECISIONS 70): rows of perRow riders, lane m apart across
+    // the slope, rows row m apart; the back row starts at 0 m.
+    grid: { perRow: 4, lane: 2, row: 3 },
   },
   version: 4, // bump when sim or generator behaviour changes (invalidates ghosts)
   tick: 1 / 60,

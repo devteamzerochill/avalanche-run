@@ -2,7 +2,7 @@
 // supabase start in the game folder). On Colyseus Cloud the same file runs
 // under PM2 (ecosystem.config.cjs) and listen() hands over to @colyseus/tools.
 //
-// Settings (environment): PORT (2567), CYCLE_SECONDS (300), LOCK_SECONDS (5),
+// Settings (environment): PORT (2567), CYCLE_SECONDS (300), LOCK_SECONDS (8),
 // SUPABASE_URL / SUPABASE_ANON_KEY, and either RACE_SERVER_EMAIL +
 // RACE_SERVER_PASSWORD (the race server's site account) or SUPABASE_SERVICE_KEY
 // (local stack by default). Read from server/.env when it exists (never committed).
@@ -47,10 +47,11 @@ export async function startRaceServer(opts = {}) {
   EnduranceRoom.settings = {
     db,
     cycleMs: (opts.cycleSeconds || arg('cycle') || +process.env.CYCLE_SECONDS || 300) * 1000,
-    lockMs: (opts.lockSeconds || +process.env.LOCK_SECONDS || 5) * 1000,
+    lockMs: (opts.lockSeconds || +process.env.LOCK_SECONDS || 8) * 1000, // 8 s: room for the intro (DECISIONS 70)
     dropTicks: opts.dropTicks || 180, // 3 s without inputs: out
     leadTicks: opts.leadTicks || 60, // inputs may run at most 1 s ahead of server time
     ramp: opts.ramp || CONFIG.race.ramp,
+    grid: opts.grid || null, // tests: a flat grid keeps riders identical
     log: opts.log || ((...a) => console.log(new Date().toISOString().slice(11, 19), ...a)),
   };
   const server = defineServer({

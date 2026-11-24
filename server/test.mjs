@@ -6,18 +6,20 @@
 import { randomUUID } from 'node:crypto';
 import { Client } from '@colyseus/sdk';
 import { CONFIG } from '../src/config.js';
-import { Sim } from '../src/core/sim.js';
+import { Sim, gridStart } from '../src/core/sim.js';
 import { Bot, HumanBot } from '../src/core/bot.js';
 import { judgeRide } from './scripted.mjs';
 import { quantise, Playback } from '../src/core/replay.js';
 import { test, eq, ok, report } from '../tests/harness.mjs';
 import { startRaceServer } from './index.mjs';
+import { EnduranceRoom } from './race-room.mjs';
 import { Supabase, supabaseSettings } from './supabase.mjs';
 
 const PORT = 2599;
 const RAMP = { from: 3, rate: 4 }; // races end within seconds
 const logs = [];
-await startRaceServer({ port: PORT, cycleSeconds: 20, lockSeconds: 3, ramp: RAMP, log: (...a) => logs.push(a.join(' ')) });
+// A flat grid (everyone starts at 0, 0) keeps riders comparable until section 6.
+await startRaceServer({ port: PORT, cycleSeconds: 20, lockSeconds: 3, ramp: RAMP, grid: { perRow: 99, lane: 0, row: 0 }, log: (...a) => logs.push(a.join(' ')) });
 
 const LOCAL = CONFIG.online.local;
 async function signUp(tag, displayName) {
@@ -50,7 +52,7 @@ async function rider(tag, brain, displayName) {
   const token = await signUp(tag, displayName);
   const client = new Client('ws://localhost:' + PORT);
   const room = await client.join('endurance', { token });
-  const me = { tag, room, brain, msgs: {}, results: [], balance: null, localDeath: 0 };
+  const me = { tag, token, room, brain, msgs: {}, results: [], balance: null, localDeath: 0 };
   for (const type of ['hello', 'next', 'checkin', 'withdraw', 'cancelled', 'countdown', 'go']) room.onMessage(type, (m) => (me.msgs[type] = m));
   room.onMessage('balance', (m) => {
     me.balance = m.balance;
@@ -64,7 +66,7 @@ async function rider(tag, brain, displayName) {
   room.onMessage('chat', (m) => me.chat.push(m));
   room.onMessage('countdown', (m) => {
     me.msgs.countdown = m;
-    if (m.me >= 0) me.race = { id: m.id, sim: new Sim(m.seed, { ramp: m.ramp }), bot: new Bot() };
+    if (m.me >= 0) me.race = { id: m.id, sim: new Sim(m.seed, { ramp: m.ramp, start: m.riders[m.me].start }), bot: new Bot() };
   });
   room.onMessage('go', (m) => {
     if (!me.race || me.race.id !== m.race) return;
@@ -307,7 +309,7 @@ test('rematch: the last fair race (not the voided one), its top 3, and replays t
   eq(m.riders.length, 3);
   const res = resultFor(D, race3);
   for (const r of m.riders) {
-    const sim = new Sim(m.seed, { ramp: m.ramp });
+    const sim = new Sim(m.seed, { ramp: m.ramp, start: r.start });
     const play = new Playback(r.data);
     while (sim.phase === 'ride' && sim.tick < r.end) sim.step(play.next());
     const s = res.standings.find((x) => x.name === r.name);
@@ -340,6 +342,41 @@ test('only the race server account (or the service role) may call the ledger', (
   ok(anonStatus >= 400, 'anon is refused (' + anonStatus + ')');
   ok(nameStatus >= 400, 'players cannot call avalanche_player_name (' + nameStatus + ')');
   ok(refusedAfter, 'refused again once server_user is cleared');
+});
+
+// --- 6. the real start grid: a random order in rows that start apart -----------------
+EnduranceRoom.settings.grid = null;
+const grid = [];
+for (let k = 0; k < 5; k++) grid.push(await rider('grid' + k, 'none'));
+// Two of them have a profile, so the server has a look to show.
+for (const r of grid.slice(0, 2)) await callAs(r.token, 'get_avalanche_profile', {});
+const race6 = await checkIn(grid);
+const lobbyLooks = grid[4].msgs.next.looks;
+await until(() => grid.every((r) => resultFor(r, race6)), 60000, 'race 6 result');
+await wait(800);
+
+test('grid: 5 riders in a front row of 4 and a back row of 1, every slot its own start', () => {
+  const cd = grid[0].msgs.countdown;
+  const starts = cd.riders.map((r) => r.start);
+  eq(starts.map((p) => p.x + ',' + p.d).join(' '), [0, 1, 2, 3, 4].map((i) => { const p = gridStart(i, 5); return p.x + ',' + p.d; }).join(' '), 'slots follow gridStart');
+  ok(starts[0].d > starts[4].d, 'the front row starts further down the slope');
+  eq(new Set(grid.map((r) => r.msgs.countdown.me)).size, 5, 'every rider has their own slot');
+});
+
+test('grid: the server replays each rider from their own start (death ticks agree)', () => {
+  // The winner's clock stops once they outlive everyone, so only the others compare.
+  const res = resultFor(grid[0], race6);
+  const out = grid.filter((r) => byName(res, r).place > 1);
+  ok(out.length >= 3, out.length + ' riders went out');
+  for (const r of out) eq(byName(res, r).tick, r.localDeath, r.tag + ' death tick');
+});
+
+test('looks: the lobby and the countdown carry each rider\'s look (none without a profile)', () => {
+  const cd = grid[0].msgs.countdown;
+  eq(lobbyLooks.length, 5, 'one look per lobby rider');
+  eq(lobbyLooks.filter(Boolean).length, 2, 'two riders have a profile');
+  eq(cd.riders.filter((r) => r.look).length, 2, 'the countdown has the same two');
+  ok(cd.riders.filter((r) => r.look).every((r) => typeof r.look.rider === 'string' && typeof r.look.board === 'string'), 'rider and board ids: ' + JSON.stringify(cd.riders.map((r) => r.look)));
 });
 
 const failed = report();

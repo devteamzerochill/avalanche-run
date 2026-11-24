@@ -4,7 +4,7 @@ import { RECORD } from './systems/record.js'; // first: installs the virtual clo
 import * as THREE from 'three';
 import { CONFIG, RIDERS, BOARDS, TRAILS, applyParams } from './config.js';
 import { dailySeed, utcDay, clamp } from './core/rng.js';
-import { Sim } from './core/sim.js';
+import { Sim, gridStart } from './core/sim.js';
 import { Bot, HumanBot } from './core/bot.js';
 import { Recorder, Playback, quantise } from './core/replay.js';
 import { Store } from './systems/save.js';
@@ -21,10 +21,11 @@ import { isAdBuild, hasCta, openStore, track } from './systems/playable.js';
 import { Stage } from './render/stage.js';
 import { Props } from './render/props.js';
 import { Rider, GALAXY } from './render/rider.js';
+import { Racers } from './render/racers.js';
 import { Avalanche } from './render/avalanche.js';
 import { Particles, Snowfall, Trail, SpeedTrail, makeBlobShadow } from './render/particles.js';
 import { ChaseCamera } from './render/camera.js';
-import { UI } from './ui/ui.js';
+import { UI, chatText } from './ui/ui.js';
 import { FRAME, applyFrame } from './ui/frame.js';
 import { Perf } from './systems/perf.js';
 
@@ -53,10 +54,10 @@ class Game {
     CONFIG.score.tricks = CONFIG.score.tricksLive || !realSite;
     this.attempt = null;
     // Endurance race (?race): the race server replays every rider and decides
-    // the result; this side streams inputs and draws the others as ghosts.
+    // the result; this side streams inputs and draws the others in their own look.
     this.race = raceRequested() ? new RaceClient((type, m) => this.onRace(type, m)) : null;
     this.raceMode = null; // the race being ridden
-    this.raceGhosts = [];
+    this.said = new Map(); // grid slot or lobby place -> { id, at }: the last quick-chat line
     setLang(window.__LANG || this.profile.settings.lang);
 
     if (PORTRAIT) document.body.classList.add('portrait-lock');
@@ -87,6 +88,8 @@ class Game {
     this.snowfall = new Snowfall(this.stage, 1500);
     this.trail = new Trail(this.stage);
     this.speedTrail = new SpeedTrail(this.stage);
+    this.racers = new Racers(this.stage);
+    this.shotW = 0; // weight of a set camera shot (lobby grid, race intro)
     this.mirrorEl = document.getElementById('mirror');
     this.shadow = makeBlobShadow();
     this.stage.world.add(this.shadow);
@@ -170,6 +173,7 @@ class Game {
         }
       },
       panelClosed: (name) => {
+        if (name === 'lobby' && this.state === 'title') this.ui.showTitle(true);
         // A race is over once its result panel is closed.
         if (name === 'race' && this.raceMode && this.state === 'end') this.toTitle();
         if (name === 'how' && !this.profile.seenHow) {
@@ -273,7 +277,7 @@ class Game {
     this.ghostAhead = null;
     if (this.rematch) {
       this.rematch = null;
-      for (const r of this.raceGhosts) r.root.visible = false;
+      this.racers.hide();
       this.ui.raceHud(null);
       this.ui.raceTags([]);
     }
@@ -341,16 +345,16 @@ class Game {
   }
 
   // Sparks off the tail of the board from a worn trail (Shards shop).
-  trailSparks(dt, sim, y) {
-    const tr = this.trailItem;
+  // tr: the trail item; o: who keeps the spark count (spark); x, y, d: the board.
+  trailSparks(dt, tr, o, x, y, d, v, air) {
     if (!tr) return;
-    this.sparkAcc = (this.sparkAcc || 0) + dt * tr.spark.rate * (sim.air ? 1.4 : 1);
+    o.spark = (o.spark || 0) + dt * tr.spark.rate * (air ? 1.4 : 1);
     const hues = tr.spark.hues;
-    for (; this.sparkAcc >= 1; this.sparkAcc--) {
+    for (; o.spark >= 1; o.spark--) {
       const hue = tr.rainbow ? (this.time * 0.6 + Math.random() * 0.3) % 1 : hues[(Math.random() * hues.length) | 0];
       const side = Math.random() < 0.5 ? -0.2 : 0.2;
       const up = tr.spark.rise ? 1.6 + Math.random() * 2.2 : 0.3 + Math.random() * 1.2;
-      this.particles.emit(sim.x + side + (Math.random() - 0.5) * 0.2, y + 0.15, sim.dist - 0.9, (Math.random() - 0.5) * 1.6, up, sim.v * 0.88, 0.3 + Math.random() * 0.3, 0.3 + Math.random() * 0.35, 0.9, tr.spark.rise ? 0 : 2, (tr.spark.pastel ? 20 : 10) + hue);
+      this.particles.emit(x + side + (Math.random() - 0.5) * 0.2, y + 0.15, d - 0.9, (Math.random() - 0.5) * 1.6, up, v * 0.88, 0.3 + Math.random() * 0.3, 0.3 + Math.random() * 0.35, 0.9, tr.spark.rise ? 0 : 2, (tr.spark.pastel ? 20 : 10) + hue);
     }
   }
 
@@ -516,7 +520,10 @@ class Game {
       this.ui.closePanel(true);
       this.ui.openPanel('race');
     }
-    if (type === 'chat') this.ui.chatHeard(m);
+    if (type === 'chat') {
+      this.ui.chatHeard(m);
+      if (m.i >= 0) this.said.set(m.i, { id: m.id, at: this.time });
+    }
     if (type === 'results' && this.raceMode && m.race === this.raceMode.id) {
       const mine = m.standings.find((x) => x.i === this.raceMode.me);
       this.ui.raceTab = 'results';
@@ -556,8 +563,13 @@ class Game {
     this.ui.el.hud.classList.add('racing');
     this.wiping = false;
     this.attempt = null;
-    this.raceMode = { id: info.id, seed: info.seed, ramp: info.ramp, me: info.me, goAt: info.goAt, go: false, batch: [], ticks: 0, from: 0, shown: false, ghosts: new Map(), snapAt: 0, alive: new Map() };
-    this.newSim(info.seed, { ramp: info.ramp });
+    this.raceMode = { id: info.id, seed: info.seed, ramp: info.ramp, me: info.me, goAt: info.goAt, go: false, batch: [], ticks: 0, from: 0, shown: false, ghosts: new Map(), snapAt: 0, alive: new Map(), looks: new Map(info.riders.map((r) => [r.i, r.look])), riders: info.riders, pot: info.pot };
+    const mine = info.riders.find((r) => r.i === info.me);
+    // Each rider starts from their own grid slot (DECISIONS 70).
+    this.newSim(info.seed, { ramp: info.ramp, start: mine && mine.start });
+    // Until the server's first positions arrive, the others stand on their slots.
+    for (const r of info.riders) if (r.i !== info.me && r.start) this.raceMode.ghosts.set(r.i, { i: r.i, d: r.start.d, x: r.start.x, y: 0, flags: 1, tick: 0, v: this.sim.v, hist: [[0, r.start.d, r.start.x, 0]] });
+    this.said.clear(); // lobby places are not grid slots
     // Races are ridden by hand: the server voids a win that follows the bot.
     this.bot = null;
     this.state = 'count';
@@ -587,7 +599,7 @@ class Game {
       this.wiping = false;
       if (this.raceMode) return; // a race countdown took over meanwhile
       this.newSim(m.seed, { ramp: m.ramp });
-      this.rematch = { race: m.race, riders: m.riders.map((r) => ({ name: r.name, place: r.place, sim: new Sim(m.seed, { ramp: m.ramp }), play: new Playback(r.data), end: r.end, out: false })), hudAt: -99 };
+      this.rematch = { race: m.race, riders: m.riders.map((r) => ({ name: r.name, place: r.place, look: r.look, sim: new Sim(m.seed, { ramp: m.ramp, start: r.start }), play: new Playback(r.data), end: r.end, out: false })), hudAt: -99 };
       this.bot = this.botOn ? this.makeBot() : null;
       this.attempt = null;
       this.state = 'count';
@@ -608,34 +620,19 @@ class Game {
     const q = this.rematch;
     const sim = this.sim;
     const live = q.riders.filter((g) => !g.out);
-    const near = live.filter((g) => Math.abs(g.sim.dist - sim.dist) < 140);
-    while (this.raceGhosts.length < near.length) {
-      const r = new Rider({ ghost: true });
-      r.root.visible = false;
-      this.stage.world.add(r.root);
-      this.raceGhosts.push(r);
-    }
+    const near = this.state === 'play' || this.state === 'count' ? live.filter((g) => Math.abs(g.sim.dist - sim.dist) < 140) : [];
     const terrain = this.stage.terrain;
     const tags = [];
-    const cam = this.stage.camera;
-    const v = this.tagV || (this.tagV = new THREE.Vector3());
     const medal = (p) => ['🥇', '🥈', '🥉'][p - 1] || '';
-    this.raceGhosts.forEach((r, k) => {
-      const g = near[k];
-      r.root.visible = !!g && this.state === 'play';
-      if (!g) return;
+    this.racers.begin();
+    near.forEach((g, k) => {
       const s = g.sim;
-      r.update(visDt, { mode: 'ride', x: s.x, y: terrain.groundStep(s.dist) + s.y, vx: s.vx, air: s.air, grab: s.grab, speed01, wipe: false, wipeT: 0, drift: 0 });
       // Carried forward by the render lead like the rider (see lead).
       const dz = s.dist + s.v * this.lead - sim.dist;
-      r.root.position.z = -dz;
-      if (this.state === 'play' && dz > -6) {
-        r.root.getWorldPosition(v);
-        v.y += 2.3;
-        v.project(cam);
-        if (v.z < 1 && Math.abs(v.x) < 1.1 && Math.abs(v.y) < 1.1) tags.push({ name: medal(g.place) + ' ' + g.name, x: ((v.x + 1) / 2) * this.stage.width, y: ((1 - v.y) / 2) * this.stage.height, far: Math.abs(dz) > 60, d: dz, lead: false });
-      }
+      const r = this.drawRacer(k, g.look, { x: s.x, y: terrain.groundStep(s.dist) + s.y, z: -dz, v: s.v, vx: s.vx, air: s.air, grab: s.grab, speed01, riding: this.state === 'play', fade: true }, visDt);
+      if (dz > -6) this.tagFor(tags, r.rider, medal(g.place) + ' ' + g.name, dz, false);
     });
+    this.racers.end();
     this.ui.raceTags(tags);
     // Place and gap among the podium, a few times a second.
     if (this.state === 'play' && sim.tick - q.hudAt >= 6) {
@@ -876,7 +873,7 @@ class Game {
     this.stopSpectate();
     this.raceMode = null;
     this.ui.el.hud.classList.remove('racing');
-    for (const r of this.raceGhosts) r.root.visible = false;
+    this.racers.hide();
     this.ui.raceHud(null);
     this.ui.raceTags([]);
   }
@@ -910,13 +907,8 @@ class Game {
       if (Math.abs(g.show - sim.dist) < 140) near.push(g);
     }
     near.sort((a, b) => Math.abs(a.show - sim.dist) - Math.abs(b.show - sim.dist));
-    const n = Math.min(near.length, CONFIG.race.ghosts);
-    while (this.raceGhosts.length < n) {
-      const r = new Rider({ ghost: true });
-      r.root.visible = false;
-      this.stage.world.add(r.root);
-      this.raceGhosts.push(r);
-    }
+    const n = this.state === 'title' ? 0 : Math.min(near.length, CONFIG.race.ghosts);
+    near.length = n;
     const terrain = this.stage.terrain;
     // Along the slope: the drawn position moves every tick at a smoothed speed
     // and eases towards each new estimate, so updates never show as snaps.
@@ -944,25 +936,154 @@ class Game {
       }
     }
     const tags = [];
-    const cam = this.stage.camera;
-    const v = this.tagV || (this.tagV = new THREE.Vector3());
-    this.raceGhosts.forEach((r, k) => {
-      const g = near[k];
-      r.root.visible = !!g && this.state !== 'title';
-      if (!g) return;
-      r.update(visDt, { mode: 'ride', x: g.dx, y: terrain.groundStep(g.disp) + g.dy, vx: 0, air: !!(g.flags & 2), grab: !!(g.flags & 4), speed01, wipe: false, wipeT: 0, drift: 0 });
+    const moving = this.state === 'play' || this.state === 'spectate';
+    this.racers.begin();
+    near.forEach((g, k) => {
       // sim.dist is carried forward by the part of a tick not yet simulated
-      // (see lead); carry the ghost the same, or it shudders against the rider.
-      r.root.position.z = -(g.disp + g.vs * this.lead - sim.dist);
-      // Name tag above the rider's head, in frame pixels.
-      if (this.state === 'play' && g.disp + g.vs * this.lead - sim.dist > -6) {
-        r.root.getWorldPosition(v);
-        v.y += 2.3;
-        v.project(cam);
-        if (v.z < 1 && Math.abs(v.x) < 1.1 && Math.abs(v.y) < 1.1) tags.push({ name: this.race.nameOf(g.i), x: ((v.x + 1) / 2) * this.stage.width, y: ((1 - v.y) / 2) * this.stage.height, far: Math.abs(g.show - sim.dist) > 60, d: g.show - sim.dist, lead: g.i === q.leader });
-      }
+      // (see lead); carry the rider the same, or it shudders against the fox.
+      const dz = g.disp + g.vs * this.lead - sim.dist;
+      const r = this.drawRacer(k, q.looks.get(g.i), { x: g.dx, y: terrain.groundStep(g.disp) + g.dy, z: -dz, v: g.vs, vx: 0, air: !!(g.flags & 2), grab: !!(g.flags & 4), speed01, riding: moving, fade: moving, hop: this.hop(g.i) }, visDt);
+      // Name tags on the grid (count) and while riding.
+      if ((this.state === 'play' || this.state === 'count') && dz > -6) this.tagFor(tags, r.rider, this.sayTag(g.i, this.race.nameOf(g.i)), g.show - sim.dist, g.i === q.leader);
     });
+    this.racers.end();
     this.ui.raceTags(tags);
+  }
+
+  // One other rider from the pool (DECISIONS 71): posed and placed in the slope
+  // frame (o.z), with its worn trail and sparks, and faded to see-through while
+  // it would hide the fox or the slope just ahead of it.
+  drawRacer(k, look, o, visDt) {
+    const r = this.racers.get(k, look);
+    const R = r.rider;
+    R.update(visDt, { mode: o.mode || 'ride', x: o.x, y: o.y, vx: o.vx || 0, air: o.air, grab: o.grab, speed01: o.speed01, wipe: false, wipeT: 0, drift: 0 });
+    R.root.position.z = o.z;
+    if (o.hop) R.root.position.y += Math.sin(o.hop * Math.PI) * 0.7;
+    const sim = this.sim;
+    const inView = o.fade && Math.abs(o.x - sim.x) < 1.7 && o.z > -4 && o.z < CONFIG.camera.distance + 1;
+    r.alpha += ((inView ? 0.3 : 1) - r.alpha) * Math.min(1, visDt * 8);
+    R.setOpacity(r.alpha > 0.97 ? 1 : r.alpha);
+    const tr = r.items.trail;
+    r.trail.mesh.visible = !!tr && o.riding;
+    if (r.trail.mesh.visible) {
+      const d = sim.dist - o.z;
+      r.trail.mesh.position.z = o.z;
+      r.trail.update(visDt, o.x, o.y, d, o.vx || 0, 0.35, 0, this.stage.mood.accent, true);
+      this.trailSparks(visDt, tr, r, o.x, o.y, d, o.v, o.air);
+    } else r.trail.reset();
+    return r;
+  }
+
+  // A name tag over a drawn rider's head, in frame pixels (d: metres ahead of the fox).
+  tagFor(tags, rider, name, d, lead) {
+    const v = this.tagV || (this.tagV = new THREE.Vector3());
+    rider.root.getWorldPosition(v);
+    v.y += 2.3;
+    v.project(this.stage.camera);
+    if (v.z < 1 && Math.abs(v.x) < 1.1 && Math.abs(v.y) < 1.1) tags.push({ name, x: ((v.x + 1) / 2) * this.stage.width, y: ((1 - v.y) / 2) * this.stage.height, far: Math.abs(d) > 60, d, lead });
+  }
+
+  // A rider's name, with their quick-chat line for a few seconds after they say it.
+  sayTag(i, name) {
+    const s = this.said.get(i);
+    return s && this.time - s.at < 3 ? name + ' ' + chatText(s.id) : name;
+  }
+
+  // 0..1 through a little hop after an emote, else 0.
+  hop(i) {
+    const s = this.said.get(i);
+    const u = s && /^e_/.test(s.id) ? (this.time - s.at) / 0.45 : 1;
+    return u >= 0 && u < 1 ? u : 0;
+  }
+
+  // The lobby (DECISIONS 69): everyone checked in stands on the start grid in
+  // their own look, in check-in order until the server shuffles them at the
+  // close. The fox stays where it is; the grid is laid out around it.
+  drawLobby(visDt) {
+    const n = this.race && this.race.next;
+    const sim = this.sim;
+    const terrain = this.stage.terrain;
+    const tags = [];
+    this.racers.begin();
+    if (n && n.in && n.names && n.me >= 0) {
+      const N = n.names.length;
+      const mine = gridStart(n.me, N);
+      for (let i = 0, k = 0; i < N && k < CONFIG.race.ghosts; i++) {
+        if (i === n.me) continue;
+        const s = gridStart(i, N);
+        const dz = s.d - mine.d;
+        const r = this.drawRacer(k++, n.looks && n.looks[i], { mode: 'idle', x: s.x - mine.x, y: terrain.groundStep(sim.dist + dz), z: -dz, v: 0, air: false, grab: false, speed01: 0, riding: false, fade: false, hop: this.hop(i) }, visDt);
+        this.tagFor(tags, r.rider, this.sayTag(i, n.names[i]), dz, false);
+      }
+    }
+    this.racers.end();
+    this.ui.raceTags(tags);
+  }
+
+  // Every grid slot in the slope frame around the fox (slot me, drawn at foxX).
+  gridPoints(N, me, foxX) {
+    const mine = gridStart(me, N);
+    const T = this.stage.terrain;
+    const pts = [];
+    for (let i = 0; i < N; i++) {
+      const s = gridStart(i, N);
+      const dz = s.d - mine.d;
+      pts.push({ x: s.x - mine.x + foxX, z: -dz, y: T.groundStep(this.sim.dist + dz) });
+    }
+    return pts;
+  }
+
+  // Set camera shots: the lobby looks back up at the grid from in front of it;
+  // the race intro flies from there over the grid and settles behind the fox
+  // for the 3-2-1. Null when the chase camera has the shot to itself.
+  raceShot(dt) {
+    const n = this.race && this.race.next;
+    const q = this.raceMode;
+    let pts = null;
+    let u = 0;
+    if (this.state === 'title' && this.ui.panelName === 'lobby' && n && n.in && n.names && n.me >= 0) pts = this.gridPoints(n.names.length, n.me, 0);
+    else if (this.state === 'count' && q && q.riders.every((r) => r.start)) {
+      pts = this.gridPoints(q.riders.length, q.me, this.sim.x);
+      u = clamp(1 - (this.countT - CONFIG.race.slopeCount) / CONFIG.race.introSeconds, 0, 1);
+    }
+    this.shotW += ((pts ? 1 : 0) - this.shotW) * Math.min(1, dt * 2.5);
+    if (!pts) {
+      // Left the lobby: ease back from the last shot (the intro ends at weight 0).
+      if (!this.shot || this.shot.w < 0.001) return null;
+      this.shot.w *= 1 - Math.min(1, dt * 2.5);
+      return this.shot;
+    }
+    const T = this.stage.terrain;
+    const g = (z) => T.groundStep(this.sim.dist - z);
+    let x0 = Infinity, x1 = -Infinity, zF = Infinity, zB = -Infinity;
+    for (const p of pts) {
+      x0 = Math.min(x0, p.x);
+      x1 = Math.max(x1, p.x);
+      zF = Math.min(zF, p.z);
+      zB = Math.max(zB, p.z);
+    }
+    const cx = (x0 + x1) / 2;
+    const zc = (zF + zB) / 2;
+    const fx = pts.length ? this.sim.x : 0;
+    const S = this.shot || (this.shot = { pos: new THREE.Vector3(), look: new THREE.Vector3(), w: 0, path: new THREE.CatmullRomCurve3([0, 1, 2, 3].map(() => new THREE.Vector3())), aim: new THREE.CatmullRomCurve3([0, 1, 2, 3].map(() => new THREE.Vector3())) });
+    const back = 7.5 + (x1 - x0) * 0.35; // wider grids need the camera further out
+    const P = S.path.points;
+    const L = S.aim.points;
+    P[0].set(cx + 1.4, g(zF - back) + 2.1, zF - back);
+    L[0].set(cx, g(zc) + 0.3, zc);
+    P[1].set(cx - 6.5, g(zc) + 4.6, zc - 1);
+    L[1].set(cx, g(zc) + 0.8, zc);
+    P[2].set(fx + 3, g(zB + 6) + 4.4, zB + 6);
+    L[2].set(fx, g(0) + 1, 0);
+    P[3].set(fx, g(5.5) + 2.6, 5.5);
+    L[3].set(fx, g(-12), -12);
+    const e = u * u * (3 - 2 * u);
+    S.path.getPoint(e, S.pos);
+    S.aim.getPoint(e, S.look);
+    // The last stretch hands over to the chase camera itself.
+    const k = clamp((u - 0.72) / 0.28, 0, 1);
+    S.w = this.shotW * (1 - k * k * (3 - 2 * k));
+    return S;
   }
 
   // The page answered: redraw whatever shows online data.
@@ -1383,10 +1504,17 @@ class Game {
       // A race starts on the server's word, not when the local count runs out.
       if (this.raceMode) this.countT = this.raceMode.go ? 0 : Math.max(0.01, (this.raceMode.goAt - this.race.now()) / 1000);
       const n = Math.ceil(this.countT / (this.raceMode ? 1 : 0.8));
-      // A race: the lobby counts to 0, then a short 3-2-1 on the slope.
-      const lobby = this.raceMode && this.ui.panelName === 'lobby';
-      if (lobby && this.countT <= CONFIG.race.slopeCount) this.ui.closePanel(true);
-      if (n !== this.countShown && n > 0 && !(lobby && this.countT > CONFIG.race.slopeCount)) {
+      // A race: the lobby counts to 0, the camera flies down the grid (DECISIONS 70),
+      // then a short 3-2-1 on the slope.
+      const q = this.raceMode;
+      const introAt = CONFIG.race.slopeCount + CONFIG.race.introSeconds;
+      if (q && this.ui.panelName === 'lobby' && this.countT <= introAt) this.ui.closePanel(true);
+      if (q && !q.intro && this.countT <= introAt && this.countT > CONFIG.race.slopeCount + 0.5) {
+        q.intro = true;
+        this.ui.banner(t('race.title'), t('race.introSub', { n: q.riders.length, pot: q.pot || 0 }), 'go', CONFIG.race.introSeconds * 0.75);
+        this.audio.play('whoosh');
+      }
+      if (n !== this.countShown && n > 0 && !(q && this.countT > CONFIG.race.slopeCount)) {
         this.countShown = n;
         this.ui.banner(String(n), '', 'count', 0.8);
         this.audio.play('count');
@@ -1522,6 +1650,9 @@ class Game {
       drift: sim.drift,
       vyNorm: clamp(sim.vy / 10, -1, 1),
     });
+    const meAt = this.raceMode ? this.raceMode.me : this.race && this.race.next && this.race.next.in ? this.race.next.me : -1;
+    const hop = meAt >= 0 && (title || this.state === 'count') ? this.hop(meAt) : 0;
+    if (hop) this.rider.root.position.y += Math.sin(hop * Math.PI) * 0.7;
     const groundSmooth = terrain.groundAt(sim.dist);
     const hAbove = Math.max(0, riderY - groundSmooth);
     const sh = 1.5 / (1 + hAbove * 0.3);
@@ -1532,7 +1663,7 @@ class Game {
 
     const boost01 = clamp(sim.boostNow / CONFIG.boost.amount, 0, 1);
     this.speedTrail.update(dt, sim.x, riderY, sim.dist, sim.vx, riding ? clamp((sim.v - 24) / 26, 0, 1) : 0, riding ? boost01 : 0, st.mood.accent, riding);
-    if (riding) this.trailSparks(dt, sim, riderY);
+    if (riding) this.trailSparks(dt, this.trailItem, this, sim.x, riderY, sim.dist, sim.v, sim.air);
     GALAXY.uGTime.value = this.time;
     GALAXY.uGPx.value = 1 / Math.max(1, st.renderer.domElement.height);
 
@@ -1571,6 +1702,8 @@ class Game {
 
     if (this.raceMode) this.drawRaceGhosts(visDt, speed01);
     else if (this.rematch) this.drawRematch(visDt, speed01);
+    else if (title && this.ui.panelName === 'lobby') this.drawLobby(visDt);
+    else if (this.racers.list.some((r) => r.used)) this.racers.hide(), this.ui.raceTags([]);
 
     // Spray. Everything comes off the tail of the board (TAIL metres behind centre).
     const TAIL = 1.0;
@@ -1625,6 +1758,7 @@ class Game {
       wipe,
       reduced: !!set.reducedMotion,
       shakeScale: set.shake,
+      shot: this.raceShot(dt),
     });
     if (first) this.camera.snap({ mode: 'title', x: 0, ground: 0 });
 

@@ -11,7 +11,7 @@
 import { randomInt } from 'node:crypto';
 import { Room } from '@colyseus/core';
 import { CONFIG, QUICK_CHAT } from '../src/config.js';
-import { Sim } from '../src/core/sim.js';
+import { Sim, gridStart } from '../src/core/sim.js';
 import { Recorder } from '../src/core/replay.js';
 import { judgeRide } from './scripted.mjs';
 
@@ -105,14 +105,15 @@ export class EnduranceRoom extends Room {
 
   nextInfo(userId) {
     const n = this.next;
-    // names: who is in the lobby, in check-in order.
-    return n ? { id: n.id, startAt: n.startAt, lockAt: n.startAt - this.lockMs, fee: n.fee, prizePct: n.prizePct, riders: n.entries.size, pot: n.pot, in: n.entries.has(userId), names: [...n.entries].map((id) => (n.names && n.names.get(id)) || 'rider') } : null;
+    // names and looks: who is in the lobby, in check-in order (me: this player's place in it).
+    return n ? { id: n.id, startAt: n.startAt, lockAt: n.startAt - this.lockMs, fee: n.fee, prizePct: n.prizePct, riders: n.entries.size, pot: n.pot, in: n.entries.has(userId), me: [...n.entries].indexOf(userId), names: [...n.entries].map((id) => (n.names && n.names.get(id)) || 'rider'), looks: [...n.entries].map((id) => (n.looks && n.looks.get(id)) || null) } : null;
   }
 
   raceInfo(userId) {
     const r = this.race;
     if (!r) return null;
-    return { id: r.id, seed: r.seed, goAt: r.goAt || r.startAt, ramp: this.ramp, riders: r.list.map((x) => ({ i: x.i, name: x.name })), me: r.riders.has(userId) ? r.riders.get(userId).i : -1, started: !!r.goAt };
+    // i is the rider's grid slot; start is where it puts them.
+    return { id: r.id, seed: r.seed, goAt: r.goAt || r.startAt, ramp: this.ramp, pot: r.pot, riders: r.list.map((x) => ({ i: x.i, name: x.name, look: x.look, start: x.start })), me: r.riders.has(userId) ? r.riders.get(userId).i : -1, started: !!r.goAt };
   }
 
   broadcastNext() {
@@ -125,6 +126,18 @@ export class EnduranceRoom extends Room {
     client.send('board', res);
   }
 
+  // Each rider's outfit, board and trail, read from their profile so nobody can
+  // show items they don't own (DECISIONS 71). Looks only: a failure leaves the default.
+  async readLooks(n, ids) {
+    n.looks = n.looks || new Map();
+    try {
+      const res = await this.db.rpc('race_looks', { p_users: ids });
+      for (const id of ids) if (res && res[id]) n.looks.set(id, res[id]);
+    } catch (err) {
+      this.log('looks', err.message);
+    }
+  }
+
   async checkIn(client) {
     const n = this.next;
     if (!n) return client.send('checkin', { ok: false, reason: 'no race open' });
@@ -134,6 +147,7 @@ export class EnduranceRoom extends Room {
       n.pot = res.pot;
       n.names = n.names || new Map();
       n.names.set(client.auth.id, nameOf(client.auth));
+      await this.readLooks(n, [client.auth.id]);
     }
     client.send('checkin', Object.assign({ race: n.id }, res));
     if (res.ok) this.broadcastNext();
@@ -166,9 +180,11 @@ export class EnduranceRoom extends Room {
     this.chatAt.set(u.id, now);
     const r = this.race && !this.race.done && this.race.riders.has(u.id) ? this.race : null;
     const ids = r ? r.list.map((x) => x.id) : this.next && this.next.entries.has(u.id) ? [...this.next.entries] : [];
+    // i: the speaker's grid slot (race) or lobby place, so their rider can react.
+    const i = r ? r.riders.get(u.id).i : ids.indexOf(u.id);
     for (const to of ids) {
       const c = this.users.get(to);
-      if (c) c.send('chat', { name: nameOf(u), id, me: to === u.id, race: r ? r.id : this.next.id });
+      if (c) c.send('chat', { name: nameOf(u), id, i, me: to === u.id, race: r ? r.id : this.next.id });
     }
   }
 
@@ -211,11 +227,21 @@ export class EnduranceRoom extends Room {
       }
       return;
     }
+    // The start grid (DECISIONS 70): a random order, front row first. Rows
+    // start at different distances; the slot is the rider's index.
+    const grid = EnduranceRoom.settings.grid || CONFIG.race.grid;
+    for (let k = ids.length - 1; k > 0; k--) {
+      const j = randomInt(k + 1);
+      [ids[k], ids[j]] = [ids[j], ids[k]];
+    }
+    await this.readLooks(n, ids); // outfits bought in the lobby
     const list = ids.map((id, i) => ({
       i,
       id,
       name: (n.names && n.names.get(id)) || 'rider',
-      sim: new Sim(n.seed, { ramp: this.ramp }),
+      look: (n.looks && n.looks.get(id)) || null,
+      start: gridStart(i, ids.length, grid),
+      sim: new Sim(n.seed, { ramp: this.ramp, start: gridStart(i, ids.length, grid) }),
       alive: true,
       deathTick: 0,
       dist: 0,
@@ -326,7 +352,7 @@ export class EnduranceRoom extends Room {
     // A win that follows the game's own bot voids the race: nobody is paid and
     // every fee goes back.
     const flagged = rows.filter(({ x, place }) => place === 1).filter(({ x }) => {
-      const v = judgeRide(r.seed, this.ramp, x.runs);
+      const v = judgeRide(r.seed, this.ramp, x.runs, x.start);
       this.log('judge', x.name, JSON.stringify({ exact: +v.exact.toFixed(3), follow: +v.follow.toFixed(3), off: +v.followOff.toFixed(3), gap: +v.meanGap.toFixed(2), lag: v.lag, jumps: v.onCue + '/' + v.jumps, scripted: v.scripted }));
       return v.scripted;
     });
@@ -361,7 +387,7 @@ export class EnduranceRoom extends Room {
             const rec = new Recorder();
             rec.runs = x.runs;
             // end: the tick the rider went out (or the race ended); the inputs stop there.
-            return { name: x.name, place, dist: Math.floor(x.dist), end: x.alive ? x.sim.tick : x.deathTick, data: rec.encode() };
+            return { name: x.name, place, dist: Math.floor(x.dist), end: x.alive ? x.sim.tick : x.deathTick, start: x.start, look: x.look, data: rec.encode() };
           }),
       };
     }

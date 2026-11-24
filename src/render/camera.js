@@ -1,6 +1,7 @@
 // Chase camera in the slope frame. Prototype framing, plus: speed and boost
 // FOV kicks, landing dip, carve roll, an intro shot that looks back up at the
-// avalanche, and a swing back to the wall when it catches the rider.
+// avalanche, a swing back to the wall when it catches the rider, and set
+// shots for the race lobby and intro (s.shot).
 import * as THREE from 'three';
 import { CONFIG } from '../config.js';
 
@@ -79,6 +80,12 @@ export class ChaseCamera {
     this.look.lerpVectors(this.b, this.d, k);
     // Swing wide while blending so the move reads as an orbit, not a slide.
     this.pos.x += Math.sin(k * Math.PI) * 2.2;
+    // A set shot (lobby grid, race intro: s.shot { pos, look, w }) over the top.
+    const w = s.shot ? s.shot.w : 0;
+    if (w > 0) {
+      this.pos.lerp(s.shot.pos, w);
+      this.look.lerp(s.shot.look, w);
+    }
 
     this.shake = Math.max(0, this.shake - dt * 1.7);
     const rumble = s.mode === 'ride' ? Math.max(0, s.danger - 0.22) * 0.26 : 0;
@@ -90,7 +97,7 @@ export class ChaseCamera {
     this.cam.position.copy(this.pos);
     this.cam.up.set(0, 1, 0);
     this.cam.lookAt(this.look.applyMatrix4(st.world.matrixWorld));
-    this.roll = ease(this.roll, motion * THREE.MathUtils.clamp(-s.vx * 0.0045, -0.07, 0.07) * (1 - k), 6, dt);
+    this.roll = ease(this.roll, motion * THREE.MathUtils.clamp(-s.vx * 0.0045, -0.07, 0.07) * (1 - k) * (1 - w), 6, dt);
     this.cam.rotateZ(this.roll);
     this.cam.updateProjectionMatrix();
   }

@@ -337,6 +337,27 @@ export class Rider {
     }
   }
 
+  // See-through (a < 1) or solid (1): another racer fades when it would hide
+  // the player's fox or the slope ahead (DECISIONS 71).
+  setOpacity(a) {
+    if (this.alpha === a) return;
+    if (!this.allMats) {
+      const set = new Set();
+      this.root.traverse((o) => o.material && set.add(o.material));
+      this.allMats = [...set].map((m) => ({ m, opacity: m.opacity, transparent: m.transparent, depthWrite: m.depthWrite }));
+    }
+    const solid = a >= 1;
+    for (const b of this.allMats) {
+      const tr = solid ? b.transparent : true;
+      // Opaque materials compile without alpha, so switching needs a rebuild (cached after once).
+      if (b.m.transparent !== tr) b.m.needsUpdate = true;
+      b.m.transparent = tr;
+      b.m.opacity = b.opacity * a;
+      b.m.depthWrite = solid ? b.depthWrite : false;
+    }
+    this.alpha = a;
+  }
+
   place(mesh, a, b) {
     const t = this.v.t.subVectors(b, a);
     const len = Math.max(0.001, t.length());
