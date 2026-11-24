@@ -501,11 +501,7 @@ class Game {
     this.raceMode = { id: info.id, me: info.me, goAt: info.goAt, go: false, batch: [], ticks: 0, from: 0, shown: false, ghosts: new Map(), snapAt: 0, alive: new Map() };
     this.newSim(info.seed, { ramp: info.ramp });
     // Races are ridden by hand: the server voids a win that follows the bot.
-    // Test only: ?racebot lets the bot ride on the local stack with a practice
-    // account (@avalanche.test), which the local server exempts from that check.
-    const live = this.host.live;
-    const testBot = query.has('racebot') && live && live.url === CONFIG.online.local.url.replace(/\/$/, '') && /@avalanche\.test$/.test(live.email);
-    this.bot = testBot ? this.makeBot() : null;
+    this.bot = null;
     this.state = 'count';
     this.countT = 9;
     this.countShown = 0;
