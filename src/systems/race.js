@@ -21,6 +21,11 @@ export function raceServer() {
   return q.get('live') === 'local' || onThisPc ? CONFIG.race.localServer : CONFIG.race.server;
 }
 
+// Solo runs are checked by replay on the race server (DECISIONS 72).
+export function runCheckUrl() {
+  return raceServer().replace(/^ws/, 'http') + '/run-check';
+}
+
 function loadSdk() {
   if (window.Colyseus) return Promise.resolve(window.Colyseus);
   return new Promise((resolve, reject) => {

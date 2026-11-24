@@ -138,14 +138,18 @@ export class Host {
 
   // The attempt is over: the page submits the score once, with this key, and
   // the run summary the server uses for snowflakes, missions and the streak.
-  endAttempt(score, stats) {
+  // check(key): the replay check (DECISIONS 72), which must be recorded before
+  // the page submits; the score goes either way (the site decides).
+  endAttempt(score, stats, check) {
     const a = this.current;
     if (!a || a.status !== 'playing') return null;
     a.score = Math.max(0, Math.round(score));
     a.key = attemptKey(a.startMs, a.score);
     a.status = 'saving';
     a.stats = stats || {};
-    this.send('attempt_end', { attempt: a.id, score: a.score, key: a.key, stats: a.stats });
+    const send = () => this.send('attempt_end', { attempt: a.id, score: a.score, key: a.key, stats: a.stats });
+    if (check) Promise.resolve().then(() => check(a.key)).catch(() => {}).finally(send);
+    else send();
     return a;
   }
 

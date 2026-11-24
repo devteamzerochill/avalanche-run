@@ -9,7 +9,8 @@ import { CONFIG } from '../src/config.js';
 import { Sim, gridStart } from '../src/core/sim.js';
 import { Bot, HumanBot } from '../src/core/bot.js';
 import { judgeRide } from './scripted.mjs';
-import { quantise, Playback } from '../src/core/replay.js';
+import { quantise, Playback, Recorder } from '../src/core/replay.js';
+import { dailySeed, utcDay } from '../src/core/rng.js';
 import { test, eq, ok, report } from '../tests/harness.mjs';
 import { startRaceServer } from './index.mjs';
 import { EnduranceRoom } from './race-room.mjs';
@@ -377,6 +378,66 @@ test('looks: the lobby and the countdown carry each rider\'s look (none without 
   eq(lobbyLooks.filter(Boolean).length, 2, 'two riders have a profile');
   eq(cd.riders.filter((r) => r.look).length, 2, 'the countdown has the same two');
   ok(cd.riders.filter((r) => r.look).every((r) => typeof r.look.rider === 'string' && typeof r.look.board === 'string'), 'rider and board ids: ' + JSON.stringify(cd.riders.map((r) => r.look)));
+});
+
+// --- 7. solo scores checked by replay (DECISIONS 72) ---------------------------------
+// An honest run on today's mountain, ridden by the test bot with trick points on
+// (the server counts them as CONFIG.score.tricksLive says).
+function soloRun(ticks) {
+  const seed = dailySeed(utcDay());
+  const sim = new Sim(seed, {});
+  sim.tricks = CONFIG.score.tricksLive;
+  const bot = new Bot();
+  const rec = new Recorder();
+  for (let i = 0; i < ticks && sim.phase !== 'over'; i++) {
+    const input = quantise(bot.decide(sim));
+    rec.push(input);
+    sim.step(input);
+  }
+  const s = sim.summary();
+  return { seed, version: CONFIG.version, data: rec.encode(), score: s.score, metres: s.distance };
+}
+const runA = soloRun(2400);
+const soloToken = await signUp("solo");
+const check = (body) => fetch('http://localhost:' + PORT + '/run-check', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://zerochill.com' }, body: JSON.stringify(body) })
+  .then(async (r) => ({ status: r.status, cors: r.headers.get('access-control-allow-origin'), body: await r.json().catch(() => null) }));
+const honest = await check({ ...runA, token: soloToken, key: 'k-honest' });
+const inflated = await check({ ...runA, token: soloToken, key: 'k-inflated', score: runA.score + 500 });
+const wrongSeed = await check({ ...runA, token: soloToken, key: 'k-seed', seed: runA.seed + 1 });
+const again = await check({ ...runA, token: soloToken, key: 'k-inflated' }); // the first check stands
+const noToken = await check({ ...runA, token: 'nope-nope-nope-nope-nope', key: 'k-anon' });
+const preflight = await fetch('http://localhost:' + PORT + '/run-check', { method: 'OPTIONS', headers: { Origin: 'https://zerochill.com', 'Access-Control-Request-Method': 'POST' } });
+const directCheck = await callAs(soloToken, 'avalanche_run_check', { p_user: '00000000-0000-0000-0000-000000000000', p_key: 'x', p_score: 1, p_metres: 1, p_seed: 1, p_ok: true, p_reason: '', p_scripted: false });
+const setEnforce = (on) => fetch(db.s.url + '/rest/v1/avalanche_run_check_config?id=eq.1', { method: 'PATCH', headers: { apikey: db.s.service, Authorization: 'Bearer ' + db.s.service, 'Content-Type': 'application/json' }, body: JSON.stringify({ enforce: on }) });
+const submit = (key, score) => fetch(LOCAL.url + '/rest/v1/rpc/submit_avalanche_run', { method: 'POST', headers: { apikey: LOCAL.anonKey, Authorization: 'Bearer ' + soloToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_distance: score, p_key: key, p_stats: { distance: runA.metres } }) }).then((r) => r.json());
+await setEnforce(true);
+const subInflated = await submit('k-inflated', runA.score + 500);
+const subUnchecked = await submit('k-never-checked', runA.score);
+const subHonest = await submit('k-honest', runA.score);
+await setEnforce(false);
+const subObserve = await submit('k-observe', runA.score);
+
+test('run check: an honest solo run replays to its score and is recorded as ok', () => {
+  ok(runA.score > 0 && runA.metres > 0, 'the bot rode: ' + runA.score + ' pts, ' + runA.metres + ' m');
+  eq(honest.status, 200);
+  eq(honest.body && honest.body.ok, true, JSON.stringify(honest.body));
+  eq(honest.cors, '*', 'any page may ask');
+  eq(preflight.status, 204, 'CORS preflight');
+});
+
+test('run check: an inflated score or another mountain fails; a second try keeps the first verdict', () => {
+  eq(inflated.body && inflated.body.reason, 'score', JSON.stringify(inflated.body));
+  eq(wrongSeed.body && wrongSeed.body.reason, 'seed', JSON.stringify(wrongSeed.body));
+  eq(again.body && again.body.ok, false, 'the failed check stands: ' + JSON.stringify(again.body));
+  eq(noToken.status, 401, 'signed out');
+  ok(directCheck >= 400, 'players cannot record checks themselves (' + directCheck + ')');
+});
+
+test('run check enforced: only a run replayed to exactly that score counts', () => {
+  eq(subInflated.rejected && subInflated.reason, 'unverified', JSON.stringify(subInflated));
+  eq(subUnchecked.rejected && subUnchecked.reason, 'unverified', JSON.stringify(subUnchecked));
+  eq(subHonest.counted, true, JSON.stringify(subHonest));
+  eq(subObserve.counted, true, 'not enforced: counted without a check ' + JSON.stringify(subObserve));
 });
 
 const failed = report();

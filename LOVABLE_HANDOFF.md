@@ -55,6 +55,10 @@ What changes on the site's side:
 
 **Answered 2026-11-24 (DECISIONS 65):** the game sends `p_metres`, and `submit_avalanche_score` (migration 0312) feeds the Daily Reward bar and the run check from metres, so the rate limit and reward thresholds stay as they are; the switch happens when the new game replaces the old one, at a UTC midnight; all-time bests stay; no tournament is running.
 
+## Run checks (migration `20261129000000_run_checks.sql`, DECISIONS 72)
+
+Adds `avalanche_run_checks` and `avalanche_run_check_config` (both closed to players), `avalanche_run_check(...)` for the race server account only, and replaces our own `submit_avalanche_run` with the same body plus one check at the start. Nothing changes while `enforce` is false (the default). Live functions (`submit_avalanche_score` and the rest) are untouched.
+
 ## Tested locally
 
 On a local Supabase (Postgres 17, same auth and REST stack) with stand-ins for the live functions, `node tests/db.mjs` passes 11/11:

@@ -16,6 +16,7 @@ import { WebSocketTransport } from '@colyseus/ws-transport';
 import { CONFIG } from '../src/config.js';
 import { EnduranceRoom } from './race-room.mjs';
 import { Supabase, supabaseSettings } from './supabase.mjs';
+import { runCheckRoute } from './run-check.mjs';
 
 // dist/web/ only: the rest of the project (server/.env included) is never served.
 const web = path.resolve(fileURLToPath(new URL('../dist/web/', import.meta.url)));
@@ -58,7 +59,10 @@ export async function startRaceServer(opts = {}) {
     rooms: { endurance: defineRoom(EnduranceRoom) },
     transport: new WebSocketTransport(),
     greet: false,
-    ...(process.env.SERVE_GAME === '1' ? { express: serveGame } : {}),
+    express: (app) => {
+      runCheckRoute(app, db, EnduranceRoom.settings.log); // solo scores checked by replay (DECISIONS 72)
+      if (process.env.SERVE_GAME === '1') serveGame(app);
+    },
   });
   // Colyseus Cloud: its socket behind the proxy, and the 'ready' signal PM2 waits for (wait_ready).
   // Imported only there: @colyseus/tools loads server/.env as it loads, which must never reach the tests.
