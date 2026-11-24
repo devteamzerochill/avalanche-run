@@ -308,6 +308,13 @@ export class UI {
       d.style.left = (50 + x / 2).toFixed(1) + '%';
       d.className = (p.lead ? 'lead' : '') + (Math.abs(p.rel) > 100 ? ' edge' : '');
     });
+    // The riders just ahead and just behind, by name: someone to chase or hold off.
+    const near = (id, r, sign) => {
+      const html = r ? `<em>${esc(r.name)}</em><i>${sign} ${Math.abs(r.gap)} m</i>` : '';
+      if (this.cache[id] !== html) $(id).innerHTML = this.cache[id] = html;
+    };
+    near('rhAhead', s.ahead, '▲');
+    near('rhBehind', s.behind, '▼');
   }
 
   bumpEl(el) {
@@ -316,9 +323,10 @@ export class UI {
     el.classList.add('bump');
   }
 
-  // Name tags over the other riders: [{name, x, y, far}] in frame pixels.
+  // Name tags over the other riders: [{name, x, y, far, d, lead}] in frame pixels.
   raceTags(list) {
     const box = $('raceTags');
+    const w = box.clientWidth || 1;
     while (box.children.length < list.length) box.appendChild(document.createElement('span'));
     [...box.children].forEach((el, k) => {
       const g = list[k];
@@ -326,10 +334,11 @@ export class UI {
       if (!g) return;
       if (el.textContent !== g.name) el.textContent = g.name;
       el.className = (g.far ? 'far' : '') + (g.lead ? ' lead' : '');
-      // A rider close enough to see clearly needs no label over the slope ahead:
-      // hidden within 12 m, full strength from 30 m.
-      const fade = Math.min(1, Math.max(0, (Math.abs(g.d) - 12) / 18));
-      el.style.opacity = (fade * (g.far ? 0.6 : 0.85)).toFixed(2);
+      // Every drawn rider keeps its name, but a tag over the line ahead (the
+      // middle third of the screen, in front of this rider) drops to half
+      // strength so it never hides a hazard.
+      const ahead = g.d > 0 && Math.abs(g.x / w - 0.5) < 1 / 6;
+      el.style.opacity = ((g.far ? 0.6 : 0.85) * (ahead ? 0.5 : 1)).toFixed(2);
       el.style.transform = 'translate(' + g.x.toFixed(1) + 'px,' + g.y.toFixed(1) + 'px) translate(-50%,-100%)';
     });
   }

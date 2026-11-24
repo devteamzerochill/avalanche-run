@@ -118,7 +118,7 @@ Built and tested on this PC with the local Supabase and test Shards. Nothing is 
 - In the browser against two practice riders: check-in, countdown, riders-left counter, ghosts placed from server positions (checked in numbers, not caught in a screenshot), out panel, results, prize credited, back to title, and a daily run afterwards.
 
 **Polish (2026-11-23)**
-- In the race: place and gap in the HUD (other riders are carried forward to this phone's tick before comparing), an "X is out" side feed, name tags over the ghosts, and a winner banner with confetti.
+- In the race: place and gap in the HUD (other riders are carried forward to this phone's tick before comparing), an "X is out" side feed, name tags over the ghosts, the riders either side by name on the card, pass and gap lines in the side feed (DECISIONS 62), and a winner banner with confetti.
 - Names come from the account's display name (falling back to the email prefix). The race record (races, wins, Shards won) comes from the entries.
 - The client reconnects by itself (2 s doubling to 15 s), except after a refused sign-in. When the server rules a rider out (dropped, out of sync), the phone stops too and shows the out panel.
 - The race panel: a countdown hero with a time bar, pot / checked in / winner gets, a Check in button styled like Play (a "You're in" badge after), the record as tiles, and the rules as three lines. It uses the game's italic display type. The race UI is in en, es and zh.
