@@ -95,7 +95,7 @@ The game's race panel shows these rules in short form ("Record" tab and How to p
 
 ## Tested locally
 
-On a local Supabase with stand-in Shards, `node server/test.mjs` passes 11/11: cancel and refund; last rider standing wins; server and phone agree on the death tick; a sped-up client is out; names and race record; 90% payout and 10% burned with no house account; an exact tie splits the prize and the house account gets the fee and the odd Shard; leaving counts as dying; a bot win voided with both riders refunded; the race leaderboard counts settled races only; rematch data. Also played in the browser against practice riders: check-in, countdown, cancel, a voided race, a win and a rematch.
+On a local Supabase with stand-in Shards, `node server/test.mjs` passes 12/12: cancel and refund; last rider standing wins; server and phone agree on the death tick; a sped-up client is out; names and race record; 90% payout and 10% burned with no house account; an exact tie splits the prize and the house account gets the fee and the odd Shard; leaving counts as dying; a bot win voided with both riders refunded; a short win by the human-like bot caught; the race leaderboard counts settled races only; rematch data. Also played in the browser against practice riders: check-in, countdown, cancel, a voided race, a win and a rematch.
 
 **Not tested against the live database.** To confirm there:
 

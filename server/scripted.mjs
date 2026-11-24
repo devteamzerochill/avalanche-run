@@ -7,6 +7,10 @@
 //   steering within 0.5 m of the shadow (best lag)   human 45%   HumanBot 87-89%   Bot 100%
 //   mean steering gap at that lag                    human 1.02 m   HumanBot 0.22-0.26 m
 //   jumps 0-6 ticks after the shadow's jump          human 5/19   HumanBot every one
+// Short rides (fewer than 5 jumps, measured 2026-11-24 on 40 HumanBot rides
+// of 10-45 s): on ticks where the shadow aims off the centre line, the
+// HumanBot steers within 0.5 m of it 67-86% of the time with a mean gap of
+// at most 0.37 m; no human short ride was available to measure.
 // The thresholds sit well inside the bot side, because a false call takes a
 // real win away. A bot someone has written from scratch is not caught by this.
 import { Sim } from '../src/core/sim.js';
@@ -14,6 +18,7 @@ import { Bot } from '../src/core/bot.js';
 
 const MAX_LAG = 24; // ticks: covers the HumanBot's 8-15 tick reaction time
 const MIN_TICKS = 300; // under 5 s of riding says too little
+const MIN_OFF_TICKS = 300; // a short ride needs 5 s of the shadow steering off centre
 
 export function judgeRide(seed, ramp, runs) {
   const sim = new Sim(seed, { ramp });
@@ -22,6 +27,10 @@ export function judgeRide(seed, ramp, runs) {
   const near = new Float64Array(MAX_LAG + 1);
   const gap = new Float64Array(MAX_LAG + 1);
   const seen = new Float64Array(MAX_LAG + 1);
+  // The same, only on ticks where the shadow aimed off the centre line: at the
+  // start everyone sits on it, which says nothing in a short ride.
+  const nearOff = new Float64Array(MAX_LAG + 1);
+  const seenOff = new Float64Array(MAX_LAG + 1);
   let exact = 0;
   let offCentre = 0; // ticks the shadow aimed off the centre line
   let ticks = 0;
@@ -48,10 +57,15 @@ export function judgeRide(seed, ramp, runs) {
         if (bCm === txCm) exact++;
       }
       for (let L = 0; L <= MAX_LAG && L <= ticks; L++) {
-        const d = Math.abs(txCm - ring[(ticks - L) % ring.length]) / 100;
+        const target = ring[(ticks - L) % ring.length];
+        const d = Math.abs(txCm - target) / 100;
         if (d < 0.5) near[L]++;
         gap[L] += d;
         seen[L]++;
+        if (target !== 0) {
+          seenOff[L]++;
+          if (d < 0.5) nearOff[L]++;
+        }
       }
       if (input.jump && !wasJump) {
         jumps++;
@@ -67,12 +81,17 @@ export function judgeRide(seed, ramp, runs) {
   for (let L = 1; L <= MAX_LAG; L++) if (seen[L] && near[L] / seen[L] > near[lag] / seen[lag]) lag = L;
   const follow = seen[lag] ? near[lag] / seen[lag] : 0;
   const meanGap = seen[lag] ? gap[lag] / seen[lag] : 9;
-  const v = { ticks, exact: offCentre >= 120 ? exact / offCentre : 0, follow, meanGap, lag, jumps, onCue };
+  const followOff = seenOff[lag] ? nearOff[lag] / seenOff[lag] : 0;
+  const v = { ticks, exact: offCentre >= 120 ? exact / offCentre : 0, follow, followOff, offTicks: seenOff[lag], meanGap, lag, jumps, onCue };
   // The plain Bot: the same target as the shadow nearly every tick.
   const perfect = v.exact >= 0.9;
   // The HumanBot (or any delayed copy of the bot): trails the shadow closely
   // and jumps on its cue every time.
   const delayed = follow >= 0.75 && meanGap <= 0.45 && jumps >= 5 && onCue >= 0.9 * jumps;
-  v.scripted = ticks >= MIN_TICKS && (perfect || delayed);
+  // A short ride has too few jumps to judge timing, so it is judged on
+  // steering away from the centre line, more strictly, and any jumps it has
+  // must still be on the shadow's cue.
+  const short = jumps < 5 && onCue === jumps && v.offTicks >= MIN_OFF_TICKS && followOff >= 0.72 && meanGap <= 0.38;
+  v.scripted = ticks >= MIN_TICKS && (perfect || delayed || short);
   return v;
 }
