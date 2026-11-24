@@ -408,7 +408,7 @@ const again = await check({ ...runA, token: soloToken, key: 'k-inflated' }); // 
 const noToken = await check({ ...runA, token: 'nope-nope-nope-nope-nope', key: 'k-anon' });
 const preflight = await fetch('http://localhost:' + PORT + '/run-check', { method: 'OPTIONS', headers: { Origin: 'https://zerochill.com', 'Access-Control-Request-Method': 'POST' } });
 const directCheck = await callAs(soloToken, 'avalanche_run_check', { p_user: '00000000-0000-0000-0000-000000000000', p_key: 'x', p_score: 1, p_metres: 1, p_seed: 1, p_ok: true, p_reason: '', p_scripted: false });
-const setEnforce = (on) => fetch(db.s.url + '/rest/v1/avalanche_run_check_config?id=eq.1', { method: 'PATCH', headers: { apikey: db.s.service, Authorization: 'Bearer ' + db.s.service, 'Content-Type': 'application/json' }, body: JSON.stringify({ enforce: on }) });
+const setEnforce = (on) => fetch(db.s.url + '/rest/v1/avalanche_run_check_config', { method: 'POST', headers: { apikey: db.s.service, Authorization: 'Bearer ' + db.s.service, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' }, body: JSON.stringify({ id: 1, enforce: on }) });
 const submit = (key, score) => fetch(LOCAL.url + '/rest/v1/rpc/submit_avalanche_run', { method: 'POST', headers: { apikey: LOCAL.anonKey, Authorization: 'Bearer ' + soloToken, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_distance: score, p_key: key, p_stats: { distance: runA.metres } }) }).then((r) => r.json());
 await setEnforce(true);
 const subInflated = await submit('k-inflated', runA.score + 500);
