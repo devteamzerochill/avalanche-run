@@ -98,7 +98,7 @@ The game never computes rewards, caps, thresholds or eligibility. It only displa
 
 Before the game sends `attempt_end` it asks the page for `race_token` (the same message as the race) and posts the run to the race server, which replays it and records the result on the site. The page changes nothing in the submit itself. It must answer `race_token`, which it does once it embeds with `?race`; without `?race` the game skips the check so saves never wait. Allow `https://sg-sgp-b4a82550.colyseus.cloud` in `connect-src` (the check is an https POST, the race a wss connection).
 
-When the new game replaces the old one: set `avalanche_run_check_config.enforce = true` and revoke `submit_avalanche_score` from `authenticated` (the old game's direct path; `submit_avalanche_run` still calls it as the definer). From then on a score without a passing check comes back `{ rejected: true, reason: 'unverified' }`.
+When the new game replaces the old one: insert the row `avalanche_run_check_config (id 1, enforce true)` (it isn't seeded; no row means off) and revoke `submit_avalanche_score` from `authenticated` (the old game's direct path; `submit_avalanche_run` still calls it as the definer). From then on a score without a passing check comes back `{ rejected: true, reason: 'unverified' }`.
 
 ## 6. Test checklist (with the real page)
 

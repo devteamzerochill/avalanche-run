@@ -28,7 +28,8 @@ create table public.avalanche_run_check_config (
   id integer primary key check (id = 1),
   enforce boolean not null default false
 );
-insert into public.avalanche_run_check_config (id, enforce) values (1, false);
+-- No row is seeded (Lovable's migration tool takes no data changes; live as
+-- 0318): a missing row means not enforced. Enforce with an upsert of (1, true).
 alter table public.avalanche_run_check_config enable row level security;
 revoke all on table public.avalanche_run_check_config from public, anon, authenticated;
 
