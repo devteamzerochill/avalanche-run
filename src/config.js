@@ -6,13 +6,14 @@ export const CONFIG = {
   // zerochill.com backend (Lovable Cloud). Public values only: the URL and the
   // anon key already ship to every visitor of the site. Used only with ?live.
   // `profile` marks a backend that has the slice 1 profile APIs
-  // (supabase/migrations); zerochill.com gets them once Lovable applies it.
+  // (supabase/migrations).
   online: {
     // ?live=local: the local Supabase from `npx supabase start`. Its standard
     // public demo key, the same on every machine; not a secret.
     local: { url: 'http://127.0.0.1:54321', anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0', profile: true },
     url: 'https://llnwrhbftwtgkzpvsbwj.supabase.co',
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxsbndyaGJmdHd0Z2t6cHZzYndqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2NTQwNTMsImV4cCI6MjEwMDIzMDA1M30.hORRWT3nwtRtSrmk_qu8pTg2g3pBBQAXZGbZxFkGj4Q',
+    profile: true, // live since migration 0313 (2026-11-24)
   },
   // Endurance race (docs/endurance-race.md), opt-in with ?race. The race server
   // replays every rider with these same settings; it sends its own values with
