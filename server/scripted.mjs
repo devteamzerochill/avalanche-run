@@ -21,8 +21,8 @@ const MAX_LAG = 24; // ticks: covers the HumanBot's 8-15 tick reaction time
 const MIN_TICKS = 300; // under 5 s of riding says too little
 const MIN_OFF_TICKS = 300; // a short ride needs 5 s of the shadow steering off centre
 
-export function judgeRide(seed, ramp, runs) {
-  const sim = new Sim(seed, { ramp });
+export function judgeRide(seed, ramp, runs, start) {
+  const sim = new Sim(seed, { ramp, start });
   const shadow = new Bot();
   const ring = new Int32Array(MAX_LAG + 1); // shadow targets in cm, newest at t % size
   const near = new Float64Array(MAX_LAG + 1);

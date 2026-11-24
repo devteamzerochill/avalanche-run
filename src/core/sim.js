@@ -6,6 +6,16 @@ import { clamp, smoothstep, hashString } from './rng.js';
 
 export const NO_INPUT = { tx: 0, jump: false, grab: false };
 
+// A race grid slot (0 = front row, left) for n riders: where that rider starts.
+// Rows really start at different distances (DECISIONS 70).
+export function gridStart(slot, n, G = CONFIG.race.grid) {
+  const rows = Math.ceil(n / G.perRow);
+  const row = Math.floor(slot / G.perRow);
+  const inRow = Math.min(G.perRow, n - row * G.perRow);
+  const col = slot % G.perRow;
+  return { x: (col - (inRow - 1) / 2) * G.lane, d: (rows - 1 - row) * G.row };
+}
+
 export class Sim {
   constructor(seed, opts) {
     const P = CONFIG.player;
@@ -31,6 +41,11 @@ export class Sim {
     this.v = P.startSpeed * 0.6;
     this.x = 0;
     this.tx = 0;
+    // A race grid start: { x, d } (gridStart).
+    if (opts && opts.start) {
+      this.dist = opts.start.d;
+      this.x = this.tx = opts.start.x;
+    }
     this.vx = 0;
     this.y = 0;
     this.vy = 0;

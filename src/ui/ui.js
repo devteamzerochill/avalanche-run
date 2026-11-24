@@ -60,7 +60,7 @@ function clockText(ms) {
 }
 
 // A quick-chat id as this player reads it: an emote, or a phrase in their language.
-function chatText(id) {
+export function chatText(id) {
   return QUICK_EMOTES[id] || t('chat.' + id);
 }
 
@@ -253,10 +253,10 @@ export class UI {
     return !!(R && R.status === 'online' && R.next && R.next.in);
   }
 
-  // The lobby clock runs to 0 three seconds before the start; the last three
-  // are a 3-2-1 on the slope (DECISIONS 66).
+  // The lobby clock runs to 0 seven seconds before the start: a flyover of the
+  // grid, then a 3-2-1 on the slope (DECISIONS 66, 70).
   lobbyEnd(R) {
-    return (R.race && !R.race.started && R.race.me >= 0 && R.race.goAt > R.now() ? R.race.goAt : R.next.startAt) - CONFIG.race.slopeCount * 1000;
+    return (R.race && !R.race.started && R.race.me >= 0 && R.race.goAt > R.now() ? R.race.goAt : R.next.startAt) - (CONFIG.race.slopeCount + CONFIG.race.introSeconds) * 1000;
   }
 
   lobbyPanel(body) {
@@ -264,12 +264,10 @@ export class UI {
     const counting = R && R.race && !R.race.started && R.race.me >= 0 && R.race.goAt > R.now();
     if (!R || !(counting || (R.next && R.next.in))) return (body.innerHTML = `<p class="note">${esc(t('lobby.gone'))}</p>`);
     const names = counting ? R.race.riders.map((x) => x.name) : R.next.names || [];
-    const meName = R.you && R.you.name;
     const end = this.lobbyEnd(R);
     const left = end - R.now();
     const closed = counting || R.now() >= R.next.lockAt;
-    let html = `<div class="race-hero lobby-hero${left < 10000 ? ' soon' : ''}" data-hero><span class="lbl">${esc(t('lobby.startsIn'))}</span><b class="clock" data-until="${end}">${esc(clockText(left))}</b><div class="tbar"><i data-bar style="width:${this.raceBar(left)}%"></i></div></div>`;
-    html += `<div class="lobby-riders"><span class="lbl">${esc(t('lobby.riders', { n: names.length }))}</span><div>${names.map((n) => `<b class="${n === meName ? 'me' : ''}">${esc(n)}</b>`).join('')}</div></div>`;
+    let html = `<div class="race-hero lobby-hero${left < 10000 ? ' soon' : ''}" data-hero><span class="lbl">${esc(t('lobby.startsIn'))} · ${esc(t('lobby.riders', { n: names.length }))}</span><b class="clock" data-until="${end}">${esc(clockText(left))}</b><div class="tbar"><i data-bar style="width:${this.raceBar(left)}%"></i></div></div>`;
     html += `<div class="lobby-chat" id="lobbyChat">${this.chatLog(R)}</div>`;
     html += this.quickChat();
     html += closed ? `<p class="note">${esc(t('lobby.closed'))}</p>` : `<button class="btn" id="lobbyLeave">${esc(t('lobby.leave', { fee: R.next.fee }))}</button>`;
@@ -591,7 +589,7 @@ export class UI {
   }
 
   showTitle(on) {
-    this.el.title.classList.toggle('out', !on);
+    this.el.title.classList.toggle('out', !on || this.panelName === 'lobby');
     if (on) this.refreshTitle();
   }
 
@@ -1025,6 +1023,8 @@ export class UI {
     this.panelOpenedAt = performance.now();
     this.renderPanel();
     this.el.panel.classList.toggle('lobby', name === 'lobby');
+    // The lobby's riders stand on the slope behind it: no title stack over them.
+    if (name === 'lobby') this.el.title.classList.add('out');
     this.el.panel.classList.remove('hidden');
   }
 
