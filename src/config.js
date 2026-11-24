@@ -104,6 +104,12 @@ export const CONFIG = {
     comboWindow: 3, // (P) s
     comboMax: 5,
     milestoneEvery: 500, // (P) m
+    // Trick points (perfect landings, clean jumps, grabs, crevasse hops) count in
+    // the score. The game sets `tricks` at start-up: on everywhere except runs
+    // zerochill.com scores, which wait for `tricksLive` (set it true once the
+    // site accepts the higher scores; LOVABLE_HANDOFF.md, DECISIONS 63).
+    tricks: false,
+    tricksLive: false,
   },
 
   surface: { glacier: 0.62, ice: 0.35, mogul: 0.6, storm: 0.85 },

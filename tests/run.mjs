@@ -349,7 +349,16 @@ test('tricks: points grow with hold time; perfect doubles and boosts; sloppy los
   eq(sloppy.stats.trickScore, 0);
   eq(perfect.stats.trickScore, lp.pts, 'trick points go to their own stat');
   eq(perfect.bonus, 0, 'tricks do not add to the score');
-  eq(perfect.score, Math.floor(perfect.dist), 'score is metres only');
+  eq(perfect.score, Math.floor(perfect.dist), 'score is metres only (live site formula)');
+
+  // With trick points switched on (everywhere but runs zerochill.com scores),
+  // the same ride scores its trick points on top.
+  CONFIG.score.tricks = true;
+  const counted = ramp();
+  CONFIG.score.tricks = false;
+  run(counted, 12, (s) => ({ tx: 0, jump: false, grab: s.air && s.timeToLand() > 0.17 }));
+  eq(counted.score, Math.floor(counted.dist) + counted.stats.trickScore, 'tricks on: metres + trick points');
+  ok(counted.stats.trickScore > 80, 'the perfect landing counted');
 
   const none = ramp();
   run(none, 12);
@@ -422,7 +431,7 @@ test('dash pad: riding over it boosts above cruise; jumping over it does nothing
   eq(off.stats.dashes, 0);
 });
 
-test('milestone event every 500 m of score', () => {
+test('milestone event every 500 m ridden (not the score)', () => {
   const sim = bare();
   run(sim, 45);
   const m = events(sim, 'milestone').map((e) => e.at);

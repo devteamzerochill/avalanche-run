@@ -158,13 +158,13 @@ export class UI {
   // --- title ------------------------------------------------------------
   refreshTitle() {
     const p = this.profile();
-    $('tBestToday').textContent = this.bestToday() + ' m';
-    $('tSoloBest').textContent = this.bestToday() + ' m';
+    $('tBestToday').textContent = this.bestToday() + ' ' + t('unit.pts');
+    $('tSoloBest').textContent = this.bestToday() + ' ' + t('unit.pts');
     $('tSoloSub').textContent = t('title.soloSub', { b: p.best, s: Math.max(1, p.streak) });
     this.dailyReward();
     this.account();
     this.raceButton();
-    $('tBest').textContent = p.best + ' m';
+    $('tBest').textContent = p.best + ' ' + t('unit.pts');
     $('tStreak').textContent = '🔥 ' + Math.max(1, p.streak);
     $('tStreakLabel').textContent = t('title.streak', { n: Math.max(1, p.streak) });
     $('tFlakes').textContent = p.flakes;
@@ -750,7 +750,9 @@ export class UI {
     $('endCombo').textContent = 'x' + s.bestCombo;
     $('endTricks').textContent = String(s.tricks);
     $('endFlakes').textContent = '+' + (s.flakes + data.result.missionFlakes);
-    $('endToday').textContent = this.bestToday() + ' m';
+    $('endToday').textContent = this.bestToday() + ' ' + t('unit.pts');
+    // The score is points (metres plus bonuses); the metres ridden sit beside it.
+    $('endMetres').textContent = t('end.ridden', { n: s.distance });
     $('endMissions').innerHTML = data.profile.missions.active
       .map((m) => this.missionRow(m, data.result.completed.includes(m.id)))
       .join('');
@@ -871,9 +873,9 @@ export class UI {
     }
     const me = b.me;
     const top = Array.isArray(b.top) ? b.top : [];
-    const row = (r, you) => `<div class="lb ${you ? 'you' : ''}"><span class="n">${r.rank}</span>${avatar(r)}<span class="who">${esc(displayName(r))}</span><span>${r.score} m</span></div>`;
+    const row = (r, you) => `<div class="lb ${you ? 'you' : ''}"><span class="n">${r.rank}</span>${avatar(r)}<span class="who">${esc(displayName(r))}</span><span>${r.score} ${esc(t('unit.pts'))}</span></div>`;
     let html = '';
-    if (b.record) html += `<div class="lb record"><span class="n">🏆</span>${avatar(b.record)}<span class="who"><small>${esc(t('ranks.record'))}</small>${esc(displayName(b.record))}</span><span>${b.record.score} m</span></div>`;
+    if (b.record) html += `<div class="lb record"><span class="n">🏆</span>${avatar(b.record)}<span class="who"><small>${esc(t('ranks.record'))}</small>${esc(displayName(b.record))}</span><span>${b.record.score} ${esc(t('unit.pts'))}</span></div>`;
     html += top.length ? top.map((r) => row(r, me && r.rank === me.rank)).join('') : `<p class="note">${esc(t('ranks.empty'))}</p>`;
     if (me && !top.some((r) => r.rank === me.rank)) html += `<div class="lb-gap">⋯</div>` + row(me, true);
     html += `<p class="note">${esc(t('ranks.players', { n: b.players || 0 }))} · ${esc(t('ranks.onlineNote'))}</p>`;
@@ -1019,7 +1021,7 @@ export class UI {
         rows
           .map(
             (r, i) =>
-              `<div class="lb ${r.you ? 'you' : ''}"><span class="n">${i + 1}</span><span class="who">${r.cpu ? `<span class="tagc">${esc(t('ranks.cpu'))}</span>` : ''}${esc(r.you ? t('ranks.you') : r.name)}</span><span>${r.score} m</span></div>`
+              `<div class="lb ${r.you ? 'you' : ''}"><span class="n">${i + 1}</span><span class="who">${r.cpu ? `<span class="tagc">${esc(t('ranks.cpu'))}</span>` : ''}${esc(r.you ? t('ranks.you') : r.name)}</span><span>${r.score} ${esc(t('unit.pts'))}</span></div>`
           )
           .join('') + `<p class="note">${esc(t('ranks.note'))}</p>`;
     } else if (name === 'settings') {

@@ -11,6 +11,7 @@ export class Sim {
     const P = CONFIG.player;
     this.seed = seed >>> 0;
     this.timeCap = (opts && opts.timeCap) || 0;
+    this.tricks = CONFIG.score.tricks;
     // Endurance races only: after ramp.from seconds the avalanche gains
     // ramp.rate m/s every second until it outruns any rider, so every race ends.
     this.ramp = (opts && opts.ramp) || null;
@@ -76,7 +77,7 @@ export class Sim {
   }
 
   get score() {
-    return Math.floor(this.dist) + this.bonus;
+    return Math.floor(this.dist) + this.bonus + (this.tricks ? this.stats.trickScore : 0);
   }
 
   emit(type, data) {
@@ -213,7 +214,8 @@ export class Sim {
       this.caught();
       return;
     }
-    if (this.score >= this.nextMilestone) {
+    // Milestones are metres ridden ("500 M"), not the score, which adds bonuses.
+    if (Math.floor(this.dist) >= this.nextMilestone) {
       this.emit('milestone', { at: this.nextMilestone });
       this.nextMilestone += CONFIG.score.milestoneEvery;
     }

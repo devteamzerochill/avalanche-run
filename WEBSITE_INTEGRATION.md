@@ -46,7 +46,7 @@ The playable-ad build also posts `{ source: 'avalanche-run', type: 'boot' | 'gam
 | `race_token` | none | Only with `race` in the iframe URL (multiplayer race, `RACE_HANDOFF.md`). Reply `race_token` with the current session's access token, refreshed first if it expires within a minute. |
 
 Notes:
-- `score` is already the bonus-inclusive score (`floor(metres) + near-miss bonuses`, 25 × combo per near miss), the same metric the old engine reported as `stats.distance`. It's an integer of 0 or more. Send it as is.
+- `score` is already the bonus-inclusive score (`floor(metres) + near-miss bonuses`, 25 × combo per near miss), the same metric the old engine reported as `stats.distance`. It's an integer of 0 or more. Send it as is. Once the site agrees (`LOVABLE_HANDOFF.md`, "Score with trick points"), the game will add trick points to it; the message doesn't change.
 - `key` is `avalanche:<UTC date>:<attempt start ms>:<score>`, 8 to 128 characters. It's stable for the attempt, so retries reuse it.
 - `stats` is the run summary the profile APIs use: `distance` (whole metres), `flakes`, `nearMisses`, `bestCombo`, `cleanJumps`, `tricks`, `perfects`, `trickScore`, `topKmh`. Pass it through unchanged.
 - The game never sends bot, recorded or test runs. Restarting or quitting mid-run abandons the attempt without `attempt_end`.

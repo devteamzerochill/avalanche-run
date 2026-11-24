@@ -37,6 +37,24 @@ All four client functions need a signed-in player (`authenticated`); `anon` can'
 
 The page that hosts the game calls `submit_avalanche_run` instead of `submit_avalanche_score` (same three arguments plus `p_stats` from the game's message), and answers the new `buy` / `select` messages. Exact messages: [`WEBSITE_INTEGRATION.md`](WEBSITE_INTEGRATION.md).
 
+## Score with trick points (needs the site's agreement)
+
+The owner wants trick points to count in the score (2026-11-24). Today the score is whole metres plus near-miss bonuses, the old game's formula. The game also shows points for perfect landings, clean jumps, grabs and crevasse hops, but they never reach the score. The new score is:
+
+`score = floor(metres) + near-miss bonuses + trick points`
+
+It is still sent as `p_distance`, and nothing else in the API changes. The game keeps the old formula for runs zerochill.com scores until the site confirms the points below; then we switch it on with one setting.
+
+What changes on the site's side:
+
+1. **Higher scores.** In 8 runs of the game's human-like bot, scores came out 55-82% higher (up to about 36,700 for a 5-minute run). The 1,000,000 ceiling isn't affected.
+2. **The run check's rate.** `zc_runs.check_run` has `max_metric_per_second = 87.8616` for Avalanche Run (observe mode, not calibrated). With trick points, a strong run reaches about **122 per second** (the old formula peaks at about 67). If the check is ever moved out of observe mode, the limit has to go up first, to at least 150, and should be calibrated on real players.
+3. **One board, one formula.** Runs scored the old way and the new way shouldn't be ranked together. Switch at a UTC midnight, so each daily board uses one formula. All-time bests (`player_game_stats.best_score`) and any running tournament will mix the two; please say whether to reset, mark or leave them.
+4. **Rewards.** Reward thresholds on the score (Daily Reward bars, XP) will be reached sooner. Please say whether they need retuning.
+5. **Stats clamps.** `submit_avalanche_run` caps `p_stats` by what a run of that score could produce. A higher score only loosens those caps, so the migration needs no change.
+
+Please confirm: (a) the rate limit (or that the check stays in observe mode), (b) the switch date, (c) what happens to all-time bests and tournaments, (d) whether rewards need retuning.
+
 ## Tested locally
 
 On a local Supabase (Postgres 17, same auth and REST stack) with stand-ins for the live functions, `node tests/db.mjs` passes 11/11:
@@ -60,4 +78,4 @@ Also played in the game against the local stack: sign in, a counted run (snowfla
 
 ## Prompt for Lovable
 
-> Please apply the attached SQL migration (`20261124000000_avalanche_profiles.sql`) to the zerochill.com database. It only adds new tables and functions for Avalanche Run (server-side snowflakes, unlocks, missions and daily streak). It doesn't alter any existing table, function, policy or grant; the new `submit_avalanche_run` calls the existing `submit_avalanche_score` unchanged. After applying, please confirm: (1) the migration ran without errors, (2) `submit_avalanche_score` still has the signature `(p_distance integer, p_key text, p_run_id text)`, and (3) a signed-in call to `get_avalanche_profile` returns a profile with 0 snowflakes and three missions.
+> Please apply the attached SQL migration (`20261124000000_avalanche_profiles.sql`) to the zerochill.com database. It only adds new tables and functions for Avalanche Run (server-side snowflakes, unlocks, missions and daily streak). It doesn't alter any existing table, function, policy or grant; the new `submit_avalanche_run` calls the existing `submit_avalanche_score` unchanged. After applying, please confirm: (1) the migration ran without errors, (2) `submit_avalanche_score` still has the signature `(p_distance integer, p_key text, p_run_id text)`, and (3) a signed-in call to `get_avalanche_profile` returns a profile with 0 snowflakes and three missions. Separately, please read "Score with trick points" in the handoff and answer its four questions (run-check rate, switch date, all-time bests and tournaments, rewards) before the game sends the new score.
