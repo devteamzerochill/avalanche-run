@@ -245,6 +245,11 @@ export class UI {
     const R = this.raceClient();
     el.classList.toggle('hidden', !R);
     document.body.classList.toggle('has-race', !!R);
+    // The player's Shards, as the race server last reported them; the
+    // site API offers no balance read, so the chip waits for the race.
+    const shards = R && this.raceSignedIn() && R.balance != null ? R.balance : null;
+    $('tShardsChip').classList.toggle('hidden', shards == null);
+    if (shards != null) $('tShards').textContent = shards;
     if (!R) return;
     const signedIn = this.raceSignedIn();
     const ready = signedIn && R.status === 'online' && R.next;
@@ -394,7 +399,7 @@ export class UI {
     } else {
       const st = R.stats || { races: 0, wins: 0, won: 0 };
       const fee = R.next ? R.next.fee : R.fee;
-      html += `<div class="race-wallet"><span>💎</span><b>${esc(t('race.balance', { n: R.balance == null ? '…' : R.balance }))}</b><span class="pill">${esc(t('race.testShards'))}</span></div><div class="tiles">${tile(st.races, 'race.races') + tile(st.wins, 'race.wins') + tile(st.won, 'race.shardsWon')}</div>`;
+      html += `<div class="race-wallet"><span>💎</span><b>${esc(t('race.balance', { n: R.balance == null ? '…' : R.balance }))}</b>${this.live() && this.live().url === CONFIG.online.url ? '' : `<span class="pill">${esc(t('race.testShards'))}</span>`}</div><div class="tiles">${tile(st.races, 'race.races') + tile(st.wins, 'race.wins') + tile(st.won, 'race.shardsWon')}</div>`;
       html += `<h4 class="race-sec">${esc(t('race.how.title'))}</h4><ul class="race-rules"><li><i>🎟️</i>${esc(t('race.rule1', { fee }))}</li><li><i>🏔️</i>${esc(this.raceRule2(R))}</li><li><i>🔥</i>${esc(this.raceRule3(R))}</li></ul>`;
     }
     body.innerHTML = html;
@@ -927,6 +932,7 @@ export class UI {
     if (name === 'ranks' && this.host()) this.hooks.refreshOnline();
     if (name === 'ranks' && this.raceClient()) this.raceClient().requestBoard();
     this.hooks.tap('panelOpen');
+    this.panelOpenedAt = performance.now();
     this.renderPanel();
     this.el.panel.classList.remove('hidden');
   }
@@ -1065,5 +1071,9 @@ export class UI {
       });
     }
     if (raceRanks) this.ranksTabs(body);
+    // Rows slide in once per opening. A re-render when data arrives (the live
+    // board, race leaders) carries on from where the slide-in has got to
+    // instead of starting it again (style.css: --since).
+    body.style.setProperty('--since', ((performance.now() - (this.panelOpenedAt || 0)) / 1000).toFixed(3) + 's');
   }
 }

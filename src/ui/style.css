@@ -110,6 +110,8 @@ body.tapsteer #jumpBtn{display:block}
 /* ---------- overlays / cards ---------- */
 .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 12px) 12px calc(env(safe-area-inset-bottom,0px) + 12px);
   background:rgba(8,18,36,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:fade .2s both;z-index:5}
+/* Settings opened from the pause menu must sit above it. */
+#panel{z-index:6}
 @keyframes fade{from{opacity:0}}
 .card{width:min(440px,100%);max-height:100%;display:flex;flex-direction:column;border-radius:24px;background:var(--panel);border:2px solid rgba(255,255,255,.14);
   box-shadow:0 20px 60px rgba(0,0,0,.45);animation:cardin .28s cubic-bezier(.2,1.25,.4,1) both;overflow:hidden}
@@ -179,7 +181,7 @@ body.tapsteer #jumpBtn{display:block}
 .end-btns .btn{flex:1;padding:0 8px}
 .fine{margin:2px 0 0;font-size:calc(10.5px*var(--s));opacity:.6}
 
-#toasts{position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 62px);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;z-index:6}
+#toasts{position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 62px);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;z-index:7}
 .toast{padding:9px 16px;border-radius:999px;background:var(--reward);color:#0c1c35;font-weight:900;font-size:calc(13px*var(--s));box-shadow:0 6px 20px rgba(0,0,0,.3);animation:toast 3.2s both;max-width:92%}
 @keyframes toast{0%{transform:translateY(-20px);opacity:0}8%,88%{transform:none;opacity:1}100%{transform:translateY(-10px);opacity:0}}
 #loader{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0c1c35;font-weight:900;letter-spacing:3px;z-index:9;transition:opacity .3s}
@@ -416,9 +418,9 @@ body.reduced .lg-streaks path,body.reduced .lg-puffs circle{animation:none}
 /* --- cards and end card --- */
 .card{animation:cardpop .42s cubic-bezier(.2,1.4,.4,1) both}
 @keyframes cardpop{0%{transform:translateY(60px) scale(.8) rotate(-4deg);opacity:0}100%{transform:none;opacity:1}}
-.card-body>*{animation:slideL .4s both}
+.card-body>*{animation:slideL .4s both;animation-delay:calc(var(--d,0s) - var(--since,0s))}
 .card-body>*:nth-child(2n){animation-name:slideR}
-.card-body>*:nth-child(1){animation-delay:.06s}.card-body>*:nth-child(2){animation-delay:.1s}.card-body>*:nth-child(3){animation-delay:.14s}.card-body>*:nth-child(4){animation-delay:.18s}.card-body>*:nth-child(5){animation-delay:.22s}.card-body>*:nth-child(6){animation-delay:.26s}.card-body>*:nth-child(7){animation-delay:.3s}.card-body>*:nth-child(n+8){animation-delay:.34s}
+.card-body>*:nth-child(1){--d:.06s}.card-body>*:nth-child(2){--d:.1s}.card-body>*:nth-child(3){--d:.14s}.card-body>*:nth-child(4){--d:.18s}.card-body>*:nth-child(5){--d:.22s}.card-body>*:nth-child(6){--d:.26s}.card-body>*:nth-child(7){--d:.3s}.card-body>*:nth-child(n+8){--d:.34s}
 .end-head{margin:-18px -16px 4px;padding:14px 10px 10px;background:repeating-linear-gradient(-45deg,#ff3355 0 14px,#e01846 14px 28px);background-size:40px 40px;animation:scrollx .9s linear infinite;border-bottom:5px dotted #fff}
 .end-card .end-head h2{color:#fff;animation:popin .5s .1s both}
 #endCause{animation:slideL .45s .18s both}
