@@ -26,11 +26,11 @@ create table public.avalanche_race_config (
   -- The account the house fee is paid to (owner, 2026-11-24). Until one is set
   -- the fee is burned, as before; set it with
   --   update avalanche_race_config set house_user = '<user id>';
-  house_user uuid references auth.users (id),
+  house_user uuid references auth.users (id) on delete set null,
   min_riders integer not null default 2,
   max_riders integer not null default 50,
   -- The race server's own site account; null: service role only.
-  server_user uuid references auth.users (id)
+  server_user uuid references auth.users (id) on delete set null
 );
 insert into public.avalanche_race_config default values;
 
@@ -52,7 +52,8 @@ create table public.avalanche_races (
 
 create table public.avalanche_race_entries (
   race_id text not null references public.avalanche_races (id),
-  user_id uuid not null references auth.users (id),
+  -- Account deletion removes the player's entries, as the site's other game tables do.
+  user_id uuid not null references auth.users (id) on delete cascade,
   fee integer not null,
   place integer,
   death_tick integer,

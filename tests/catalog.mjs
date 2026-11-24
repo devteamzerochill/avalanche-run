@@ -27,6 +27,6 @@ export function runCatalogTests() {
     const rows = [...SQL.matchAll(/\((\d+), (\d+), (null|'\w+'), (null|'\w+')\)/g)].map((m) => [+m[1], +m[2], m[3].replace(/'/g, ''), m[4].replace(/'/g, '')].join('|'));
     const want = CONFIG.meta.streakRewards.map((r) => [r.day, r.flakes || 0, r.rider || 'null', r.board || 'null'].join('|'));
     eq(rows.join(','), want.join(','));
-    ok(SQL.includes('p.flakes + ' + CONFIG.meta.streakDailyFlakes + ';'), 'daily streak flakes after the last reward = ' + CONFIG.meta.streakDailyFlakes);
+    ok(SQL.includes("'flakes', p.flakes + " + CONFIG.meta.streakDailyFlakes + ')'), 'daily streak flakes after the last reward = ' + CONFIG.meta.streakDailyFlakes);
   });
 }

@@ -118,6 +118,10 @@ grant select on public.avalanche_profiles, public.avalanche_run_extras to authen
 
 -- ---------------------------------------------------------------------------
 -- Internal helpers (not callable by clients).
+--
+-- Profile rows are changed with p := jsonb_populate_record(p, ...) rather than
+-- p.field := ...: Lovable's migration checker rejects field assignment on a
+-- row variable, although PostgreSQL accepts it.
 
 -- Replace finished missions and top up to three, in catalogue order, skipping
 -- any already active. Mirrors refillMissions() in src/systems/meta.js.
@@ -146,13 +150,13 @@ begin
       v_guard := v_n;
       v_id := v_defs[(p.mission_next % v_n) + 1];
       while v_guard > 0 and v_id = any(v_active) loop
-        p.mission_next := p.mission_next + 1;
+        p := jsonb_populate_record(p, jsonb_build_object('mission_next', p.mission_next + 1));
         v_id := v_defs[(p.mission_next % v_n) + 1];
         v_guard := v_guard - 1;
       end loop;
       v_out := v_out || jsonb_build_object('id', v_id, 'progress', 0, 'done', false);
       v_active := v_active || v_id;
-      p.mission_next := p.mission_next + 1;
+      p := jsonb_populate_record(p, jsonb_build_object('mission_next', p.mission_next + 1));
     else
       v_out := v_out || v_item;
     end if;
@@ -161,15 +165,15 @@ begin
     v_guard := v_n;
     v_id := v_defs[(p.mission_next % v_n) + 1];
     while v_guard > 0 and v_id = any(v_active) loop
-      p.mission_next := p.mission_next + 1;
+      p := jsonb_populate_record(p, jsonb_build_object('mission_next', p.mission_next + 1));
       v_id := v_defs[(p.mission_next % v_n) + 1];
       v_guard := v_guard - 1;
     end loop;
     v_out := v_out || jsonb_build_object('id', v_id, 'progress', 0, 'done', false);
     v_active := v_active || v_id;
-    p.mission_next := p.mission_next + 1;
+    p := jsonb_populate_record(p, jsonb_build_object('mission_next', p.mission_next + 1));
   end loop;
-  p.missions := v_out;
+  p := jsonb_populate_record(p, jsonb_build_object('missions', v_out));
   return p;
 end;
 $$;
@@ -306,24 +310,25 @@ begin
 
     -- Daily streak: the first counted run of each UTC day advances it.
     if p.streak_day is distinct from v_today then
-      p.streak := case when p.streak_day = v_today - 1 then p.streak + 1 else 1 end;
-      p.streak_day := v_today;
+      p := jsonb_populate_record(p, jsonb_build_object(
+        'streak', case when p.streak_day = v_today - 1 then p.streak + 1 else 1 end,
+        'streak_day', v_today));
       select * into v_sr from avalanche_streak_rewards where day = p.streak;
       select max(day) into v_last_day from avalanche_streak_rewards;
       v_streak := jsonb_build_object('day', p.streak, 'flakes', 0, 'rider', null, 'board', null);
       if v_sr.day is not null then
-        p.flakes := p.flakes + v_sr.flakes;
+        p := jsonb_populate_record(p, jsonb_build_object('flakes', p.flakes + v_sr.flakes));
         v_streak := v_streak || jsonb_build_object('flakes', v_sr.flakes);
         if v_sr.rider is not null and not v_sr.rider = any(p.riders) then
-          p.riders := p.riders || v_sr.rider;
+          p := jsonb_populate_record(p, jsonb_build_object('riders', p.riders || v_sr.rider));
           v_streak := v_streak || jsonb_build_object('rider', v_sr.rider);
         end if;
         if v_sr.board is not null and not v_sr.board = any(p.boards) then
-          p.boards := p.boards || v_sr.board;
+          p := jsonb_populate_record(p, jsonb_build_object('boards', p.boards || v_sr.board));
           v_streak := v_streak || jsonb_build_object('board', v_sr.board);
         end if;
       elsif v_last_day is not null and p.streak > v_last_day then
-        p.flakes := p.flakes + 60; -- every day after the last listed reward (CONFIG.meta.streakDailyFlakes)
+        p := jsonb_populate_record(p, jsonb_build_object('flakes', p.flakes + 60)); -- every day after the last listed reward (CONFIG.meta.streakDailyFlakes)
         v_streak := v_streak || jsonb_build_object('flakes', 60);
       end if;
     end if;
@@ -345,14 +350,14 @@ begin
       end if;
       v_missions := v_missions || v_m;
     end loop;
-    p.missions := v_missions;
-
-    p.flakes := p.flakes + (s->>'flakes')::integer + v_mission_flakes;
-    p.runs := p.runs + 1;
-    p.distance := p.distance + v_dist;
-    p.flakes_collected := p.flakes_collected + (s->>'flakes')::integer;
-    p.near_misses := p.near_misses + (s->>'nearMisses')::integer;
-    p.best_score := greatest(p.best_score, p_distance);
+    p := jsonb_populate_record(p, jsonb_build_object(
+      'missions', v_missions,
+      'flakes', p.flakes + (s->>'flakes')::integer + v_mission_flakes,
+      'runs', p.runs + 1,
+      'distance', p.distance + v_dist,
+      'flakes_collected', p.flakes_collected + (s->>'flakes')::integer,
+      'near_misses', p.near_misses + (s->>'nearMisses')::integer,
+      'best_score', greatest(p.best_score, p_distance)));
 
     update avalanche_profiles set
       flakes = p.flakes, riders = p.riders, boards = p.boards, streak = p.streak, streak_day = p.streak_day,
@@ -405,13 +410,11 @@ begin
   if p.flakes < v_cost then
     return jsonb_build_object('ok', false, 'reason', 'not enough snowflakes', 'profile', _avalanche_profile_json(p));
   end if;
-  p.flakes := p.flakes - v_cost;
+  p := jsonb_populate_record(p, jsonb_build_object('flakes', p.flakes - v_cost));
   if p_type = 'rider' then
-    p.riders := p.riders || p_id;
-    p.rider := p_id;
+    p := jsonb_populate_record(p, jsonb_build_object('riders', p.riders || p_id, 'rider', p_id));
   else
-    p.boards := p.boards || p_id;
-    p.board := p_id;
+    p := jsonb_populate_record(p, jsonb_build_object('boards', p.boards || p_id, 'board', p_id));
   end if;
   update avalanche_profiles set flakes = p.flakes, riders = p.riders, boards = p.boards, rider = p.rider, board = p.board, updated_at = now()
   where user_id = v_uid;
@@ -434,9 +437,9 @@ begin
   end if;
   p := _avalanche_profile_for_update(v_uid);
   if p_type = 'rider' and p_id = any(p.riders) then
-    p.rider := p_id;
+    p := jsonb_populate_record(p, jsonb_build_object('rider', p_id));
   elsif p_type = 'board' and p_id = any(p.boards) then
-    p.board := p_id;
+    p := jsonb_populate_record(p, jsonb_build_object('board', p_id));
   else
     return jsonb_build_object('ok', false, 'reason', 'not owned', 'profile', _avalanche_profile_json(p));
   end if;
