@@ -104,6 +104,9 @@ fs.writeFileSync(path.join(dist, 'web/index.html'), page(`<style>${css}</style>`
 const audioDir = path.join(root, 'assets/audio');
 const audio = fs.readdirSync(audioDir).filter((f) => f.endsWith('.mp3'));
 for (const f of audio) fs.copyFileSync(path.join(audioDir, f), path.join(dist, 'web/assets/audio', f));
+// The race client loads on demand (src/systems/race.js), from vendor/ next to the page.
+fs.mkdirSync(path.join(dist, 'web/vendor'), { recursive: true });
+fs.copyFileSync(path.join(root, 'vendor/colyseus.js'), path.join(dist, 'web/vendor/colyseus.js'));
 
 // --- single-file playable ---
 const assets = {};

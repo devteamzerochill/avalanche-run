@@ -25,3 +25,6 @@ supabase/.branches/
 .DS_Store
 Thumbs.db
 *.log
+
+# Tunnel binary (downloaded, not committed)
+tools/cloudflared/

@@ -265,6 +265,33 @@ test('rematch: the last fair race (not the voided one), its top 3, and replays t
   }
 });
 
+// --- 5. the race server's own site account instead of the service key ----------------
+const acct = { email: 'raceserver-' + randomUUID().slice(0, 6) + '@example.test', password: randomUUID() };
+const made = await (await fetch(LOCAL.url + '/auth/v1/signup', { method: 'POST', headers: { apikey: LOCAL.anonKey, 'Content-Type': 'application/json' }, body: JSON.stringify(acct) })).json();
+const setServer = (id) => fetch(db.s.url + '/rest/v1/avalanche_race_config?id=eq.1', { method: 'PATCH', headers: { apikey: db.s.service, Authorization: 'Bearer ' + db.s.service, 'Content-Type': 'application/json' }, body: JSON.stringify({ server_user: id }) });
+const asAccount = new Supabase({ url: LOCAL.url, anon: LOCAL.anonKey, account: acct });
+const asPlayer = await signUp('nosy');
+const callAs = (token, fn, args) => fetch(LOCAL.url + '/rest/v1/rpc/' + fn, { method: 'POST', headers: { apikey: LOCAL.anonKey, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify(args) }).then((r) => r.status);
+const refusedBefore = await asAccount.rpc('race_balance', { p_user: made.user.id }).then(() => false, () => true);
+await setServer(made.user.id);
+const asServer = await asAccount.rpc('race_balance', { p_user: made.user.id }).catch((e) => e.message);
+const serverName = await asAccount.rpc('race_player_name', { p_user: made.user.id }).catch((e) => e.message);
+const playerStatus = await callAs(asPlayer, 'race_check_in', { p_race: race2, p_user: made.user.id });
+const anonStatus = await callAs(LOCAL.anonKey, 'race_balance', { p_user: made.user.id });
+const nameStatus = await callAs(asPlayer, 'avalanche_player_name', { p_user: made.user.id });
+await setServer(null);
+const refusedAfter = await asAccount.rpc('race_balance', { p_user: made.user.id }).then(() => false, () => true);
+
+test('only the race server account (or the service role) may call the ledger', () => {
+  ok(refusedBefore, 'refused before it is set as server_user');
+  eq(typeof asServer === 'object' && asServer.fee, 10, 'race_balance works once set: ' + JSON.stringify(asServer));
+  eq(serverName, made.user.email.split('@')[0], 'names through race_player_name');
+  ok(playerStatus >= 400, 'a signed-in player is refused (' + playerStatus + ')');
+  ok(anonStatus >= 400, 'anon is refused (' + anonStatus + ')');
+  ok(nameStatus >= 400, 'players cannot call avalanche_player_name (' + nameStatus + ')');
+  ok(refusedAfter, 'refused again once server_user is cleared');
+});
+
 const failed = report();
 if (failed) console.log(logs.join('\n'));
 process.exit(failed ? 1 : 0);

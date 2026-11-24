@@ -13,6 +13,11 @@
 --   avalanche_player_name(user uuid) -> text  (the name other players see)
 --
 -- Adds new objects only.
+--
+-- Who may call the race functions: the service role, or the one site account
+-- set as avalanche_race_config.server_user (owner, 2026-11-24). The account
+-- lets the race server run without the service key, which Lovable Cloud does
+-- not hand out; locking it out is one password change.
 
 create table public.avalanche_race_config (
   id integer primary key default 1 check (id = 1),
@@ -23,7 +28,9 @@ create table public.avalanche_race_config (
   --   update avalanche_race_config set house_user = '<user id>';
   house_user uuid references auth.users (id),
   min_riders integer not null default 2,
-  max_riders integer not null default 50
+  max_riders integer not null default 50,
+  -- The race server's own site account; null: service role only.
+  server_user uuid references auth.users (id)
 );
 insert into public.avalanche_race_config default values;
 
@@ -68,11 +75,22 @@ grant select on public.avalanche_race_entries to authenticated;
 -- ---------------------------------------------------------------------------
 -- Race server functions.
 
+-- Refuses everyone but the race server (see the top of this file).
+create function public._race_guard()
+returns void language plpgsql stable security definer set search_path = public as $$
+begin
+  if coalesce(auth.role(), '') = 'service_role' then return; end if;
+  if auth.uid() is not null and auth.uid() = (select server_user from avalanche_race_config where id = 1) then return; end if;
+  raise exception 'race server only' using errcode = '42501';
+end $$;
+revoke all on function public._race_guard() from public, anon, authenticated;
+
 -- The player's wallet, the entry fee, and their race record (races ridden,
 -- wins, Shards won), read from the entries.
 create function public.race_balance(p_user uuid)
 returns jsonb language plpgsql security definer set search_path = public as $$
 begin
+  perform _race_guard();
   return (select jsonb_build_object('balance', shards_balance(p_user), 'fee', c.entry_fee, 'prize_pct', c.prize_pct, 'max_riders', c.max_riders, 'min_riders', c.min_riders,
             'races', (select count(*) from avalanche_race_entries e join avalanche_races r on r.id = e.race_id where e.user_id = p_user and r.status = 'settled'),
             'wins', (select count(*) from avalanche_race_entries e join avalanche_races r on r.id = e.race_id where e.user_id = p_user and e.place = 1 and r.status = 'settled'),
@@ -80,13 +98,27 @@ begin
           from avalanche_race_config c);
 end $$;
 
+-- The name other riders see, for the race server (avalanche_player_name
+-- itself stays closed to signed-in players).
+create function public.race_player_name(p_user uuid)
+returns text language plpgsql stable security definer set search_path = public as $$
+begin
+  perform _race_guard();
+  return avalanche_player_name(p_user);
+end $$;
+
 -- Open the next race for check-in, at the current entry fee and prize share.
 create function public.race_open(p_race text, p_seed bigint)
-returns jsonb language sql security definer set search_path = public as $$
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  v jsonb;
+begin
+  perform _race_guard();
   insert into avalanche_races (id, seed, entry_fee, prize_pct)
   select p_race, p_seed, entry_fee, prize_pct from avalanche_race_config
-  returning jsonb_build_object('id', id, 'fee', entry_fee, 'prize_pct', prize_pct);
-$$;
+  returning jsonb_build_object('id', id, 'fee', entry_fee, 'prize_pct', prize_pct) into v;
+  return v;
+end $$;
 
 -- Take the entry fee into escrow. Idempotent per player and race.
 create function public.race_check_in(p_race text, p_user uuid)
@@ -96,6 +128,7 @@ declare
   n integer;
   maxr integer;
 begin
+  perform _race_guard();
   select * into r from avalanche_races where id = p_race for update;
   if not found then return jsonb_build_object('ok', false, 'reason', 'no such race'); end if;
   if r.status <> 'open' then return jsonb_build_object('ok', false, 'reason', 'check-in closed'); end if;
@@ -117,6 +150,7 @@ end $$;
 create function public.race_start(p_race text)
 returns jsonb language plpgsql security definer set search_path = public as $$
 begin
+  perform _race_guard();
   update avalanche_races set status = 'racing', started_at = now() where id = p_race and status = 'open';
   if not found then return jsonb_build_object('ok', false, 'reason', 'not open'); end if;
   return jsonb_build_object('ok', true, 'riders',
@@ -130,6 +164,7 @@ declare
   e record;
   n integer := 0;
 begin
+  perform _race_guard();
   update avalanche_races set status = 'cancelled', settled_at = now() where id = p_race and status in ('open', 'racing');
   if not found then return jsonb_build_object('ok', false, 'reason', 'already closed'); end if;
   for e in select * from avalanche_race_entries where race_id = p_race and not refunded for update loop
@@ -156,6 +191,7 @@ declare
   v_fee integer;
   v_house uuid;
 begin
+  perform _race_guard();
   select * into r from avalanche_races where id = p_race for update;
   if not found or r.status <> 'racing' then return jsonb_build_object('ok', false, 'reason', 'not racing'); end if;
   for x in select * from jsonb_array_elements(p_results) loop
@@ -195,6 +231,7 @@ declare
   e record;
   n integer := 0;
 begin
+  perform _race_guard();
   select * into r from avalanche_races where id = p_race for update;
   if not found or r.status <> 'racing' then return jsonb_build_object('ok', false, 'reason', 'not racing'); end if;
   for x in select * from jsonb_array_elements(p_results) loop
@@ -218,6 +255,7 @@ end $$;
 create function public.race_board(p_user uuid, p_limit integer)
 returns jsonb language plpgsql security definer set search_path = public as $$
 begin
+  perform _race_guard();
   return (with rec as (
     select e.user_id, count(*) as races, count(*) filter (where e.place = 1) as wins, coalesce(sum(e.prize), 0) as won
     from avalanche_race_entries e join avalanche_races r on r.id = e.race_id
@@ -243,11 +281,13 @@ revoke all on function public.race_cancel(text) from public, anon, authenticated
 revoke all on function public.race_settle(text, jsonb) from public, anon, authenticated;
 revoke all on function public.race_void(text, jsonb, text) from public, anon, authenticated;
 revoke all on function public.race_board(uuid, integer) from public, anon, authenticated;
-grant execute on function public.race_balance(uuid) to service_role;
-grant execute on function public.race_open(text, bigint) to service_role;
-grant execute on function public.race_check_in(text, uuid) to service_role;
-grant execute on function public.race_start(text) to service_role;
-grant execute on function public.race_cancel(text) to service_role;
-grant execute on function public.race_settle(text, jsonb) to service_role;
-grant execute on function public.race_void(text, jsonb, text) to service_role;
-grant execute on function public.race_board(uuid, integer) to service_role;
+grant execute on function public.race_balance(uuid) to service_role, authenticated; -- _race_guard decides
+grant execute on function public.race_open(text, bigint) to service_role, authenticated; -- _race_guard decides
+grant execute on function public.race_check_in(text, uuid) to service_role, authenticated; -- _race_guard decides
+grant execute on function public.race_start(text) to service_role, authenticated; -- _race_guard decides
+grant execute on function public.race_cancel(text) to service_role, authenticated; -- _race_guard decides
+grant execute on function public.race_settle(text, jsonb) to service_role, authenticated; -- _race_guard decides
+grant execute on function public.race_void(text, jsonb, text) to service_role, authenticated; -- _race_guard decides
+grant execute on function public.race_board(uuid, integer) to service_role, authenticated; -- _race_guard decides
+revoke all on function public.race_player_name(uuid) from public, anon, authenticated;
+grant execute on function public.race_player_name(uuid) to service_role, authenticated; -- _race_guard decides
