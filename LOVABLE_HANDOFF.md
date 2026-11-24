@@ -19,7 +19,7 @@ Only new objects. No existing table, function, policy or grant is changed.
 | `avalanche_run_extras` | One row per counted attempt key, so a retried submission never pays twice. Players can read their own rows only. |
 | `get_avalanche_profile()` | Returns the signed-in player's profile, creating it with defaults on first use. |
 | `submit_avalanche_run(p_distance, p_key, p_run_id, p_stats)` | Calls the existing `submit_avalanche_score(p_distance, p_key, p_run_id)` unchanged and returns its full response, with an `avalanche` object added (snowflakes earned, missions completed, streak reward, updated profile). |
-| `buy_avalanche_item(p_type, p_id)` | Spends snowflakes on a rider or board. The server checks price, balance and ownership. |
+| `buy_avalanche_item(p_type, p_id)` | Spends snowflakes on a rider or board, or Shards on a Shards shop item (rider, board or trail; migration `20261127000000_shards_shop`). The server checks price, balance and ownership. |
 | `select_avalanche_item(p_type, p_id)` | Wears an owned rider or board. |
 
 All four client functions need a signed-in player (`authenticated`); `anon` can't call them. All writes go through these functions; there are no direct insert or update policies.

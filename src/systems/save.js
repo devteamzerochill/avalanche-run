@@ -17,6 +17,8 @@ export function defaultProfile() {
     boards: ['classic'],
     rider: 'nova',
     board: 'classic',
+    trails: [], // Shards shop trails: bought on the server only
+    trail: null,
     missions: { active: [], next: 0 },
     totals: { runs: 0, distance: 0, flakes: 0, nearMisses: 0 },
     runsToday: [], // [{score, time}]

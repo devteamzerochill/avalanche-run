@@ -90,6 +90,19 @@ results.buyUnknown = await rpc(A, 'buy_avalanche_item', { p_type: 'rider', p_id:
 results.selectOwned = await rpc(A, 'select_avalanche_item', { p_type: 'board', p_id: 'classic' });
 results.selectNotOwned = await rpc(A, 'select_avalanche_item', { p_type: 'rider', p_id: 'frost' });
 
+// Shards shop (DECISIONS 68): the stand-in wallet starts every player on 100 test Shards.
+results.shop0 = await profile(B);
+results.trailBuy = await rpc(B, 'buy_avalanche_item', { p_type: 'trail', p_id: 'aurora' });
+results.trailAgain = await rpc(B, 'buy_avalanche_item', { p_type: 'trail', p_id: 'aurora' });
+results.trailPoor = await rpc(B, 'buy_avalanche_item', { p_type: 'trail', p_id: 'neon' });
+results.galaxyPoor = await rpc(B, 'buy_avalanche_item', { p_type: 'rider', p_id: 'galaxy' });
+sql(`update standin_shards set balance = 900 where user_id = '${B.id}';`);
+results.galaxy = await rpc(B, 'buy_avalanche_item', { p_type: 'rider', p_id: 'galaxy' });
+results.trailOff = await rpc(B, 'select_avalanche_item', { p_type: 'trail', p_id: 'none' });
+results.trailOn = await rpc(B, 'select_avalanche_item', { p_type: 'trail', p_id: 'aurora' });
+results.trailNotOwned = await rpc(B, 'select_avalanche_item', { p_type: 'trail', p_id: 'ember' });
+results.shopLog = sql(`select string_agg(amount || ':' || ref, ',' order by id) from standin_shards_log where user_id = '${B.id}';`);
+
 // Row-level security: B sees only B's row and cannot write directly.
 const rest = (user, method, path, body) =>
   fetch(URL_ + '/rest/v1/' + path, { method, headers: { apikey: ANON, Authorization: 'Bearer ' + user.token, 'Content-Type': 'application/json', Prefer: 'return=representation' }, body: body && JSON.stringify(body) }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => null) }));
@@ -179,13 +192,33 @@ test('unlocks: price, balance, ownership and streak-only items are enforced by t
   eq(results.selectNotOwned.body.reason, 'not owned');
 });
 
+test('Shards shop: priced in Shards, debited once, owned, worn, and trails can be taken off', () => {
+  eq(results.shop0.shards, 100, 'profile shows the Shards balance');
+  eq(JSON.stringify(results.shop0.trails), '[]');
+  eq(results.shop0.trail, null);
+  eq(results.trailBuy.body.ok, true);
+  eq(results.trailBuy.body.profile.shards, 0, '100 Shards spent');
+  eq(results.trailBuy.body.profile.trail, 'aurora', 'a bought trail is worn');
+  eq(results.trailBuy.body.profile.flakes, results.shop0.flakes, 'snowflakes untouched');
+  eq(results.trailAgain.body.reason, 'already owned');
+  eq(results.trailPoor.body.reason, 'not enough shards');
+  eq(results.galaxyPoor.body.reason, 'not enough shards');
+  eq(results.galaxy.body.ok, true);
+  eq(results.galaxy.body.profile.rider, 'galaxy');
+  eq(results.galaxy.body.profile.shards, 400);
+  eq(results.trailOff.body.profile.trail, null, 'no trail');
+  eq(results.trailOn.body.profile.trail, 'aurora');
+  eq(results.trailNotOwned.body.reason, 'not owned');
+  eq(results.shopLog, '-100:avalanche shop trail aurora,-500:avalanche shop rider galaxy', 'one debit per purchase, nothing for refusals');
+});
+
 test('row-level security: players read only their own row and cannot write directly', () => {
   eq(results.rlsRead.status, 200);
   eq(results.rlsRead.body.length, 1);
   eq(results.rlsRead.body[0].user_id, B.id);
   ok(results.rlsWrite.status >= 400 || (Array.isArray(results.rlsWrite.body) && results.rlsWrite.body.length === 0), 'direct write refused: ' + results.rlsWrite.status);
   eq(results.rlsWriteCheck, '0', 'balance unchanged');
-  eq(results.catalog.length, 10, 'catalogue readable without signing in');
+  eq(results.catalog.length, 17, 'catalogue readable without signing in');
 });
 
 report();

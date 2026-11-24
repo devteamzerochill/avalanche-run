@@ -33,12 +33,17 @@ uniform vec3 uGold;
 uniform vec3 uIce;
 varying float vAlpha;
 varying float vTint;
+// Trail sparks: tint 10 + hue is a saturated colour, 20 + hue a pastel one.
+vec3 hueColor(float h, float s) {
+  vec3 k = clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+  return mix(vec3(1.0), k, s);
+}
 void main() {
   vec2 c = gl_PointCoord - 0.5;
   float r = dot(c, c) * 4.0;
   if (r > 1.0) discard;
   float a = (1.0 - r) * (1.0 - r) * vAlpha;
-  vec3 col = vTint < 0.5 ? uSnow : vTint < 1.5 ? uGold : vTint < 2.5 ? uIce : vTint < 3.5 ? vec3(1.0, 0.25, 0.75) : vTint < 4.5 ? vec3(1.0, 0.5, 0.08) : vec3(0.35, 1.0, 0.5);
+  vec3 col = vTint > 19.5 ? hueColor(fract(vTint), 0.3) : vTint > 9.5 ? hueColor(fract(vTint), 1.0) : vTint < 0.5 ? uSnow : vTint < 1.5 ? uGold : vTint < 2.5 ? uIce : vTint < 3.5 ? vec3(1.0, 0.25, 0.75) : vTint < 4.5 ? vec3(1.0, 0.5, 0.08) : vec3(0.35, 1.0, 0.5);
   gl_FragColor = vec4(col, a);
   #include <colorspace_fragment>
 }`;
@@ -288,7 +293,18 @@ export class SpeedTrail {
       for (let i = 0; i < SPEED_N - 1; i++) idx.push(o + i * 2, o + i * 2 + 1, o + i * 2 + 2, o + i * 2 + 1, o + i * 2 + 3, o + i * 2 + 2);
     }
     geo.setIndex(idx);
-    this.uniforms = { uColor: { value: new THREE.Color('#35d6ff') }, uRainbow: { value: 0 } };
+    this.uniforms = {
+      uColor: { value: new THREE.Color('#35d6ff') },
+      uRainbow: { value: 0 },
+      // A worn trail (Shards shop): a flowing three-colour gradient, rainbow, or a neon pulse.
+      uStyle: { value: 0 },
+      uRainbowOn: { value: 0 },
+      uPulse: { value: 0 },
+      uT: { value: 0 },
+      uC0: { value: new THREE.Color() },
+      uC1: { value: new THREE.Color() },
+      uC2: { value: new THREE.Color() },
+    };
     this.mesh = new THREE.Mesh(
       geo,
       new THREE.ShaderMaterial({
@@ -299,7 +315,7 @@ export class SpeedTrail {
         blending: THREE.AdditiveBlending,
         vertexShader: 'attribute float alpha; attribute float hue; varying float vA; varying float vH; void main(){ vA = alpha; vH = hue; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
         fragmentShader:
-          'uniform vec3 uColor; uniform float uRainbow; varying float vA; varying float vH; void main(){ vec3 rb = 0.5 + 0.5 * cos(6.2832 * (vH + vec3(0.0, 0.33, 0.67))); gl_FragColor = vec4(mix(uColor, rb, uRainbow) * vA, vA); \n#include <colorspace_fragment>\n }',
+          'uniform vec3 uColor; uniform float uRainbow; uniform float uStyle; uniform float uRainbowOn; uniform float uPulse; uniform float uT; uniform vec3 uC0; uniform vec3 uC1; uniform vec3 uC2; varying float vA; varying float vH; void main(){ vec3 rb = 0.5 + 0.5 * cos(6.2832 * (vH + vec3(0.0, 0.33, 0.67))); float g = abs(fract(vH * 0.4) * 2.0 - 1.0); vec3 grad = g < 0.5 ? mix(uC0, uC1, g * 2.0) : mix(uC1, uC2, g * 2.0 - 1.0); vec3 base = mix(uColor, grad, uStyle); float glow = 1.0 + uPulse * (0.35 + 0.45 * sin(uT * 7.0 - vH * 5.0)); gl_FragColor = vec4(mix(base, rb, max(uRainbow, uRainbowOn)) * vA * glow, vA); \n#include <colorspace_fragment>\n }',
       })
     );
     this.mesh.frustumCulled = false;
@@ -313,12 +329,24 @@ export class SpeedTrail {
     this.pts.length = 0;
   }
 
-  // strength 0..1 (speed), boost 0..1
-  update(dt, x, y, dist, lean, strength, boost, accent) {
+  // The worn trail (an item of TRAILS), or null for the plain speed streaks.
+  setStyle(trail) {
+    const u = this.uniforms;
+    this.worn = !!trail;
+    u.uStyle.value = trail ? 1 : 0;
+    u.uRainbowOn.value = trail && trail.rainbow ? 1 : 0;
+    u.uPulse.value = trail && trail.pulse ? 1 : 0;
+    if (trail) [u.uC0, u.uC1, u.uC2].forEach((c, i) => c.value.set(trail.colors[Math.min(i, trail.colors.length - 1)]));
+  }
+
+  // strength 0..1 (speed), boost 0..1; on: riding (a worn trail always shows then)
+  update(dt, x, y, dist, lean, strength, boost, accent, on) {
     this.t += dt;
     this.pts.unshift({ x, y, d: dist, lean });
     if (this.pts.length > SPEED_N) this.pts.pop();
     this.uniforms.uColor.value.copy(accent);
+    this.uniforms.uT.value = this.t;
+    if (this.worn && on) strength = Math.max(strength, 0.35);
     this.uniforms.uRainbow.value = boost;
     const n = this.pts.length;
     const len = 0.45 + 0.55 * Math.max(strength, boost);

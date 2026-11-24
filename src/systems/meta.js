@@ -1,6 +1,6 @@
 // Meta game rules: daily roll-over, streaks, missions, unlocks, leaderboard.
 // Pure functions over the profile object, so they can be tested without a DOM.
-import { CONFIG, MISSIONS, RIDERS, BOARDS } from '../config.js';
+import { CONFIG, MISSIONS, RIDERS, BOARDS, TRAILS } from '../config.js';
 import { mulberry32, dailySeed } from '../core/rng.js';
 
 const DAY_MS = 864e5;
@@ -117,16 +117,21 @@ export function finishRun(p, summary, replay) {
 
 // --- unlocks -------------------------------------------------------------
 export function catalogue(type) {
-  return type === 'rider' ? RIDERS : BOARDS;
+  return type === 'rider' ? RIDERS : type === 'board' ? BOARDS : TRAILS;
+}
+
+function ownList(p, type) {
+  return (type === 'rider' ? p.riders : type === 'board' ? p.boards : p.trails) || [];
 }
 
 export function owns(p, type, id) {
-  return (type === 'rider' ? p.riders : p.boards).includes(id);
+  return ownList(p, type).includes(id);
 }
 
 export function buy(p, type, id) {
   const item = catalogue(type).find((i) => i.id === id);
-  if (!item || owns(p, type, id) || item.cost < 0 || p.flakes < item.cost) return false;
+  // Shards items are sold by the server only (DECISIONS 68).
+  if (!item || item.shards || owns(p, type, id) || item.cost < 0 || p.flakes < item.cost) return false;
   p.flakes -= item.cost;
   (type === 'rider' ? p.riders : p.boards).push(id);
   select(p, type, id);
@@ -134,9 +139,11 @@ export function buy(p, type, id) {
 }
 
 export function select(p, type, id) {
+  if (type === 'trail' && id === 'none') return (p.trail = null), true;
   if (!owns(p, type, id)) return false;
   if (type === 'rider') p.rider = id;
-  else p.board = id;
+  else if (type === 'board') p.board = id;
+  else p.trail = id;
   return true;
 }
 

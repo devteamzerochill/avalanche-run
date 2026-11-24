@@ -40,8 +40,8 @@ The playable-ad build also posts `{ source: 'avalanche-run', type: 'boot' | 'gam
 | `attempt_start` | `attempt` (opaque id) | Call `start_game_run({ p_game: 'avalanche_run' })` best-effort, as today (`run-keys.ts`). Remember the latest run id **for this attempt**; a late answer for an older attempt must not replace it. Play has already started; never block on this. |
 | `attempt_end` | `attempt`, `score`, `key`, `stats` | Submit once through the existing helper (`score-submit.ts`). Once the profile migration is live (LOVABLE_HANDOFF.md): `submit_avalanche_run({ p_distance: score, p_key: key, p_run_id, p_stats: stats })`; before that, `submit_avalanche_score({ p_distance: score, p_key: key, p_run_id, p_metres: stats.distance })`. `p_metres` (whole metres ridden) feeds the Daily Reward bar and the run check, which measure metres; the score can also carry trick points. Omit `p_run_id` if no run id came back for this attempt. Then reply `submit_result` and refresh (section 3). |
 | `retry` | `attempt`, `score`, `key`, `stats` | The player pressed Retry after a failure. Submit again with **exactly the same arguments**. |
-| `buy` | `itemType` (`rider` or `board`), `id` | `buy_avalanche_item({ p_type: itemType, p_id: id })`, then reply `item_result` and `profile`. |
-| `select` | `itemType`, `id` | `select_avalanche_item({ p_type: itemType, p_id: id })`, then reply `item_result` and `profile`. |
+| `buy` | `itemType` (`rider`, `board` or `trail`), `id` | `buy_avalanche_item({ p_type: itemType, p_id: id })`, then reply `item_result` and `profile`. |
+| `select` | `itemType`, `id` (`trail` + `none` takes the trail off) | `select_avalanche_item({ p_type: itemType, p_id: id })`, then reply `item_result` and `profile`. |
 | `refresh` | none | Re-send `board`, `bars`, `daily_best`. The game asks when the Ranks screen opens. |
 | `race_token` | none | Only with `race` in the iframe URL (multiplayer race, `RACE_HANDOFF.md`). Reply `race_token` with the current session's access token, refreshed first if it expires within a minute. |
 
