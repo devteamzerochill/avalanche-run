@@ -86,11 +86,11 @@ From the Colyseus Cloud docs ([cloud](https://docs.colyseus.io/cloud), [continuo
 **Create now (owner, in the Cloud dashboard):**
 1. Create an application. Pick **one region** only (each push deploys to every region the app has, and the race needs exactly one race cycle). Choose the region nearest most players.
 2. Settings → Build & Deployment: connect the GitHub repository `devteamzerochill/avalanche-run`, branch `main`.
-3. **Root directory:** `server` (it holds `package.json` and `ecosystem.config.cjs`). **Build command:** leave the default (`npm run build`, a no-op here).
+3. **Root directory:** `server` (it holds `package.json` and `ecosystem.config.cjs`). **Build command:** leave the default (`npm run build`). It builds the game into `dist/web/` (`node ../tools/build.mjs`), which the server serves when `SERVE_GAME=1`, so the Cloud address carries both the game and the race, like the tunnel did.
 4. **Watch paths:** add `src/core` and `src/config.js`. The server runs the game's simulation from there; without them, a push that changes only the game's rules would not redeploy the server.
 5. Compute plan: the smallest plan that is always on is enough for the first races (one process; the replay is light).
 
-**Set before the first deploy** (Settings → Environment variables, encrypted): `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY` for zerochill.com, once the website team has applied the race migration. Without them the server stops at start (`SUPABASE_SERVICE_KEY is not set`), which is on purpose: it must never fall back to the local stack.
+**Set before the first deploy** (Settings → Environment variables, encrypted): `SUPABASE_URL` and `SUPABASE_ANON_KEY` for zerochill.com, `RACE_SERVER_EMAIL` and `RACE_SERVER_PASSWORD` (the race server's own site account, as in `server/.env`; DECISIONS 64), and `SERVE_GAME=1`. Riders then open `https://<app address>/?portrait&live&race=here`. Without them the server stops at start (`SUPABASE_SERVICE_KEY is not set`), which is on purpose: it must never fall back to the local stack.
 
 **Check on the first deploy:**
 - The log shows `race server on ...` and a race opening. If it fails with a missing `../src/config.js` or `../src/core/...`, Cloud only kept the `server` folder: switch the root directory to the repository root with a root `package.json` and `ecosystem.config.cjs` that run `server/index.mjs` (a small change; not made now because the docs suggest the repository is present).

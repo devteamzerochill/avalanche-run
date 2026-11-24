@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.mjs",
     "test": "node test.mjs",
-    "build": "node -e \"console.log('no build step: plain JavaScript')\""
+    "build": "node ../tools/build.mjs"
   },
   "dependencies": {
     "@colyseus/core": "0.18.29",
@@ -14,5 +14,8 @@
     "@colyseus/sdk": "0.18.10",
     "@colyseus/tools": "0.18.11",
     "@colyseus/ws-transport": "0.18.5"
+  },
+  "engines": {
+    "node": ">=20.12"
   }
 }
