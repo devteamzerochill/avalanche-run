@@ -34,6 +34,12 @@ Status: design agreed so far (2026-11-23); a local prototype is built (see "Prot
 **Ending**
 - After a set time the avalanche speeds up and the slope gets denser until nobody can survive, so every race ends naturally (target: within about 4 minutes) and the next cycle starts on time.
 
+**Lobby, chat and spectating** (DECISIONS 66, 67)
+- Checking in opens the race lobby: the riders in, a clock that runs to 0, and quick chat (six phrases and six emotes from `QUICK_CHAT`, never free text, at most one line every 1.5 s). Chat reaches only the riders of the same lobby or race.
+- Until check-in locks (5 s before the start) a rider may leave the lobby and gets the whole fee back (`race_withdraw`, migration `20261126000000_race_withdraw`). Each withdrawal is counted so a second check-in is charged with a fresh ref instead of being skipped as a retry.
+- The lobby clock ends 3 s before the start (`CONFIG.race.slopeCount`); the last 3-2-1 plays on the slope.
+- A rider who is out while at least two others still ride follows one of them (switchable with the arrows) until the results, and can still send quick chat. Leave goes back to the title.
+
 **Ties and disconnects**
 - Riders who die on the same simulation frame are ranked by distance travelled; only an exact tie on distance too splits the 90%.
 - A rider whose inputs stop arriving is out at their last confirmed frame. No refund.

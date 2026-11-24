@@ -10,7 +10,7 @@
 // distance; an exact tie on both shares first place (and the prize).
 import { randomInt } from 'node:crypto';
 import { Room } from '@colyseus/core';
-import { CONFIG } from '../src/config.js';
+import { CONFIG, QUICK_CHAT } from '../src/config.js';
 import { Sim } from '../src/core/sim.js';
 import { Recorder } from '../src/core/replay.js';
 import { judgeRide } from './scripted.mjs';
@@ -38,6 +38,12 @@ export class EnduranceRoom extends Room {
     this.busy = Promise.resolve(); // ledger calls run one at a time
 
     this.onMessage('checkin', (client) => this.queue(() => this.checkIn(client)));
+    // Leaving the lobby: the check-in is cancelled and the fee refunded while check-in is open.
+    this.onMessage('withdraw', (client) => {
+      const n = this.next; // the race the rider is leaving, even if the queue reaches it after the lock
+      this.queue(() => this.withdraw(client, n));
+    });
+    this.onMessage('chat', (client, m) => this.chat(client, m));
     this.onMessage('inputs', (client, m) => this.inputs(client, m));
     this.onMessage('balance', (client) => this.queue(() => this.sendBalance(client)));
     this.onMessage('board', (client) => this.queue(() => this.sendBoard(client)));
@@ -99,7 +105,8 @@ export class EnduranceRoom extends Room {
 
   nextInfo(userId) {
     const n = this.next;
-    return n ? { id: n.id, startAt: n.startAt, fee: n.fee, prizePct: n.prizePct, riders: n.entries.size, pot: n.pot, in: n.entries.has(userId) } : null;
+    // names: who is in the lobby, in check-in order.
+    return n ? { id: n.id, startAt: n.startAt, lockAt: n.startAt - this.lockMs, fee: n.fee, prizePct: n.prizePct, riders: n.entries.size, pot: n.pot, in: n.entries.has(userId), names: [...n.entries].map((id) => (n.names && n.names.get(id)) || 'rider') } : null;
   }
 
   raceInfo(userId) {
@@ -130,6 +137,39 @@ export class EnduranceRoom extends Room {
     }
     client.send('checkin', Object.assign({ race: n.id }, res));
     if (res.ok) this.broadcastNext();
+  }
+
+  async withdraw(client, n) {
+    if (!n || n.locking) return client.send('withdraw', { ok: false, reason: 'check-in closed' });
+    const res = await this.db.rpc('race_withdraw', { p_race: n.id, p_user: client.auth.id });
+    if (res.ok) {
+      n.entries.delete(client.auth.id);
+      n.pot = res.pot;
+    }
+    client.send('withdraw', Object.assign({ race: n.id }, res));
+    if (res.ok) {
+      this.broadcastNext();
+      await this.sendBalance(client);
+    }
+  }
+
+  // Quick chat: a phrase or emote id from the fixed list, never free text, so
+  // nothing needs moderating. Heard by the riders of the same lobby or race
+  // (riders still in and those who are out and spectating).
+  chat(client, m) {
+    const u = client.auth;
+    const id = m && m.id;
+    if (typeof id !== 'string' || !QUICK_CHAT.includes(id)) return;
+    const now = Date.now();
+    this.chatAt = this.chatAt || new Map();
+    if (now - (this.chatAt.get(u.id) || 0) < 1500) return;
+    this.chatAt.set(u.id, now);
+    const r = this.race && !this.race.done && this.race.riders.has(u.id) ? this.race : null;
+    const ids = r ? r.list.map((x) => x.id) : this.next && this.next.entries.has(u.id) ? [...this.next.entries] : [];
+    for (const to of ids) {
+      const c = this.users.get(to);
+      if (c) c.send('chat', { name: nameOf(u), id, me: to === u.id, race: r ? r.id : this.next.id });
+    }
   }
 
   loop() {

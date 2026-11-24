@@ -1,6 +1,6 @@
 // DOM user interface: title, HUD, panels, pause, end card, toasts.
 // The HUD only touches the DOM when a value changes.
-import { CONFIG, RIDERS, BOARDS } from '../config.js';
+import { CONFIG, RIDERS, BOARDS, QUICK_CHAT, QUICK_EMOTES } from '../config.js';
 import { FRAME } from './frame.js';
 import { t, LANGS, LANG_NAMES } from '../systems/i18n.js';
 import { missionById, nextStreakReward, owns, leaderboard } from '../systems/meta.js';
@@ -59,6 +59,11 @@ function clockText(ms) {
   return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 }
 
+// A quick-chat id as this player reads it: an emote, or a phrase in their language.
+function chatText(id) {
+  return QUICK_EMOTES[id] || t('chat.' + id);
+}
+
 export class UI {
   constructor(hooks) {
     this.hooks = hooks;
@@ -78,6 +83,9 @@ export class UI {
     press($('restartBtn'), () => hooks.restart());
     press($('quitBtn'), () => hooks.quit());
     press($('pauseSettingsBtn'), () => this.openPanel('settings'));
+    press($('specPrev'), () => this.hooks.specStep(-1));
+    press($('specNext'), () => this.hooks.specStep(1));
+    press($('specLeave'), () => this.hooks.specLeave());
     press($('againBtn'), () => hooks.again());
     press($('backBtn'), () => hooks.back());
     press($('panelClose'), () => this.closePanel());
@@ -85,12 +93,12 @@ export class UI {
     press(this.el.endCta, () => hooks.cta());
     press($('tAccount'), () => this.openPanel('account'));
     // The card opens the race panel; its button does the one thing that matters now.
-    press($('tRace'), () => this.openPanel('race'));
+    press($('tRace'), () => this.openPanel(this.raceIn() ? 'lobby' : 'race'));
     press($('rcGo'), () => {
       const R = this.raceClient();
       if (!this.raceSignedIn()) return this.openPanel(this.live() ? 'account' : 'race');
       if (R && R.status === 'online' && R.next && !R.next.in && !(R.balance != null && R.balance < R.next.fee)) return this.hooks.raceCheckIn();
-      this.openPanel('race');
+      this.openPanel(this.raceIn() ? 'lobby' : 'race');
     });
     this.el.panel.addEventListener('pointerup', (e) => {
       if (e.target === this.el.panel) this.closePanel();
@@ -125,6 +133,8 @@ export class UI {
     document.querySelectorAll('[data-i18n]').forEach((n) => {
       n.textContent = t(n.getAttribute('data-i18n'));
     });
+    $('specChat').innerHTML = this.quickChat();
+    this.wireQuickChat($('specChat'));
     const cta = CONFIG.ad.ctaText || t('cta.play');
     this.el.titleCta.textContent = cta;
     this.el.endCta.textContent = cta;
@@ -235,6 +245,86 @@ export class UI {
   // --- endurance race ---------------------------------------------------------
   raceClient() {
     return this.hooks.race ? this.hooks.race() : null;
+  }
+
+  // Checked in to the next race: the player belongs in the lobby until it starts.
+  raceIn() {
+    const R = this.raceClient();
+    return !!(R && R.status === 'online' && R.next && R.next.in);
+  }
+
+  // The lobby clock runs to 0 three seconds before the start; the last three
+  // are a 3-2-1 on the slope (DECISIONS 66).
+  lobbyEnd(R) {
+    return (R.race && !R.race.started && R.race.me >= 0 && R.race.goAt > R.now() ? R.race.goAt : R.next.startAt) - CONFIG.race.slopeCount * 1000;
+  }
+
+  lobbyPanel(body) {
+    const R = this.raceClient();
+    const counting = R && R.race && !R.race.started && R.race.me >= 0 && R.race.goAt > R.now();
+    if (!R || !(counting || (R.next && R.next.in))) return (body.innerHTML = `<p class="note">${esc(t('lobby.gone'))}</p>`);
+    const names = counting ? R.race.riders.map((x) => x.name) : R.next.names || [];
+    const meName = R.you && R.you.name;
+    const end = this.lobbyEnd(R);
+    const left = end - R.now();
+    const closed = counting || R.now() >= R.next.lockAt;
+    let html = `<div class="race-hero lobby-hero${left < 10000 ? ' soon' : ''}" data-hero><span class="lbl">${esc(t('lobby.startsIn'))}</span><b class="clock" data-until="${end}">${esc(clockText(left))}</b><div class="tbar"><i data-bar style="width:${this.raceBar(left)}%"></i></div></div>`;
+    html += `<div class="lobby-riders"><span class="lbl">${esc(t('lobby.riders', { n: names.length }))}</span><div>${names.map((n) => `<b class="${n === meName ? 'me' : ''}">${esc(n)}</b>`).join('')}</div></div>`;
+    html += `<div class="lobby-chat" id="lobbyChat">${this.chatLog(R)}</div>`;
+    html += this.quickChat();
+    html += closed ? `<p class="note">${esc(t('lobby.closed'))}</p>` : `<button class="btn" id="lobbyLeave">${esc(t('lobby.leave', { fee: R.next.fee }))}</button>`;
+    if (R.checkinMsg) html += `<p class="note err">${esc(R.checkinMsg)}</p>`;
+    body.innerHTML = html;
+    this.wireQuickChat(body);
+    if ($('lobbyLeave')) press($('lobbyLeave'), () => this.hooks.raceWithdraw());
+  }
+
+  // The last few quick-chat lines, newest at the bottom.
+  // Only this lobby's lines: the log from an earlier race stays until a new line arrives.
+  chatLog(R) {
+    const counting = R.race && !R.race.started && R.race.me >= 0 && R.race.goAt > R.now();
+    const id = counting ? R.race.id : R.next && R.next.id;
+    const lines = (R.chat || []).filter((c) => c.race === id).slice(-5);
+    if (!lines.length) return `<p class="note">${esc(t('lobby.quiet'))}</p>`;
+    return lines.map((c) => `<p class="${c.me ? 'me' : ''}"><b>${esc(c.me ? t('ranks.you') : c.name)}</b> ${esc(chatText(c.id))}</p>`).join('');
+  }
+
+  quickChat() {
+    return `<div class="quick-chat">${QUICK_CHAT.map((id) => `<button data-say="${id}" class="${QUICK_EMOTES[id] ? 'emote' : ''}">${esc(chatText(id))}</button>`).join('')}</div>`;
+  }
+
+  wireQuickChat(root) {
+    root.querySelectorAll('[data-say]').forEach((b) =>
+      press(b, () => {
+        const now = performance.now();
+        if (now - (this.saidAt || 0) < 1500) return; // the server drops faster ones anyway
+        this.saidAt = now;
+        this.hooks.raceSay(b.dataset.say);
+      }),
+    );
+  }
+
+  // The spectating bar: null hides it; { over } once nobody is left to watch.
+  spectate(s) {
+    $('spec').classList.toggle('hidden', !s);
+    if (!s) return (this.cache.spec = null);
+    const name = s.over ? t('spec.none') : s.name;
+    const line = s.over ? '' : t('spec.place', { p: s.place, d: s.dist });
+    const key = name + '|' + line + '|' + !!s.many;
+    if (this.cache.spec === key) return;
+    this.cache.spec = key;
+    $('specName').textContent = name;
+    $('specLine').textContent = line;
+    $('specPrev').style.visibility = $('specNext').style.visibility = s.many ? '' : 'hidden';
+  }
+
+  // A quick-chat line arrived: refresh the lobby log in place, or show it
+  // over the slope while racing or spectating.
+  chatHeard(m) {
+    const R = this.raceClient();
+    const log = $('lobbyChat');
+    if (log && R) log.innerHTML = this.chatLog(R);
+    else this.toast((m.me ? t('ranks.you') : m.name) + ': ' + chatText(m.id));
   }
 
   // The race half of the title's play card (refreshed every second): a line
@@ -928,11 +1018,14 @@ export class UI {
     if (name === 'ranks' && this.raceClient()) this.raceClient().requestBoard();
     this.hooks.tap('panelOpen');
     this.renderPanel();
+    this.el.panel.classList.toggle('lobby', name === 'lobby');
     this.el.panel.classList.remove('hidden');
   }
 
-  closePanel() {
+  closePanel(force) {
     if (!this.panelName) return;
+    // The lobby only closes by leaving (refund) or when the race starts.
+    if (this.panelName === 'lobby' && !force) return;
     const was = this.panelName;
     this.panelName = '';
     this.el.panel.classList.add('hidden');
@@ -945,7 +1038,7 @@ export class UI {
     const body = this.el.panelBody;
     const name = this.panelName;
     const p = this.profile();
-    const titles = { race: 'race.title', account: 'acct.title', how: 'how.title', missions: 'missions.title', shop: 'shop.title', ranks: 'ranks.title', settings: 'settings.title' };
+    const titles = { lobby: 'lobby.title', race: 'race.title', account: 'acct.title', how: 'how.title', missions: 'missions.title', shop: 'shop.title', ranks: 'ranks.title', settings: 'settings.title' };
     // With races on, Ranks has two tabs: today's mountain and the race leaders.
     const raceRanks = name === 'ranks' && !!this.raceClient();
     const ranksTab = raceRanks ? this.ranksTab || 'daily' : 'daily';
@@ -1017,6 +1110,8 @@ export class UI {
       );
     } else if (name === 'account') {
       this.accountPanel(body);
+    } else if (name === 'lobby') {
+      this.lobbyPanel(body);
     } else if (name === 'ranks' && ranksTab === 'race') {
       this.raceRanks(body);
     } else if (name === 'ranks' && this.host()) {

@@ -40,6 +40,13 @@
     <button id="jumpBtn" data-ui data-i18n="hud.jump"></button>
   </div>
 
+  <!-- Spectating after going out of a race (DECISIONS 67). -->
+  <div id="spec" class="hidden" data-ui>
+    <div class="spec-top"><span class="lbl" data-i18n="spec.watching"></span><button id="specLeave" class="btn small" data-ui data-i18n="spec.leave"></button></div>
+    <div class="spec-bar"><button id="specPrev" class="icon-btn" data-ui aria-label="Previous rider">◀</button><div class="spec-who"><b id="specName"></b><span id="specLine"></span></div><button id="specNext" class="icon-btn" data-ui aria-label="Next rider">▶</button></div>
+    <div id="specChat"></div>
+  </div>
+
   <div id="title" class="screen">
     <div class="title-top">
       <div class="chip" id="tDaily"></div>

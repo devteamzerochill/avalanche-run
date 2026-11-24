@@ -51,7 +51,7 @@ async function rider(tag, brain, displayName) {
   const client = new Client('ws://localhost:' + PORT);
   const room = await client.join('endurance', { token });
   const me = { tag, room, brain, msgs: {}, results: [], balance: null, localDeath: 0 };
-  for (const type of ['hello', 'next', 'checkin', 'cancelled', 'countdown', 'go']) room.onMessage(type, (m) => (me.msgs[type] = m));
+  for (const type of ['hello', 'next', 'checkin', 'withdraw', 'cancelled', 'countdown', 'go']) room.onMessage(type, (m) => (me.msgs[type] = m));
   room.onMessage('balance', (m) => {
     me.balance = m.balance;
     me.stats = m;
@@ -60,6 +60,8 @@ async function rider(tag, brain, displayName) {
   room.onMessage('board', (m) => (me.board = m));
   room.onMessage('rematch', (m) => (me.rematch = m));
   room.onMessage('riders', () => {});
+  me.chat = [];
+  room.onMessage('chat', (m) => me.chat.push(m));
   room.onMessage('countdown', (m) => {
     me.msgs.countdown = m;
     if (m.me >= 0) me.race = { id: m.id, sim: new Sim(m.seed, { ramp: m.ramp }), bot: new Bot() };
@@ -103,6 +105,37 @@ const checkIn = async (riders) => {
   return riders[0].msgs.next.id;
 };
 const resultFor = (r, id) => r.results.find((x) => x.race === id);
+
+// --- 0. the lobby: quick chat, leaving with a refund, checking in again ------------
+const L1 = await rider('lobbyA', 'none', 'lobby A');
+const L2 = await rider('lobbyB', 'none');
+const L3 = await rider('outsider', 'none');
+const fee0 = L1.balance;
+await checkIn([L1, L2]);
+const feeTaken = fee0 - L1.msgs.checkin.balance;
+L1.room.send('chat', { id: 'gl' });
+L1.room.send('chat', { id: 'gg' }); // within 1.5 s: dropped
+L2.room.send('chat', { id: 'not a phrase' });
+L2.room.send('chat', { id: 'e_fire' });
+L3.room.send('chat', { id: 'hi' }); // not in the lobby: heard by nobody
+await until(() => L1.chat.length >= 2 && L2.chat.length >= 2, 5000, 'lobby chat');
+await wait(400);
+const chatSeen = { L1: L1.chat.map((m) => m.id), L2: L2.chat.map((m) => m.id), L3: L3.chat.length, mine: L1.chat.find((m) => m.id === 'gl').me, name: L2.chat.find((m) => m.id === 'gl').name };
+L1.msgs.next = null;
+L1.room.send('withdraw');
+await until(() => L1.msgs.withdraw && L1.msgs.next && !L1.msgs.next.in, 5000, 'withdraw');
+await wait(300);
+const afterLeave = { balance: L1.balance, riders: L1.msgs.next.riders, names: L1.msgs.next.names };
+L1.msgs.checkin = null;
+await checkIn([L1]);
+const afterRejoin = L1.msgs.checkin.balance;
+L1.msgs.withdraw = null;
+L1.room.send('withdraw');
+L2.room.send('withdraw');
+await until(() => L1.msgs.withdraw && L2.msgs.withdraw, 5000, 'both leave');
+await wait(300);
+const afterSecondLeave = L1.balance;
+for (const r of [L1, L2, L3]) r.room.leave();
 
 // --- 1. one rider: cancelled, refunded --------------------------------------------
 const solo = await rider('solo', 'none');
@@ -152,6 +185,23 @@ H.room.send('rematch');
 await until(() => H.rematch, 5000, 'rematch');
 
 const byName = (res, r) => res.standings.find((s) => s.name.startsWith(r.tag.toLowerCase()));
+
+test('lobby quick chat: heard by the lobby only, unknown ids and spam dropped', () => {
+  eq(chatSeen.L1.join(','), 'gl,e_fire', 'L1 hears its own phrase and the emote');
+  eq(chatSeen.L2.join(','), 'gl,e_fire');
+  eq(chatSeen.L3, 0, 'a player outside the lobby hears nothing');
+  eq(chatSeen.mine, true);
+  eq(chatSeen.name.toLowerCase().startsWith('lobby a'), true, 'name: ' + chatSeen.name);
+});
+
+test('leaving the lobby refunds the fee; checking in again charges it again', () => {
+  ok(feeTaken > 0, 'fee taken');
+  eq(afterLeave.balance, fee0, 'full refund');
+  eq(afterLeave.riders, 1, 'one rider left in the lobby');
+  eq(afterLeave.names.length, 1);
+  eq(afterRejoin, fee0 - feeTaken, 'charged again (not skipped as a retry)');
+  eq(afterSecondLeave, fee0, 'second refund');
+});
 
 test('fewer than 2 riders: race cancelled and the fee refunded', () => {
   eq(soloPaid, 90, 'fee taken at check-in');
