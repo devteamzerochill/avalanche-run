@@ -348,6 +348,11 @@ export class Rider {
     }
     const solid = a >= 1;
     for (const b of this.allMats) {
+      // The ink hull draws solid whatever the opacity: off while see-through.
+      if (b.m.isShaderMaterial) {
+        b.m.visible = solid;
+        continue;
+      }
       const tr = solid ? b.transparent : true;
       // Opaque materials compile without alpha, so switching needs a rebuild (cached after once).
       if (b.m.transparent !== tr) b.m.needsUpdate = true;

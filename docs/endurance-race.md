@@ -34,10 +34,17 @@ Status: design agreed so far (2026-11-23); a local prototype is built (see "Prot
 **Ending**
 - After a set time the avalanche speeds up and the slope gets denser until nobody can survive, so every race ends naturally (target: within about 4 minutes) and the next cycle starts on time.
 
-**Lobby, chat and spectating** (DECISIONS 66, 67)
-- Checking in opens the race lobby: the riders in, a clock that runs to 0, and quick chat (six phrases and six emotes from `QUICK_CHAT`, never free text, at most one line every 1.5 s). Chat reaches only the riders of the same lobby or race.
-- Until check-in locks (5 s before the start) a rider may leave the lobby and gets the whole fee back (`race_withdraw`, migration `20261126000000_race_withdraw`). Each withdrawal is counted so a second check-in is charged with a fresh ref instead of being skipped as a retry.
-- The lobby clock ends 3 s before the start (`CONFIG.race.slopeCount`); the last 3-2-1 plays on the slope.
+**Lobby, chat and spectating** (DECISIONS 66, 67, 69)
+- Checking in opens the race lobby: a slim panel at the bottom with a clock that runs to 0, and quick chat (six phrases and six emotes from `QUICK_CHAT`, never free text, at most one line every 1.5 s). Chat reaches only the riders of the same lobby or race.
+- Behind the panel the checked-in riders stand on the start grid in their own look, in check-in order, with name tags. A rider who sends quick chat shows it on their tag, and an emote makes them hop. The title stack is hidden while the lobby is open. The camera is a set shot from in front of the grid (`raceShot` in main.js, `s.shot` in camera.js).
+- Until check-in locks (8 s before the start, `LOCK_SECONDS`) a rider may leave the lobby and gets the whole fee back (`race_withdraw`, migration `20261126000000_race_withdraw`). Each withdrawal is counted so a second check-in is charged with a fresh ref instead of being skipped as a retry.
+- The lobby clock ends 7 s before the start. A 4 s flyover (`CONFIG.race.introSeconds`) sweeps from the lobby shot over the grid and settles behind the fox, under a race banner (riders and pot); then the 3-2-1 (`CONFIG.race.slopeCount`) plays on the slope with the HUD.
+
+**Start grid and looks** (DECISIONS 70, 71)
+- At the lock the server shuffles the riders into the grid (`gridStart` in sim.js: rows of 4, 2 m lanes, rows 3 m apart, front row furthest down). A rider's index is their slot; the countdown sends each rider's `start`, and every Sim of that ride (phone, server, bot check, rematch) starts from it.
+- The server reads each rider's outfit, board and trail from their profile (`race_looks`, migration `20261128000000_race_looks`) at check-in and again at the lock, and sends them in the lobby (`next.looks`, `next.me`) and the countdown (`riders[].look`). A failed read leaves the default look.
+- Other riders are full riders in that look (`src/render/racers.js`) with their worn trail and sparks: 6 on high quality, 4 on medium, 3 on low (each is about 125 meshes). A rider that would hide the fox or the slope just ahead of it fades to 30 % with its ink outline off.
+- Tested: the race server suite rides a 5-rider grid race (slots, starts, death ticks agree, looks). In the browser against four Node riders: the lobby grid with tags and emotes, leaving the lobby, a full 5-rider race from the grid, and the intro stepped frame by frame (lobby shot, flyover, 3-2-1 behind the fox); fading and trails checked in numbers and one screenshot. Not yet seen: a phone, Safari, the banner animation (the hidden pane freezes CSS animations).
 - A rider who is out while at least two others still ride follows one of them (switchable with the arrows) until the results, and can still send quick chat. Leave goes back to the title.
 
 **Ties and disconnects**
@@ -105,7 +112,7 @@ Built and tested on this PC with the local Supabase and test Shards. Nothing is 
 - Check-in is always open for the next race. 5 s before the start, entries close; fewer than 2 riders means every fee is refunded.
 - The countdown takes over the game wherever the player is. Each phone simulates on the server's clock (every due tick, so slow frames never fall behind) and sends its inputs 10 times a second.
 - The server steps each rider's simulation with those inputs. A death is the tick the simulation leaves riding. Out also: inputs stop for 3 s, the player leaves, inputs arrive more than 1 s ahead of server time, or the input stream doesn't line up.
-- The others are drawn as ghosts (nearest 6) from the server's positions, 10 updates a second.
+- The others are drawn (nearest 6; in their own look since DECISIONS 71) from the server's positions, 10 updates a second.
 - The race is decided once one rider is left and confirmed past the last death. The winner keeps riding; everyone sees the standings, prize and fee.
 - The ramp (0.3 m/s per second after 190 s) catches even the best test bot by about 4:10.
 

@@ -28,7 +28,7 @@ export const CONFIG = {
     // this with the race, so it can be tuned there.
     ramp: { from: 190, rate: 0.3, denseFrom: 7000, denseTo: 11000, denseRows: 0.7, denseExtra: 1.5 },
     sendEvery: 6, // ticks of input per message (10 a second)
-    ghosts: 6, // nearest other riders drawn
+    ghosts: 6, // nearest other riders drawn (fewer at lower quality: quality.levels racers; each is a full rider)
     slopeCount: 3, // seconds of 3-2-1 on the slope after the intro
     introSeconds: 4, // the grid flyover between the lobby clock reaching 0 and the 3-2-1 (DECISIONS 70)
     // The start grid (DECISIONS 70): rows of perRow riders, lane m apart across
@@ -212,9 +212,9 @@ export const CONFIG = {
   quality: {
     // pixelRatio cap, particle share, scenery share
     levels: [
-      { name: 'low', pr: 0.6, particles: 0.35, scenery: 0.4, snow: 0 },
-      { name: 'medium', pr: 0.8, particles: 0.6, scenery: 0.7, snow: 0.5 },
-      { name: 'high', pr: 1, particles: 1, scenery: 1, snow: 1 },
+      { name: 'low', pr: 0.6, particles: 0.35, scenery: 0.4, snow: 0, racers: 3 },
+      { name: 'medium', pr: 0.8, particles: 0.6, scenery: 0.7, snow: 0.5, racers: 4 },
+      { name: 'high', pr: 1, particles: 1, scenery: 1, snow: 1, racers: 6 },
     ],
     maxPixelRatio: 2,
     sampleFrames: 90,

@@ -579,7 +579,7 @@ class Game {
     this.ui.hideEnd();
     this.ui.showPause(false);
     this.ui.showTitle(false);
-    this.ui.showHud(true);
+    this.ui.showHud(false); // shown for the 3-2-1, after the lobby and the intro
     this.ui.raceHud({ left: info.riders.length, place: 0, gap: null, pack: [] });
     this.audio.unlock();
     this.audio.play('start');
@@ -907,7 +907,7 @@ class Game {
       if (Math.abs(g.show - sim.dist) < 140) near.push(g);
     }
     near.sort((a, b) => Math.abs(a.show - sim.dist) - Math.abs(b.show - sim.dist));
-    const n = this.state === 'title' ? 0 : Math.min(near.length, CONFIG.race.ghosts);
+    const n = this.state === 'title' ? 0 : Math.min(near.length, this.racerCap());
     near.length = n;
     const terrain = this.stage.terrain;
     // Along the slope: the drawn position moves every tick at a smoothed speed
@@ -974,6 +974,11 @@ class Game {
     return r;
   }
 
+  // How many other riders are drawn: each is a full rider (about 125 meshes).
+  racerCap() {
+    return Math.min(CONFIG.race.ghosts, CONFIG.quality.levels[this.q.level].racers || CONFIG.race.ghosts);
+  }
+
   // A name tag over a drawn rider's head, in frame pixels (d: metres ahead of the fox).
   tagFor(tags, rider, name, d, lead) {
     const v = this.tagV || (this.tagV = new THREE.Vector3());
@@ -1008,7 +1013,7 @@ class Game {
     if (n && n.in && n.names && n.me >= 0) {
       const N = n.names.length;
       const mine = gridStart(n.me, N);
-      for (let i = 0, k = 0; i < N && k < CONFIG.race.ghosts; i++) {
+      for (let i = 0, k = 0; i < N && k < this.racerCap(); i++) {
         if (i === n.me) continue;
         const s = gridStart(i, N);
         const dz = s.d - mine.d;
@@ -1069,8 +1074,9 @@ class Game {
     const back = 7.5 + (x1 - x0) * 0.35; // wider grids need the camera further out
     const P = S.path.points;
     const L = S.aim.points;
-    P[0].set(cx + 1.4, g(zF - back) + 2.1, zF - back);
-    L[0].set(cx, g(zc) + 0.3, zc);
+    // Aimed well below the riders, so they stand in the top third, clear of the lobby panel.
+    P[0].set(cx + 1.4, g(zF - back) + 3.6, zF - back);
+    L[0].set(cx, g(zc) - 3.4, zc);
     P[1].set(cx - 6.5, g(zc) + 4.6, zc - 1);
     L[1].set(cx, g(zc) + 0.8, zc);
     P[2].set(fx + 3, g(zB + 6) + 4.4, zB + 6);
@@ -1514,6 +1520,7 @@ class Game {
         this.ui.banner(t('race.title'), t('race.introSub', { n: q.riders.length, pot: q.pot || 0 }), 'go', CONFIG.race.introSeconds * 0.75);
         this.audio.play('whoosh');
       }
+      if (q && !q.hud && this.countT <= CONFIG.race.slopeCount) (q.hud = true), this.ui.showHud(true);
       if (n !== this.countShown && n > 0 && !(q && this.countT > CONFIG.race.slopeCount)) {
         this.countShown = n;
         this.ui.banner(String(n), '', 'count', 0.8);
