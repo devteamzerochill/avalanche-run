@@ -1,6 +1,6 @@
 # Avalanche Run: multiplayer race for zerochill.com
 
-**Draft for the owner's review (2026-11-23, house fee added 2026-11-24). Not sent yet.**
+**Status (2026-11-24): the ledger is live.** With the backend team's go-ahead we applied it ourselves through Lovable (migration 0310), with the wallet functions on `reward_entries`, a race server account instead of the service key, and the house account set. Races run from the owner's PC for now: `docs/race-from-this-pc.md`. Still open from this handoff: the page changes (section 4) once the game moves onto the site, and the Terms (section 5).
 
 What the zerochill.com backend and page need so the multiplayer race can run against the real site. Players pay a Shards entry fee to check in, everyone rides the same mountain live every 5 minutes, and the last rider standing wins 90% of the pot. The other 10% is a house fee paid to one Zero Chill account. Fewer than 2 riders, or a win that follows the game's own bot, refunds everyone.
 
