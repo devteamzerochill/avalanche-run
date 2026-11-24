@@ -17,8 +17,7 @@ import { Supabase, supabaseSettings } from './supabase.mjs';
 const PORT = 2599;
 const RAMP = { from: 3, rate: 4 }; // races end within seconds
 const logs = [];
-// The 'bot' rider stands in for a local practice rider, so its wins are paid.
-await startRaceServer({ port: PORT, cycleSeconds: 20, lockSeconds: 3, ramp: RAMP, practice: (u) => u.email.startsWith('bot-'), log: (...a) => logs.push(a.join(' ')) });
+await startRaceServer({ port: PORT, cycleSeconds: 20, lockSeconds: 3, ramp: RAMP, log: (...a) => logs.push(a.join(' ')) });
 
 const LOCAL = CONFIG.online.local;
 async function signUp(tag, displayName) {
@@ -80,7 +79,9 @@ function sendTicks(me) {
   const from = sim.tick;
   const runs = [];
   for (let k = 0; k < CONFIG.race.sendEvery && sim.phase === 'ride'; k++) {
-    const input = quantise(me.brain === 'bot' ? bot.decide(sim) : { tx: 0, jump: false, grab: false });
+    // 'left' holds hard left: on this short slope it outlasts a rider who doesn't
+    // steer by about 12 ticks on any seed, without riding like the bot.
+    const input = quantise(me.brain === 'bot' ? bot.decide(sim) : { tx: me.brain === 'left' ? -1 : 0, jump: false, grab: false });
     const tx = Math.round(input.tx * 100);
     const flags = (input.jump ? 1 : 0) | (input.grab ? 2 : 0);
     const last = runs[runs.length - 1];
@@ -112,8 +113,8 @@ await wait(500);
 const soloAfter = solo.balance;
 solo.room.leave();
 
-// --- 2. bot vs a rider who doesn't steer vs a cheater ------------------------------
-const A = await rider('bot', 'bot', 'bot Rider');
+// --- 2. a fair rider vs a rider who doesn't steer vs a cheater ---------------------
+const A = await rider('left', 'left', 'left Rider');
 const B = await rider('still', 'none');
 const C = await rider('cheat', 'cheat');
 const race2 = await checkIn([A, B, C]);
@@ -160,7 +161,7 @@ test('fewer than 2 riders: race cancelled and the fee refunded', () => {
 
 test('last alive wins; the server replays inputs to decide it', () => {
   const res = resultFor(A, race2);
-  eq(byName(res, A).place, 1, 'bot wins');
+  eq(byName(res, A).place, 1, 'the steering rider wins');
   eq(byName(res, B).place, 2);
   eq(byName(res, C).place, 3);
   eq(byName(res, A).reason, 'last alive');
@@ -176,7 +177,7 @@ test('inputs ahead of server time are refused: the cheater is out', () => {
 });
 
 test('riders see display names; the race record counts races, wins and Shards won', () => {
-  eq(byName(resultFor(A, race2), A).name, 'bot Rider');
+  eq(byName(resultFor(A, race2), A).name, 'left Rider');
   eq(A.stats.races + '|' + A.stats.wins + '|' + A.stats.won, '1|1|27');
   eq(B.stats.races + '|' + B.stats.wins + '|' + B.stats.won, '1|0|0');
 });
@@ -245,7 +246,7 @@ test('fair winners are judged and paid (no false call on the tie race)', () => {
 });
 
 test('race board: wins from settled races only, with my own row', () => {
-  eq(A.board.me.wins + '|' + A.board.me.won + '|' + A.board.me.name, '1|27|bot Rider', 'the payout winner is on the board');
+  eq(A.board.me.wins + '|' + A.board.me.won + '|' + A.board.me.name, '1|27|left Rider', 'the payout winner is on the board');
   eq(G.board.me, null, 'the voided winner has no settled races');
   ok(A.board.top.length <= 8 && A.board.top.every((r, i, a) => !i || a[i - 1].wins >= r.wins), 'top 8, by wins');
 });

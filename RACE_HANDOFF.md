@@ -91,7 +91,7 @@ The game's race panel shows these rules in short form ("Record" tab and How to p
 - **The browser can't touch Shards.** Only the race server (service role) can call the ledger, and only through the four functions above.
 - **Every fee is accounted for.** It is held at check-in, and each race ends in one of: paid out (90% to the winner, 10% plus any odd Shards to the house account, or burned while none is set), or refunded in full (cancelled or voided).
 - **The server decides the result.** It replays every rider's inputs with the game's own simulation; phones only send inputs.
-- **A bot win is voided.** A winning ride that follows the game's own bot refunds everyone (practice accounts are exempt only on a local database).
+- **A bot win is voided.** A winning ride that follows the game's own bot refunds everyone.
 
 ## Tested locally
 

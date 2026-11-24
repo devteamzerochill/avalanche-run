@@ -54,11 +54,7 @@ Until those exist, the local build uses stand-in test Shards.
 
 ## Before publishing (owner, 2026-11-24)
 
-**Remove the practice riders.** They exist only for local testing and must not ship. Today they are already limited to the local stack (they sign in to the local Supabase, and the server exempts them from the bot check only when its Supabase URL is local), but at publish time take them out entirely:
-- `server/bots.mjs` (the practice riders) and `server/test-accounts.mjs` (their accounts).
-- The `practice` option in `server/index.mjs` and `server/race-room.mjs` (the `@avalanche.test` exemption from the bot check).
-- The `&racebot` test switch in `beginRace` (`src/main.js`).
-- Their mentions in `CLAUDE.md`, this file and `server/test.mjs` (its 'bot' rider relies on the exemption; give that test another way to win fairly).
+**The practice riders are removed** (done on this branch, merged at publish time): `server/bots.mjs`, `server/test-accounts.mjs`, the `@avalanche.test` exemption from the bot check (`practice` in `server/index.mjs` and `server/race-room.mjs`) and the `&racebot` switch. Every race winner is now judged, locally too. `server/test.mjs` wins its paid race with a rider who holds hard left, which outlasts a rider who doesn't steer on that short slope without riding like the bot.
 
 ## Open
 
@@ -95,7 +91,7 @@ Not covered by the docs: the Node.js version Cloud runs (the server needs Node 1
 Built and tested on this PC with the local Supabase and test Shards. Nothing is deployed.
 
 **Pieces**
-- `server/`: the Colyseus 0.18 race server, its own Node package (`npm install` there once). `race-room.mjs` runs the cycle and replays every rider with `src/core/sim.js`; `supabase.mjs` checks sign-ins and calls the ledger; `bots.mjs` adds practice riders; `test.mjs` plays real races.
+- `server/`: the Colyseus 0.18 race server, its own Node package (`npm install` there once). `race-room.mjs` runs the cycle and replays every rider with `src/core/sim.js`; `supabase.mjs` checks sign-ins and calls the ledger; `test.mjs` plays real races.
 - `supabase/migrations/20261125000000_endurance_race.sql`: race config, races, entries, and the server-only ledger functions (check-in escrow, start, cancel with refunds, settle with payout and house fee). It calls three wallet functions the site would provide; locally they are `supabase/local-standins/shards_wallet.sql` (every wallet starts with 100 test Shards).
 - Game: `src/systems/race.js` (client; loads `vendor/colyseus.js` only with `?race`), race wiring in `src/main.js`, the race button, HUD counter and panel in `src/ui/ui.js`. The avalanche ramp is `opts.ramp` in `src/core/sim.js`, values in `CONFIG.race`.
 
@@ -110,8 +106,7 @@ Built and tested on this PC with the local Supabase and test Shards. Nothing is 
 **Run it locally**
 1. `npx --yes supabase@latest start` in the game folder.
 2. Race server: the `race-server` launch entry (`node server/index.mjs --cycle=60`, a race every minute; leave out `--cycle` for 5 minutes).
-3. Optional practice riders: `node server/bots.mjs --count=2`.
-4. Game: `/index.html?portrait&live=local&race`, sign in with an account from `supabase/local-standins/test-account.json` (after a `db reset`, recreate the three accounts with `node server/test-accounts.mjs`).
+3. Game: `/index.html?portrait&live=local&race`, sign in with an account from `supabase/local-standins/test-account.json` (a `db reset` deletes them; sign up again through the local stack).
 
 **Verified**
 - `node server/test.mjs` (7/7 then; 9/9 with the bot defence): cancel and refund; last alive wins; server and phone agree on the death tick; a sped-up client is out; display names and race record; 90% payout and 10% burn (no house account); an exact tie splits the prize and, with a house account set, it gets the fee and the odd Shard; leaving counts as dying.
@@ -156,7 +151,7 @@ Built and tested on this PC with the local Supabase and test Shards. Nothing is 
 - Flagged as scripted (after at least 5 s of riding): the same target as the shadow on 90% of the ticks it aims off the centre line (the plain bot), or steering within 0.5 m of the shadow on 75% of ticks at the best delay up to 24 ticks, with a mean gap of 0.45 m or less, and at least 5 jumps with 90% of them 0-6 ticks after the shadow's (the human-like bot).
 - Short races (added 2026-11-24): a win with fewer than 5 jumps is too short to judge jump timing, and before this a human-like bot win in a short race was paid. Now, on ticks where the shadow aims off the centre line, steering within 0.5 m of it on 72% of them with a mean gap of 0.38 m or less, at least 5 s of such ticks, and every jump (if any) on the shadow's cue, is scripted. Measured on 40 HumanBot rides on the race slope: caught 27/40 at 10 s (most have under 5 s of off-centre steering), 38/40 at 20 s, 39/40 at 30 s, 40/40 at 45 s. In a real local race (practice exemption off) a 17.9 s HumanBot win with 2 jumps was voided. The owner then won two real local races with the bot check on (2026-11-24): a 24 s win (off-centre following 39%, gap 0.78 m, 1 of 13 jumps on cue) and a 45 s win (46%, 0.76 m, 1 of 22). Both were paid. Neither came under the short rule, because people jump far more than the bot (13-22 jumps against the bot's few), but their steering sits far from the 72% / 0.38 m line either way.
 - Calibrated on the owner's real run (seed 3424911021, 57 s) against three seeds of each bot: exact matches 0.2% (human) vs 100% (bot); following 45% / 1.02 m / 5 of 19 jumps on cue (human) vs 84-88% / 0.22-0.32 m / every jump (human-like bot, full races and 60 s runs). Only one human run was available, so collect more real races before real stakes.
-- The client no longer runs `?bot` or `__GAME.bot` in a race. The local practice riders (`@avalanche.test` accounts) are exempt so practice races still pay out; the exemption is off whenever the server talks to a non-local Supabase.
+- The client no longer runs `?bot` or `__GAME.bot` in a race. Every winner is judged; the local practice exemption was removed before publishing.
 - Checking a winner replays the whole race once (about 0.3 s of server time for a 190 s race), only for place-1 riders.
 - `node server/test.mjs` (9/9) adds: a bot win on a normal account is voided and both riders are refunded with nothing on their record; the tie race's winners are judged and paid.
 

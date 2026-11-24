@@ -18,10 +18,6 @@ export async function startRaceServer(opts = {}) {
   const port = opts.port || +process.env.PORT || 2567;
   const settings = supabaseSettings();
   const db = new Supabase(settings);
-  // The local practice riders (server/bots.mjs, on the @avalanche.test accounts)
-  // ride with the game's bot, so their wins are not judged. Never for a remote database.
-  const local = /127\.0\.0\.1|localhost/.test(settings.url);
-  const practice = !local ? () => false : opts.practice || ((u) => /@avalanche\.test$/.test(u.email || ''));
   // Room options can be copied on the way in, so the settings (with the
   // database client) go through a static field instead.
   EnduranceRoom.settings = {
@@ -31,7 +27,6 @@ export async function startRaceServer(opts = {}) {
     dropTicks: opts.dropTicks || 180, // 3 s without inputs: out
     leadTicks: opts.leadTicks || 60, // inputs may run at most 1 s ahead of server time
     ramp: opts.ramp || CONFIG.race.ramp,
-    practice,
     log: opts.log || ((...a) => console.log(new Date().toISOString().slice(11, 19), ...a)),
   };
   const server = defineServer({

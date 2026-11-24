@@ -31,7 +31,6 @@ export class EnduranceRoom extends Room {
     this.dropTicks = options.dropTicks;
     this.leadTicks = options.leadTicks;
     this.ramp = options.ramp;
-    this.practice = options.practice || (() => false);
     this.log = options.log || (() => {});
     this.next = null; // the race taking entries
     this.race = null; // the race being ridden
@@ -128,8 +127,6 @@ export class EnduranceRoom extends Room {
       n.pot = res.pot;
       n.names = n.names || new Map();
       n.names.set(client.auth.id, nameOf(client.auth));
-      n.practice = n.practice || new Set();
-      if (this.practice(client.auth)) n.practice.add(client.auth.id);
     }
     client.send('checkin', Object.assign({ race: n.id }, res));
     if (res.ok) this.broadcastNext();
@@ -178,7 +175,6 @@ export class EnduranceRoom extends Room {
       i,
       id,
       name: (n.names && n.names.get(id)) || 'rider',
-      practice: !!(n.practice && n.practice.has(id)),
       sim: new Sim(n.seed, { ramp: this.ramp }),
       alive: true,
       deathTick: 0,
@@ -288,8 +284,8 @@ export class EnduranceRoom extends Room {
     const rows = this.standings(r, cut);
     const results = rows.map(({ x, place }) => ({ user_id: x.id, place, death_tick: x.alive ? x.sim.tick : x.deathTick, distance: Math.floor(x.dist) }));
     // A win that follows the game's own bot voids the race: nobody is paid and
-    // every fee goes back (local practice riders are exempt).
-    const flagged = rows.filter(({ x, place }) => place === 1 && !x.practice).filter(({ x }) => {
+    // every fee goes back.
+    const flagged = rows.filter(({ x, place }) => place === 1).filter(({ x }) => {
       const v = judgeRide(r.seed, this.ramp, x.runs);
       this.log('judge', x.name, JSON.stringify({ exact: +v.exact.toFixed(3), follow: +v.follow.toFixed(3), off: +v.followOff.toFixed(3), gap: +v.meanGap.toFixed(2), lag: v.lag, jumps: v.onCue + '/' + v.jumps, scripted: v.scripted }));
       return v.scripted;
