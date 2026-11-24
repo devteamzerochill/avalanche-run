@@ -11,6 +11,13 @@ export function raceRequested() {
   return new URLSearchParams(location.search).has('race');
 }
 
+// ?race=here: the race server is the one serving this page (the owner's PC
+// behind a tunnel); otherwise CONFIG.race.server.
+export function raceServer() {
+  if (new URLSearchParams(location.search).get('race') !== 'here') return CONFIG.race.server;
+  return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
+}
+
 function loadSdk() {
   if (window.Colyseus) return Promise.resolve(window.Colyseus);
   return new Promise((resolve, reject) => {
@@ -58,7 +65,7 @@ export class RaceClient {
       const token = await getToken();
       if (!token) throw new Error('signed out');
       const Colyseus = await loadSdk();
-      const client = new Colyseus.Client(CONFIG.race.server);
+      const client = new Colyseus.Client(raceServer());
       const room = await client.join('endurance', { token });
       this.room = room;
       this.status = 'online';
