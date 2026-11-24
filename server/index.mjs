@@ -76,7 +76,10 @@ export async function startRaceServer(opts = {}) {
 // Tests import this file and must stay on the local stack.
 if ((process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) || process.env.pm_id !== undefined) {
   const envFile = fileURLToPath(new URL('.env', import.meta.url));
-  if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
+  // Under PM2 (Colyseus Cloud) the dashboard's variables arrive through /etc/environment
+  // and .env.cloud, which @colyseus/tools loads as it is imported; by hand, server/.env.
+  if (process.env.pm_id !== undefined) await import('@colyseus/tools');
+  else if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
   const { port } = await startRaceServer();
   console.log('race server on ws://localhost:' + port);
 }
