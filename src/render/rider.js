@@ -5,6 +5,56 @@ import * as THREE from 'three';
 import { toonRamp, outlineMaterial } from './props.js';
 import { furTexture, headGeometry, earGeometry, paintMasks } from './fox.js';
 
+// Galaxy cloth (Shards shop, DECISIONS 68): a drifting nebula with twinkling
+// stars, laid out in screen space so it reads as a window onto space rather
+// than a print on the fabric. Shared clock and pixel scale for every galaxy part.
+export const GALAXY = { uGTime: { value: 0 }, uGPx: { value: 1 / 800 } };
+const GALAXY_HEAD = `
+uniform float uGalaxy;
+uniform float uGTime;
+uniform float uGPx;
+vec3 galaxyNebula(vec2 p) {
+  float t = uGTime;
+  float n = sin(p.x * 1.3 + t * 0.21) + sin(p.y * 1.7 - t * 0.17) + sin((p.x + p.y) * 0.9 + t * 0.13) + 0.6 * sin(length(p - vec2(2.0, 3.0)) * 2.1 - t * 0.3);
+  n = n * 0.2 + 0.5;
+  vec3 deep = vec3(0.05, 0.03, 0.2);
+  vec3 violet = vec3(0.45, 0.12, 0.75);
+  vec3 cyan = vec3(0.1, 0.65, 0.95);
+  return mix(mix(deep, violet, smoothstep(0.45, 0.8, n)), cyan, smoothstep(0.82, 0.98, n));
+}
+float galaxyStars(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  float h = fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453);
+  vec2 c = vec2(fract(h * 13.7), fract(h * 71.3)) * 0.7 + 0.15;
+  float tw = 0.45 + 0.55 * sin(uGTime * 3.0 + h * 40.0);
+  return step(0.8, h) * smoothstep(0.16, 0.0, length(f - c)) * tw;
+}
+`;
+function galaxyMaterial(m) {
+  m.userData.galaxy = { value: 0 };
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uGalaxy = m.userData.galaxy;
+    sh.uniforms.uGTime = GALAXY.uGTime;
+    sh.uniforms.uGPx = GALAXY.uGPx;
+    sh.fragmentShader = sh.fragmentShader
+      .replace('void main() {', GALAXY_HEAD + 'void main() {')
+      .replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+  vec2 gp = gl_FragCoord.xy * uGPx * 9.0;
+  vec3 gNeb = galaxyNebula(gp * 0.9);
+  if (uGalaxy > 0.5) diffuseColor.rgb = gNeb;`
+      )
+      .replace(
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>
+  if (uGalaxy > 0.5) totalEmissiveRadiance += gNeb * 0.12 + vec3(galaxyStars(gp * 7.0) + 0.7 * galaxyStars(gp * 11.0 + 11.0)) * 1.8;`
+      );
+  };
+  return m;
+}
+
 const Y = new THREE.Vector3(0, 1, 0);
 const THIGH = 0.37;
 const SHIN = 0.37;
@@ -106,11 +156,11 @@ export class Rider {
     // The rider is the Zero Chill fox: fur, cream ruff, hoodie, shorts, goggles, headphones.
     this.mats = {
       fur: mk('#E8622A', { map: fur }), cream: mk('#FFF3E6', { map: fur }), furVC: mk('#ffffff', { map: fur, vertexColors: true }),
-      hoodie: mk('#18191F'), trim: mk('#FF6B1A'), shorts: mk('#18191F'),
+      hoodie: this.ghost ? null : galaxyMaterial(mk('#18191F')), trim: mk('#FF6B1A'), shorts: mk('#18191F'),
       shortsTrim: mk('#E0262E'), gear: mk('#2F6BFF'), dark: mk('#0E0F13'), boot: mk('#24262E'),
       nose: mk('#2A1410'), iris: mk('#C2410C'), innerEar: mk('#B9A497', { map: fur }),
       sclera: this.ghost ? null : new THREE.MeshBasicMaterial({ color: '#FBF8F2' }), shine: this.ghost ? null : new THREE.MeshBasicMaterial({ color: '#ffffff' }),
-      deck: mk('#15161A'), stripe: mk('#1E6FE8'), edge: mk('#E0262E'),
+      deck: this.ghost ? null : galaxyMaterial(mk('#15161A')), stripe: mk('#1E6FE8'), edge: mk('#E0262E'),
     };
     const mat = (name) => this.ghostMat || this.mats[name];
     const ink = this.ghost ? null : outlineMaterial(0.013);
@@ -277,8 +327,10 @@ export class Rider {
     if (rider) {
       for (const k of ['fur', 'cream', 'hoodie', 'trim', 'shorts', 'shortsTrim', 'gear']) if (rider[k]) m[k].color.set(rider[k]);
       for (const g of this.vc) paintMasks(g, rider.fur, rider.cream);
+      m.hoodie.userData.galaxy.value = rider.fx === 'galaxy' ? 1 : 0;
     }
     if (board) {
+      m.deck.userData.galaxy.value = board.fx === 'galaxy' ? 1 : 0;
       m.deck.color.set(board.deck);
       m.stripe.color.set(board.stripe);
       m.edge.color.set(board.edge);

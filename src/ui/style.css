@@ -141,6 +141,16 @@ body.tapsteer #jumpBtn{display:block}
 .item button{width:100%;padding:8px 4px;border-radius:10px;font-weight:900;font-size:calc(12px*var(--s));background:rgba(255,255,255,.14)}
 .item button.buy{background:var(--reward);color:#0c1c35}
 .item button:disabled{opacity:.45}
+/* Shards shop (DECISIONS 68) */
+.shop-wallet{display:flex;gap:8px;justify-content:center}
+.item.gem{background:linear-gradient(160deg,rgba(181,124,255,.18),rgba(46,200,255,.08))}
+.item button.buy.gem{background:linear-gradient(90deg,#b57cff,#5ee7ff);color:#120c2e}
+.swatch i.gx{background:radial-gradient(circle at 25% 40%,#b57cff 0,transparent 45%),radial-gradient(circle at 70% 60%,#2ec8ff 0,transparent 40%),radial-gradient(1px 1px at 40% 30%,#fff 99%,transparent),radial-gradient(1px 1px at 62% 72%,#fff 99%,transparent),radial-gradient(1.5px 1.5px at 82% 35%,#fff 99%,transparent),#160f3a!important}
+.trail-sw{left:6%;top:22px;width:88%;height:12px;border-radius:6px;background:linear-gradient(90deg,var(--a),var(--b),var(--c),var(--b),var(--a));background-size:200% 100%;box-shadow:0 0 10px var(--b);animation:trailFlow 1.6s linear infinite}
+.trail-sw.none{background:none;border:2px dashed rgba(12,28,53,.3);box-shadow:none;animation:none}
+.trail-sw.pulse{animation:trailFlow 1.6s linear infinite,trailPulse .9s ease-in-out infinite alternate}
+@keyframes trailFlow{to{background-position:-200% 0}}
+@keyframes trailPulse{from{filter:brightness(.8)}to{filter:brightness(1.5)}}
 .lb{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.07);font-weight:800;font-size:calc(14px*var(--s))}
 .lb.you{background:rgba(63,208,245,.22);border:2px solid var(--accent)}
 .lb .n{width:22px;opacity:.7}

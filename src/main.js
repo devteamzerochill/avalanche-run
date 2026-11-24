@@ -2,7 +2,7 @@
 // fixed step, turns simulation events into sound, particles, haptics and UI.
 import { RECORD } from './systems/record.js'; // first: installs the virtual clock in record mode
 import * as THREE from 'three';
-import { CONFIG, RIDERS, BOARDS, applyParams } from './config.js';
+import { CONFIG, RIDERS, BOARDS, TRAILS, applyParams } from './config.js';
 import { dailySeed, utcDay, clamp } from './core/rng.js';
 import { Sim } from './core/sim.js';
 import { Bot, HumanBot } from './core/bot.js';
@@ -20,7 +20,7 @@ import { Input } from './systems/input.js';
 import { isAdBuild, hasCta, openStore, track } from './systems/playable.js';
 import { Stage } from './render/stage.js';
 import { Props } from './render/props.js';
-import { Rider } from './render/rider.js';
+import { Rider, GALAXY } from './render/rider.js';
 import { Avalanche } from './render/avalanche.js';
 import { Particles, Snowfall, Trail, SpeedTrail, makeBlobShadow } from './render/particles.js';
 import { ChaseCamera } from './render/camera.js';
@@ -336,6 +336,22 @@ class Game {
     const r = RIDERS.find((x) => x.id === this.profile.rider) || RIDERS[0];
     const b = BOARDS.find((x) => x.id === this.profile.board) || BOARDS[0];
     this.rider.setSkin(r, b);
+    this.trailItem = TRAILS.find((x) => x.id === this.profile.trail) || null;
+    this.speedTrail.setStyle(this.trailItem);
+  }
+
+  // Sparks off the tail of the board from a worn trail (Shards shop).
+  trailSparks(dt, sim, y) {
+    const tr = this.trailItem;
+    if (!tr) return;
+    this.sparkAcc = (this.sparkAcc || 0) + dt * tr.spark.rate * (sim.air ? 1.4 : 1);
+    const hues = tr.spark.hues;
+    for (; this.sparkAcc >= 1; this.sparkAcc--) {
+      const hue = tr.rainbow ? (this.time * 0.6 + Math.random() * 0.3) % 1 : hues[(Math.random() * hues.length) | 0];
+      const side = Math.random() < 0.5 ? -0.2 : 0.2;
+      const up = tr.spark.rise ? 1.6 + Math.random() * 2.2 : 0.3 + Math.random() * 1.2;
+      this.particles.emit(sim.x + side + (Math.random() - 0.5) * 0.2, y + 0.15, sim.dist - 0.9, (Math.random() - 0.5) * 1.6, up, sim.v * 0.88, 0.3 + Math.random() * 0.3, 0.3 + Math.random() * 0.35, 0.9, tr.spark.rise ? 0 : 2, (tr.spark.pastel ? 20 : 10) + hue);
+    }
   }
 
   resize() {
@@ -439,22 +455,26 @@ class Game {
       }
       return;
     }
+    // Read the worn look before v is updated: v can be this.profile itself.
+    const skin = this.profile.rider + '/' + this.profile.board + '/' + this.profile.trail;
     const v = this.profile !== local ? this.profile : Object.assign({}, local, { runsToday: local.runsToday.slice() });
     Object.assign(v, {
       settings: local.settings,
       flakes: sp.flakes,
       riders: sp.riders.slice(),
       boards: sp.boards.slice(),
+      trails: (sp.trails || []).slice(),
       rider: sp.rider,
       board: sp.board,
+      trail: sp.trail || null,
+      shards: typeof sp.shards === 'number' ? sp.shards : null,
       streak: sp.streak,
       missions: { active: sp.missions.map((m) => Object.assign({}, m)), next: 0 },
       totals: Object.assign({ runs: 0, distance: 0, flakes: 0, nearMisses: 0 }, sp.totals),
       best: sp.best || 0,
     });
-    const skin = this.profile.rider + '/' + this.profile.board;
     this.profile = v;
-    if (skin !== v.rider + '/' + v.board) this.applySkin();
+    if (skin !== v.rider + '/' + v.board + '/' + v.trail) this.applySkin();
   }
 
   // --- endurance race ----------------------------------------------------------
@@ -1511,7 +1531,10 @@ class Game {
     this.trail.update(sim.x, sim.dist, !sim.air && !wipe && !title, 0.34 + sim.drift * 0.3 + Math.min(0.2, Math.abs(sim.vx) * 0.02), terrain, st.mood.shade);
 
     const boost01 = clamp(sim.boostNow / CONFIG.boost.amount, 0, 1);
-    this.speedTrail.update(dt, sim.x, riderY, sim.dist, sim.vx, riding ? clamp((sim.v - 24) / 26, 0, 1) : 0, riding ? boost01 : 0, st.mood.accent);
+    this.speedTrail.update(dt, sim.x, riderY, sim.dist, sim.vx, riding ? clamp((sim.v - 24) / 26, 0, 1) : 0, riding ? boost01 : 0, st.mood.accent, riding);
+    if (riding) this.trailSparks(dt, sim, riderY);
+    GALAXY.uGTime.value = this.time;
+    GALAXY.uGPx.value = 1 / Math.max(1, st.renderer.domElement.height);
 
     // Wind-blown spindrift streaming across the piste, and snow shaken off the banks.
     if (!this.particles.lowFx) {

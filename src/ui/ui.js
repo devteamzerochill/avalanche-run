@@ -1,6 +1,6 @@
 // DOM user interface: title, HUD, panels, pause, end card, toasts.
 // The HUD only touches the DOM when a value changes.
-import { CONFIG, RIDERS, BOARDS, QUICK_CHAT, QUICK_EMOTES } from '../config.js';
+import { CONFIG, RIDERS, BOARDS, QUICK_CHAT, QUICK_EMOTES, TRAILS } from '../config.js';
 import { FRAME } from './frame.js';
 import { t, LANGS, LANG_NAMES } from '../systems/i18n.js';
 import { missionById, nextStreakReward, owns, leaderboard } from '../systems/meta.js';
@@ -1065,29 +1065,40 @@ export class UI {
         `<div class="streak">${days}</div>`;
     } else if (name === 'shop') {
       const type = this.shopTab;
-      const list = type === 'rider' ? RIDERS : BOARDS;
-      const current = type === 'rider' ? p.rider : p.board;
+      // Trails start with "no trail", always owned.
+      const list = type === 'rider' ? RIDERS : type === 'board' ? BOARDS : [{ id: 'none' }].concat(TRAILS);
+      const current = type === 'rider' ? p.rider : type === 'board' ? p.board : p.trail || 'none';
+      // Shards items need the server profile, which carries the wallet balance.
+      const shards = typeof p.shards === 'number' ? p.shards : null;
+      const galaxyDefs = `<defs><radialGradient id="galx" cx="35%" cy="40%" r="75%"><stop offset="0" stop-color="#B57CFF"/><stop offset="0.45" stop-color="#4B2AA8"/><stop offset="1" stop-color="#120C2E"/></radialGradient></defs>`;
+      const galaxyStars = `<g fill="#fff"><circle cx="22" cy="42" r="0.9"/><circle cx="35" cy="48" r="1.2"/><circle cx="40" cy="39" r="0.8"/><circle cx="27" cy="51" r="0.7"/></g>`;
       const streakDay = (id) => (CONFIG.meta.streakRewards.find((r) => r[type] === id) || {}).day;
       const sw = (it) =>
         type === 'rider'
-          ? `<svg viewBox="0 0 60 60" style="position:absolute;left:50%;top:2px;width:56px;height:56px;transform:translateX(-50%)"><path d="M14 46 Q30 60 46 46 L44 34 H16 Z" fill="${it.hoodie}"/><path d="M15 46 Q30 58 45 46" stroke="${it.trim}" stroke-width="2.5" fill="none"/><path d="M12 6 L22 18 L16 26 Z M48 6 L38 18 L44 26 Z" fill="${it.fur}"/><path d="M14 10 L20 18 L17 22 Z M46 10 L40 18 L43 22 Z" fill="${it.cream}"/><ellipse cx="30" cy="24" rx="16" ry="13" fill="${it.fur}"/><path d="M14 26 Q20 38 30 38 Q40 38 46 26 Q38 32 30 31 Q22 32 14 26 Z" fill="${it.cream}"/><rect x="18" y="20" width="24" height="6" rx="3" fill="#0E0F13"/><circle cx="30" cy="31" r="2.2" fill="#0E0F13"/><path d="M13 24 Q12 8 30 8 Q48 8 47 24" stroke="#0E0F13" stroke-width="2" fill="none"/><circle cx="13" cy="25" r="4" fill="#0E0F13" stroke="${it.gear}" stroke-width="1.5"/><circle cx="47" cy="25" r="4" fill="#0E0F13" stroke="${it.gear}" stroke-width="1.5"/></svg>`
-          : `<i style="left:8%;top:20px;width:84%;height:18px;border-radius:9px;background:${it.deck};box-shadow:0 3px 0 ${it.edge}"></i><i style="left:36%;top:20px;width:28%;height:18px;background:${it.stripe}"></i>`;
+          ? `<svg viewBox="0 0 60 60" style="position:absolute;left:50%;top:2px;width:56px;height:56px;transform:translateX(-50%)">${it.fx === 'galaxy' ? galaxyDefs : ''}<path d="M14 46 Q30 60 46 46 L44 34 H16 Z" fill="${it.fx === 'galaxy' ? 'url(#galx)' : it.hoodie}"/>${it.fx === 'galaxy' ? galaxyStars : ''}<path d="M15 46 Q30 58 45 46" stroke="${it.trim}" stroke-width="2.5" fill="none"/><path d="M12 6 L22 18 L16 26 Z M48 6 L38 18 L44 26 Z" fill="${it.fur}"/><path d="M14 10 L20 18 L17 22 Z M46 10 L40 18 L43 22 Z" fill="${it.cream}"/><ellipse cx="30" cy="24" rx="16" ry="13" fill="${it.fur}"/><path d="M14 26 Q20 38 30 38 Q40 38 46 26 Q38 32 30 31 Q22 32 14 26 Z" fill="${it.cream}"/><rect x="18" y="20" width="24" height="6" rx="3" fill="#0E0F13"/><circle cx="30" cy="31" r="2.2" fill="#0E0F13"/><path d="M13 24 Q12 8 30 8 Q48 8 47 24" stroke="#0E0F13" stroke-width="2" fill="none"/><circle cx="13" cy="25" r="4" fill="#0E0F13" stroke="${it.gear}" stroke-width="1.5"/><circle cx="47" cy="25" r="4" fill="#0E0F13" stroke="${it.gear}" stroke-width="1.5"/></svg>`
+          : type === 'board'
+            ? `<i class="${it.fx === 'galaxy' ? 'gx' : ''}" style="left:8%;top:20px;width:84%;height:18px;border-radius:9px;background:${it.deck};box-shadow:0 3px 0 ${it.edge}"></i><i style="left:36%;top:20px;width:28%;height:18px;background:${it.stripe}"></i>`
+            : it.id === 'none'
+              ? `<i class="trail-sw none"></i>`
+              : `<i class="trail-sw ${it.pulse ? 'pulse' : ''}" style="--a:${it.colors[0]};--b:${it.colors[1]};--c:${it.colors[2] || it.colors[1]};${it.rainbow ? 'background:linear-gradient(90deg,#ff4d6d,#ffd23f,#3ddc97,#35d6ff,#9b6bff,#ff4d6d);background-size:200% 100%' : ''}"></i>`;
+      const tab = (id, key) => `<button data-tab="${id}" class="${type === id ? 'on' : ''}">${esc(t(key))}</button>`;
       body.innerHTML =
-        `<div class="tabs"><button data-tab="rider" class="${type === 'rider' ? 'on' : ''}">${esc(t('shop.riders'))}</button><button data-tab="board" class="${type === 'board' ? 'on' : ''}">${esc(t('shop.boards'))}</button></div>` +
-        `<div class="chip gold" style="align-self:center">❄ <b>${p.flakes}</b></div><div class="grid">` +
+        `<div class="tabs">${tab('rider', 'shop.riders')}${tab('board', 'shop.boards')}${tab('trail', 'shop.trails')}</div>` +
+        `<div class="shop-wallet"><div class="chip gold">❄ <b>${p.flakes}</b></div>${shards != null ? `<div class="chip gold shards">💎 <b>${shards}</b></div>` : ''}</div><div class="grid">` +
         list
           .map((it) => {
-            const have = owns(p, type, it.id);
+            const have = it.id === 'none' || owns(p, type, it.id);
             const sel = current === it.id;
             let btn;
             if (sel) btn = `<button disabled>${esc(t('shop.inUse'))}</button>`;
-            else if (have) btn = `<button data-use="${it.id}">${esc(t('shop.use'))}</button>`;
+            else if (have) btn = `<button data-use="${it.id}">${esc(t(it.id === 'none' ? 'shop.off' : 'shop.use'))}</button>`;
+            else if (it.shards) btn = shards == null ? `<button disabled>💎 ${it.shards} · ${esc(t('shop.signIn'))}</button>` : `<button class="buy gem" data-buy="${it.id}" ${shards < it.shards ? 'disabled' : ''}>💎 ${it.shards}</button>`;
             else if (it.cost < 0) btn = `<button disabled>${esc(t('shop.streak', { n: streakDay(it.id) || 7 }))}</button>`;
             else btn = `<button class="buy" data-buy="${it.id}" ${p.flakes < it.cost ? 'disabled' : ''}>❄ ${it.cost}</button>`;
-            return `<div class="item ${sel ? 'sel' : ''}"><div class="swatch">${sw(it)}</div><strong>${esc(t(type + '.' + it.id))}</strong>${btn}</div>`;
+            return `<div class="item ${sel ? 'sel' : ''} ${it.shards ? 'gem' : ''}"><div class="swatch">${sw(it)}</div><strong>${esc(t(type + '.' + it.id))}</strong>${btn}</div>`;
           })
           .join('') +
-        `</div><p class="note">${esc(t('shop.cosmetic'))}</p>`;
+        `</div><p class="note">${esc(t(type === 'trail' || list.some((it) => it.shards) ? 'shop.shardsNote' : 'shop.cosmetic'))}</p>`;
       body.querySelectorAll('[data-tab]').forEach((b) =>
         press(b, () => {
           this.shopTab = b.getAttribute('data-tab');
