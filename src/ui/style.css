@@ -633,6 +633,7 @@ body.reduced .daily-reward,body.reduced .online.saving .ol-line span{animation:n
 .race-hero .clock{display:block;font-size:calc(54px*var(--s));line-height:1;font-weight:900;font-variant-numeric:tabular-nums;color:#fff;text-shadow:0 calc(4px*var(--s)) 0 rgba(12,28,53,.5);margin:4px 0 10px}
 .race-hero.soon .clock{color:var(--reward);animation:bump2 .5s infinite alternate}
 .race-hero.out .clock{margin-bottom:6px}
+.race-hero .race-by{display:block;margin-top:4px;font-size:calc(12px*var(--s));font-weight:800;opacity:.85}
 .race-hero p{margin:0;font-size:calc(13px*var(--s));font-weight:700;opacity:.85}
 .race-hero .tbar{height:6px;border-radius:99px;background:rgba(255,255,255,.14);overflow:hidden;margin:0 4px 12px}
 .race-hero .tbar i{display:block;height:100%;border-radius:inherit;background:var(--accent);transition:width 1s linear}
