@@ -464,7 +464,7 @@ export class UI {
       .join('');
     html += m.voided
       ? `<div class="race-pay"><span>↩️ ${esc(t('race.refundChip'))}</span></div>`
-      : `<div class="race-pay"><span>🏆 ${esc(t('race.prizeChip', { n: m.prize }))}</span><span>🔥 ${esc(t('race.burnChip', { n: m.burned }))}</span></div>`;
+      : `<div class="race-pay"><span>🏆 ${esc(t('race.prizeChip', { n: m.prize }))}</span>${m.house ? `<span>🏦 ${esc(t('race.feeChip', { n: m.house }))}</span>` : `<span>🔥 ${esc(t('race.burnChip', { n: m.burned }))}</span>`}</div>`;
     return html;
   }
 

@@ -11,6 +11,7 @@ import { Bot } from '../src/core/bot.js';
 import { quantise, Playback } from '../src/core/replay.js';
 import { test, eq, ok, report } from '../tests/harness.mjs';
 import { startRaceServer } from './index.mjs';
+import { Supabase, supabaseSettings } from './supabase.mjs';
 
 const PORT = 2599;
 const RAMP = { from: 3, rate: 4 }; // races end within seconds
@@ -120,12 +121,20 @@ await until(() => resultFor(A, race2), 60000, 'race 2 result');
 await wait(800);
 
 // --- 3. two identical riders tie; a third leaves mid-race ----------------------------
+// With a house account set: the fee goes to it instead of being burned.
+const db = new Supabase(supabaseSettings());
+const houseId = JSON.parse(Buffer.from((await signUp('house')).split('.')[1], 'base64url')).sub;
+const setHouse = (id) => fetch(db.s.url + '/rest/v1/avalanche_race_config?id=eq.1', { method: 'PATCH', headers: { apikey: db.s.service, Authorization: 'Bearer ' + db.s.service, 'Content-Type': 'application/json' }, body: JSON.stringify({ house_user: id }) });
+const houseBefore = await db.rpc('shards_balance', { p_user: houseId });
+await setHouse(houseId);
 const D = await rider('twinA', 'none');
 const E = await rider('twinB', 'none');
 const F = await rider('quitter', 'leave');
 const race3 = await checkIn([D, E, F]);
 await until(() => resultFor(D, race3), 60000, 'race 3 result');
 await wait(800);
+await setHouse(null);
+const houseAfter = await db.rpc('shards_balance', { p_user: houseId });
 
 // --- 4. the game's bot wins on a normal account: the race is voided -----------------
 const G = await rider('robot', 'bot');
@@ -171,10 +180,10 @@ test('riders see display names; the race record counts races, wins and Shards wo
   eq(B.stats.races + '|' + B.stats.wins + '|' + B.stats.won, '1|0|0');
 });
 
-test('payout: 90% of the pot to the winner, 10% burned', () => {
+test('payout: 90% of the pot to the winner, 10% burned while no house account is set', () => {
   const res = resultFor(A, race2);
   eq(race2Pct, 90, 'the race announces the prize share from the config');
-  eq(res.pot + '|' + res.prize + '|' + res.burned, '30|27|3');
+  eq(res.pot + '|' + res.prize + '|' + res.house + '|' + res.burned, '30|27|0|3');
   eq(A.balance, 117, 'winner: 100 - 10 + 27');
   eq(B.balance, 90);
   eq(C.balance, 90);
@@ -186,9 +195,10 @@ test('identical riders tie on tick and distance and split the prize; leaving cou
   eq(byName(res, E).place, 1);
   eq(byName(res, F).place, 3);
   eq(byName(res, F).reason, 'left');
-  eq(res.each + '|' + res.prize + '|' + res.burned, '13|26|4', 'whole Shards: the odd one is burned');
+  eq(res.each + '|' + res.prize + '|' + res.house + '|' + res.burned, '13|26|4|0', 'whole Shards: the odd one joins the house fee');
   eq(D.balance, 103);
   eq(E.balance, 103);
+  eq(houseAfter - houseBefore, 4, 'the house account was paid the fee');
 });
 
 test('a win that follows the bot is voided and every entry refunded', () => {

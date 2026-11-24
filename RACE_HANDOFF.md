@@ -1,8 +1,8 @@
 # Avalanche Run: multiplayer race for zerochill.com
 
-**Draft for the owner's review (2026-11-23). Not sent yet.**
+**Draft for the owner's review (2026-11-23, house fee added 2026-11-24). Not sent yet.**
 
-What the zerochill.com backend and page need so the multiplayer race can run against the real site. Players pay a Shards entry fee to check in, everyone rides the same mountain live every 5 minutes, and the last rider standing wins 90% of the pot (10% is burned). Fewer than 2 riders, or a win that follows the game's own bot, refunds everyone.
+What the zerochill.com backend and page need so the multiplayer race can run against the real site. Players pay a Shards entry fee to check in, everyone rides the same mountain live every 5 minutes, and the last rider standing wins 90% of the pot. The other 10% is a house fee paid to one Zero Chill account. Fewer than 2 riders, or a win that follows the game's own bot, refunds everyone.
 
 ## Who runs what
 
@@ -11,6 +11,7 @@ What the zerochill.com backend and page need so the multiplayer race can run aga
 | Race server (Colyseus) | Colyseus Cloud | Zero Chill (the owner's account) |
 | Race tables and ledger functions | zerochill.com Supabase | You apply one migration |
 | Shards wallet and player names | zerochill.com Supabase | You provide four small functions (below) |
+| House account for the 10% fee | zerochill.com Supabase | You create it and set it in the config (below) |
 | Session token for the game | `/den/avalanche-run` page | You add two messages |
 
 The race server talks to Supabase with the project URL, the anon key and the **service role key**. The owner enters these in Colyseus Cloud's encrypted settings. The service key is never in the game, the page or any repository.
@@ -21,10 +22,10 @@ One file: [`supabase/migrations/20261125000000_endurance_race.sql`](supabase/mig
 
 | New | What it is |
 |---|---|
-| `avalanche_race_config` | Entry fee (10), prize share (90%), riders per race (2 to 50). One row, tunable without a game update. |
-| `avalanche_races` | One row per race: seed, start time, pot, status (`open`, `racing`, `settled`, `cancelled`, `voided`), void reason. |
+| `avalanche_race_config` | Entry fee (10), prize share (90%), riders per race (2 to 50), and `house_user`, the account that receives the fee. One row, tunable without a game update. |
+| `avalanche_races` | One row per race: seed, start time, pot, status (`open`, `racing`, `settled`, `cancelled`, `voided`), prize, `house` (fee paid to the house account), `burned` (fee burned because no house account was set), void reason. |
 | `avalanche_race_entries` | One row per rider per race: fee paid, place, distance, prize. |
-| `race_open`, `race_check_in`, `race_start`, `race_cancel`, `race_settle`, `race_void` | The race ledger. Check-in holds the fee; every race then ends in exactly one of settle (pay the winner, burn 10%), cancel (refund all) or void (refund all). |
+| `race_open`, `race_check_in`, `race_start`, `race_cancel`, `race_settle`, `race_void` | The race ledger. Check-in holds the fee; every race then ends in exactly one of settle (pay the winner 90%, the house account 10%), cancel (refund all) or void (refund all). |
 | `race_balance`, `race_board` | A player's Shards, race record and the race leaderboard. |
 
 Every function is **service role only**: `anon` and `authenticated` cannot call them. The tables are read-only to clients: config and races are public, and a signed-in player sees only their own entries. There are no client write policies.
@@ -44,9 +45,25 @@ The migration calls these. Locally they are stand-ins with test Shards (`supabas
 
 - They must be plain SQL or PL/pgSQL in the same database, so a check-in, payout or refund commits or rolls back together with the race tables. No HTTP calls inside.
 - Revoke them from `public`, `anon` and `authenticated`, like the race functions. Grant `avalanche_player_name` to `service_role`: the race server reads names with it when a player joins.
-- `p_ref` describes the movement (`avalanche race <id> entry`, `... prize`, `... refund`, `... voided, refund`) for your Shards history.
+- `p_ref` describes the movement (`avalanche race <id> entry`, `... prize`, `... house fee`, `... refund`, `... voided, refund`) for your Shards history.
 
-## 3. Page changes
+## 3. Create the house account
+
+The 10% of each pot that the winner doesn't get goes to one Zero Chill account. **It doesn't exist yet: please create it.**
+
+1. Create a normal site account for it (no player plays on it). The race pays it through `shards_credit`, so it needs whatever your Shards wallet needs to hold a balance.
+2. Send the owner its user id, and set it:
+
+   ```sql
+   update avalanche_race_config set house_user = '<user id>';
+   ```
+
+- Each settled race credits it once with `pot − prize`: the 10% plus any odd Shard left when a tie splits the prize. Ref: `avalanche race <id> house fee`.
+- Cancelled and voided races take no fee; everyone gets their entry back.
+- **Until `house_user` is set, the fee is burned** (nobody receives it), as in the original design. Fees burned before then are not paid later, so please set it before races go live.
+- Changing `house_user` later applies to races settled from then on.
+
+## 4. Page changes
 
 The race server must know who a player is, so the game needs the player's own Supabase access token (never a service key). This changes one rule in [`WEBSITE_INTEGRATION.md`](WEBSITE_INTEGRATION.md): the game now holds the player's session token while racing.
 
@@ -59,19 +76,20 @@ The game sends the token only to the race server, which checks it once with `/au
 ## Guarantees to check
 
 - **The browser can't touch Shards.** Only the race server (service role) can call the ledger, and only through the four functions above.
-- **Every fee is accounted for.** It is held at check-in, and each race ends in one of: paid out (90% to the winner, 10% burned, odd Shards burned), or refunded in full (cancelled or voided).
+- **Every fee is accounted for.** It is held at check-in, and each race ends in one of: paid out (90% to the winner, 10% plus any odd Shards to the house account, or burned while none is set), or refunded in full (cancelled or voided).
 - **The server decides the result.** It replays every rider's inputs with the game's own simulation; phones only send inputs.
 - **A bot win is voided.** A winning ride that follows the game's own bot refunds everyone (practice accounts are exempt only on a local database).
 
 ## Tested locally
 
-On a local Supabase with stand-in Shards, `node server/test.mjs` passes 11/11: cancel and refund; last rider standing wins; server and phone agree on the death tick; a sped-up client is out; names and race record; 90% payout and 10% burn; an exact tie splits the prize; leaving counts as dying; a bot win voided with both riders refunded; the race leaderboard counts settled races only; rematch data. Also played in the browser against practice riders: check-in, countdown, cancel, a voided race, a win and a rematch.
+On a local Supabase with stand-in Shards, `node server/test.mjs` passes 11/11: cancel and refund; last rider standing wins; server and phone agree on the death tick; a sped-up client is out; names and race record; 90% payout and 10% burned with no house account; an exact tie splits the prize and the house account gets the fee and the odd Shard; leaving counts as dying; a bot win voided with both riders refunded; the race leaderboard counts settled races only; rematch data. Also played in the browser against practice riders: check-in, countdown, cancel, a voided race, a win and a rematch.
 
 **Not tested against the live database.** To confirm there:
 
 1. Where Shards live, and that the three wallet functions can wrap them in the same transaction.
 2. Where display names live, for `avalanche_player_name`.
-3. A test check-in and refund with a throwaway account.
+3. The house account is created and set in `avalanche_race_config.house_user`.
+4. A test check-in and refund with a throwaway account.
 
 ## Our side
 

@@ -25,7 +25,7 @@ Status: design agreed so far (2026-11-23); a local prototype is built (see "Prot
 **Entry and prize**
 - Entry costs Shards, the website's existing currency.
 - One fixed entry fee for every race, set on the server so it can be tuned without a game update.
-- 90% of the pot goes to the winner. The other 10% is burned (removed from circulation; nobody receives it).
+- 90% of the pot goes to the winner. The other 10% is a house fee paid to one Zero Chill account (`avalanche_race_config.house_user`, owner's decision 2026-11-24, DECISIONS 60). Until that account is set, the fee is burned (nobody receives it). Results show it as "Fee", or "Burned" while no account is set.
 
 **Race size**
 - 2 to 50 riders per race. If more than 50 check in, a second race opens in the same cycle.
@@ -42,7 +42,7 @@ Status: design agreed so far (2026-11-23); a local prototype is built (see "Prot
 
 Shards are not in the API handoff. The race server needs server-only functions (never callable from the browser) to:
 - hold a player's entry fee at check-in (escrow),
-- pay the winner and burn the 10%,
+- pay the winner and the 10% house fee (burned while no house account is set),
 - refund every entry when a race is cancelled.
 
 Until those exist, the local build uses stand-in test Shards.
@@ -68,7 +68,7 @@ Built and tested on this PC with the local Supabase and test Shards. Nothing is 
 
 **Pieces**
 - `server/`: the Colyseus 0.18 race server, its own Node package (`npm install` there once). `race-room.mjs` runs the cycle and replays every rider with `src/core/sim.js`; `supabase.mjs` checks sign-ins and calls the ledger; `bots.mjs` adds practice riders; `test.mjs` plays real races.
-- `supabase/migrations/20261125000000_endurance_race.sql`: race config, races, entries, and the server-only ledger functions (check-in escrow, start, cancel with refunds, settle with payout and burn). It calls three wallet functions the site would provide; locally they are `supabase/local-standins/shards_wallet.sql` (every wallet starts with 100 test Shards).
+- `supabase/migrations/20261125000000_endurance_race.sql`: race config, races, entries, and the server-only ledger functions (check-in escrow, start, cancel with refunds, settle with payout and house fee). It calls three wallet functions the site would provide; locally they are `supabase/local-standins/shards_wallet.sql` (every wallet starts with 100 test Shards).
 - Game: `src/systems/race.js` (client; loads `vendor/colyseus.js` only with `?race`), race wiring in `src/main.js`, the race button, HUD counter and panel in `src/ui/ui.js`. The avalanche ramp is `opts.ramp` in `src/core/sim.js`, values in `CONFIG.race`.
 
 **How a race runs**
@@ -76,7 +76,7 @@ Built and tested on this PC with the local Supabase and test Shards. Nothing is 
 - The countdown takes over the game wherever the player is. Each phone simulates on the server's clock (every due tick, so slow frames never fall behind) and sends its inputs 10 times a second.
 - The server steps each rider's simulation with those inputs. A death is the tick the simulation leaves riding. Out also: inputs stop for 3 s, the player leaves, inputs arrive more than 1 s ahead of server time, or the input stream doesn't line up.
 - The others are drawn as ghosts (nearest 6) from the server's positions, 10 updates a second.
-- The race is decided once one rider is left and confirmed past the last death. The winner keeps riding; everyone sees the standings, prize and burn.
+- The race is decided once one rider is left and confirmed past the last death. The winner keeps riding; everyone sees the standings, prize and fee.
 - The ramp (0.3 m/s per second after 190 s) catches even the best test bot by about 4:10.
 
 **Run it locally**
@@ -86,7 +86,7 @@ Built and tested on this PC with the local Supabase and test Shards. Nothing is 
 4. Game: `/index.html?portrait&live=local&race`, sign in with an account from `supabase/local-standins/test-account.json` (after a `db reset`, recreate the three accounts with `node server/test-accounts.mjs`).
 
 **Verified**
-- `node server/test.mjs` (7/7 then; 9/9 with the bot defence): cancel and refund; last alive wins; server and phone agree on the death tick; a sped-up client is out; display names and race record; 90% payout and 10% burn; an exact tie splits the prize and the odd Shard is burned; leaving counts as dying.
+- `node server/test.mjs` (7/7 then; 9/9 with the bot defence): cancel and refund; last alive wins; server and phone agree on the death tick; a sped-up client is out; display names and race record; 90% payout and 10% burn (no house account); an exact tie splits the prize and, with a house account set, it gets the fee and the odd Shard; leaving counts as dying.
 - In the browser against two practice riders: check-in, countdown, riders-left counter, ghosts placed from server positions (checked in numbers, not caught in a screenshot), out panel, results, prize credited, back to title, and a daily run afterwards.
 
 **Polish (2026-11-23)**
