@@ -11,7 +11,7 @@ import { Store } from './systems/save.js';
 import { rollDay, startRun, finishRun, buy, select } from './systems/meta.js';
 import { initLocalServices, services } from './systems/services.js';
 import { Host } from './systems/host.js';
-import { RaceClient, raceRequested } from './systems/race.js';
+import { RaceClient, raceRequested, runCheckUrl } from './systems/race.js';
 import { setLang, getLang, t } from './systems/i18n.js';
 import { AudioEngine } from './systems/audio.js';
 import { Haptics } from './systems/haptics.js';
@@ -1151,12 +1151,28 @@ class Game {
     services.leaderboard.submit(this.profile.day, { score: summary.score, seed: summary.seed });
     if (this.attempt && this.host.current === this.attempt) {
       const s = summary;
-      this.host.endAttempt(s.score, { distance: s.distance, flakes: s.flakes, nearMisses: s.nearMisses, bestCombo: s.bestCombo, cleanJumps: s.cleanJumps, tricks: s.tricks, perfects: s.perfects, trickScore: s.trickScore, topKmh: s.topKmh });
+      const stats = { distance: s.distance, flakes: s.flakes, nearMisses: s.nearMisses, bestCombo: s.bestCombo, cleanJumps: s.cleanJumps, tricks: s.tricks, perfects: s.perfects, trickScore: s.trickScore, topKmh: s.topKmh };
+      this.host.endAttempt(s.score, stats, (key) => this.checkRun(key, s, data));
     }
     else this.attempt = null;
     this.ui.showHud(false);
     this.ui.hint('', 'none');
     this.ui.ring(false);
+  }
+
+  // Send the run's inputs to the race server, which replays them and records
+  // whether they really make this score (DECISIONS 72). Signed out: no check.
+  // On the website the token comes from race_token, which only a page that
+  // embeds with ?race answers (otherwise every save would wait 10 s for it).
+  checkRun(key, s, data) {
+    const live = this.host.live;
+    if (!live && !raceRequested()) return null;
+    const token = live ? live.fresh().then((ok) => (ok && live.session ? live.session.access_token : null)) : this.host.raceToken();
+    return token.then((t) => {
+      if (!t) return null;
+      const body = JSON.stringify({ token: t, key, seed: s.seed, version: CONFIG.version, data, score: s.score, metres: s.distance });
+      return fetch(runCheckUrl(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: AbortSignal.timeout(10000) });
+    });
   }
 
   // How this ride would have placed against the podium, then back to the title.

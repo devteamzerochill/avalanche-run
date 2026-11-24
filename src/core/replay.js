@@ -107,9 +107,12 @@ export class Playback {
 }
 
 // Re-simulate a recorded run. Returns the summary the inputs really produce.
+// record.tricks: whether trick points count (the server passes its own value,
+// never the player's); otherwise this build's CONFIG.score.tricks.
 export function resimulate(record) {
   if (!record || record.version !== CONFIG.version) return null;
   const sim = new Sim(record.seed, { timeCap: record.timeCap || 0 });
+  if (typeof record.tricks === 'boolean') sim.tricks = record.tricks;
   const play = new Playback(record.data);
   let guard = 60 * 60 * 30;
   while (sim.phase !== 'over' && guard-- > 0) {
