@@ -13,6 +13,7 @@ What the zerochill.com backend and page need so the multiplayer race can run aga
 | Shards wallet and player names | zerochill.com Supabase | You provide four small functions (below) |
 | House account for the 10% fee | zerochill.com Supabase | You create it and set it in the config (below) |
 | Session token for the game | `/den/avalanche-run` page | You add two messages |
+| Terms of Service | zerochill.com | You update them for paid races (below) |
 
 The race server talks to Supabase with the project URL, the anon key and the **service role key**. The owner enters these in Colyseus Cloud's encrypted settings. The service key is never in the game, the page or any repository.
 
@@ -71,7 +72,19 @@ The race server must know who a player is, so the game needs the player's own Su
 - Game to page: `{ type: 'race_token' }` when it needs a token (joining, or reconnecting after the old one expired).
 - Page to game: `{ type: 'race_token', token, expiresAt }` with the current session's `access_token` and `expires_at`, refreshed through the existing client first if it expires within a minute. `token: null` when signed out.
 
+- If the site sends a Content Security Policy, allow the race server in `connect-src` (`wss://<race server host>`; the owner sends the exact address after the first deploy). Without it the race can't connect.
+
 The game sends the token only to the race server, which checks it once with `/auth/v1/user`. The existing score path (`start_game_run`, `submit_avalanche_score` / `submit_avalanche_run`) is untouched; race results never count as daily runs.
+
+## 5. Update the Terms
+
+The race takes a paid entry (Shards, which players can buy) for a Shards prize, with a 10% house fee. Today's Terms say the opposite in section 6: "No purchase is ever needed to enter an event or win a prize". The owner decided (2026-11-24) to keep paid entry and to set who may race in the Terms only; the game and the server don't check age or location. Please update the Terms before races go live. Suggested points, for you to word to fit:
+
+- **Section 6:** events are free to enter, **except the Avalanche Run multiplayer race**, which has a Shards entry fee.
+- **Who may enter paid races:** 18 or older, and not resident in or playing from a place where paid skill contests are not allowed. List at least: Arizona, Arkansas, Delaware, Louisiana, Montana, South Carolina and Tennessee (see `docs/race-legal-check.md` for why these).
+- **How it works:** the last rider standing wins 90% of the pot; ties split it and any odd Shard goes with the fee; the other 10% is a house fee; fewer than 2 riders, or a win the server finds was played by a bot, refunds every entry; a rider who disconnects is out with no refund; the server's replay decides every result.
+
+The game's race panel shows these rules in short form ("Record" tab and How to play). Send us the link to the final Terms and we'll link it from the race panel.
 
 ## Guarantees to check
 
@@ -88,9 +101,10 @@ On a local Supabase with stand-in Shards, `node server/test.mjs` passes 11/11: c
 
 1. Where Shards live, and that the three wallet functions can wrap them in the same transaction.
 2. Where display names live, for `avalanche_player_name`.
-3. The house account is created and set in `avalanche_race_config.house_user`.
-4. A test check-in and refund with a throwaway account.
+3. The Terms are updated for paid races (section 5).
+4. The house account is created and set in `avalanche_race_config.house_user`.
+5. A test check-in and refund with a throwaway account.
 
 ## Our side
 
-Done and tested locally: the race server in Colyseus Cloud's setup (`defineServer`, one PM2 process), names through `avalanche_player_name`, and the game's side of `race_token` (try it in `tools/host-mock.html` with "Race on"). Still to do: the first deploy to Colyseus Cloud (one region), with the three Supabase settings entered there.
+Done and tested locally: the race server in Colyseus Cloud's setup (`defineServer`, one PM2 process), names through `avalanche_player_name`, and the game's side of `race_token` (try it in `tools/host-mock.html` with "Race on"). Still to do, in order: the first deploy to Colyseus Cloud (one region), with the three Supabase settings entered there; then point the game at the deployed server (`CONFIG.race.server`, today `ws://localhost:2567`) and hand over the rebuilt game files together with its `wss://` address.
