@@ -77,9 +77,9 @@ Until those exist, the local build uses stand-in test Shards.
 **Hosting (owner, 2026-11-23): Colyseus Cloud.** Its docs require the `defineServer()` setup, and by default it runs one process per CPU in every region; the race needs exactly one process in one region (one race cycle). The website side is in `RACE_HANDOFF.md` (draft).
 - Done: `server/index.mjs` uses `defineServer`; `server/ecosystem.config.cjs` pins PM2 to one fork process; `@colyseus/tools` is installed (Colyseus hands `listen()` to it on Cloud); `npm run build` is a no-op. Names come from `avalanche_player_name` (local stand-in in `shards_wallet.sql`); `race_board` is PL/pgSQL so it can be created before that function exists.
 - Website path: the game asks the page for `race_token` and connects with it (`src/systems/host.js`). `tools/host-mock.html` has "Race on" and signs a local test account in to answer it. Checked: connect as the chosen account, signed out (no in-game sign-in button), back in.
-- Not done: the deploy. The repository is ready (GitHub, `main`); the steps are in "Colyseus Cloud setup" below. It waits on the owner creating the Cloud app and on the zerochill.com Supabase settings.
+- **Deployed (2026-11-25):** app "Avalanche Run", one region (Singapore), at `https://sg-sgp-b4a82550.colyseus.cloud`. That address serves the game and the race: riders open `https://sg-sgp-b4a82550.colyseus.cloud/?portrait&live&race=here`. Every push to `main` redeploys it. The PC server and tunnel (`docs/race-from-this-pc.md`) are retired.
 
-## Colyseus Cloud setup (prepared 2026-11-24)
+## Colyseus Cloud setup (done 2026-11-25)
 
 From the Colyseus Cloud docs ([cloud](https://docs.colyseus.io/cloud), [continuous deployment](https://docs.colyseus.io/cloud/continuous-deployment), [environment variables](https://docs.colyseus.io/cloud/environment-variables), [compute plans](https://docs.colyseus.io/cloud/compute-plans)). The owner signs in and clicks through; nothing here needs a code change.
 
@@ -87,17 +87,16 @@ From the Colyseus Cloud docs ([cloud](https://docs.colyseus.io/cloud), [continuo
 1. Create an application. Pick **one region** only (each push deploys to every region the app has, and the race needs exactly one race cycle). Choose the region nearest most players.
 2. Settings → Build & Deployment: connect the GitHub repository `devteamzerochill/avalanche-run`, branch `main`.
 3. **Root directory:** `server` (it holds `package.json` and `ecosystem.config.cjs`). **Build command:** leave the default (`npm run build`). It builds the game into `dist/web/` (`node ../tools/build.mjs`), which the server serves when `SERVE_GAME=1`, so the Cloud address carries both the game and the race, like the tunnel did.
-4. **Watch paths:** add `src/core` and `src/config.js`. The server runs the game's simulation from there; without them, a push that changes only the game's rules would not redeploy the server.
+4. **Watch paths:** `**` minus `!docs/**`, `!tests/**`, `!supabase/**`, `!videos/**`, `!*.md`. The server runs the game's simulation from `src/core/` and serves the built game, so a game change must redeploy it.
 5. Compute plan: the smallest plan that is always on is enough for the first races (one process; the replay is light).
 
-**Set before the first deploy** (Settings → Environment variables, encrypted): `SUPABASE_URL` and `SUPABASE_ANON_KEY` for zerochill.com, `RACE_SERVER_EMAIL` and `RACE_SERVER_PASSWORD` (the race server's own site account, as in `server/.env`; DECISIONS 64), and `SERVE_GAME=1`. Riders then open `https://<app address>/?portrait&live&race=here`. Without them the server stops at start (`SUPABASE_SERVICE_KEY is not set`), which is on purpose: it must never fall back to the local stack.
+**Environment variables** (Settings → Environment variables, encrypted): `SUPABASE_URL` for zerochill.com, `RACE_SERVER_EMAIL` and `RACE_SERVER_PASSWORD` (the race server's own site account, entered by the owner; DECISIONS 64), and `SERVE_GAME=1`. No anon key is needed: for the live URL the server uses the public one in `CONFIG.online`.
 
-**Check on the first deploy:**
-- The log shows `race server on ...` and a race opening. If it fails with a missing `../src/config.js` or `../src/core/...`, Cloud only kept the `server` folder: switch the root directory to the repository root with a root `package.json` and `ecosystem.config.cjs` that run `server/index.mjs` (a small change; not made now because the docs suggest the repository is present).
-- Only **one** process runs (`server/ecosystem.config.cjs` pins `instances: 1`, unlike the docs' template of one per CPU). Two processes would run two race cycles.
-- Note the app's `wss://` address: it goes into `CONFIG.race.server` and to the website team (CSP, `RACE_HANDOFF.md`).
+**How Cloud starts it:** PM2 runs `server/ecosystem.config.cjs` (one fork process, `wait_ready`). Cloud hands the variables over in `/etc/environment` and `.env.cloud`, which `@colyseus/tools` loads when it is imported, so `server/index.mjs` imports it first under PM2 (`pm_id` set), then listens on Cloud's socket with its `listen()`, which also sends PM2's ready signal. The tests never import `@colyseus/tools`: it would load `server/.env` and point them at the live site.
 
-Not covered by the docs: the Node.js version Cloud runs (the server needs Node 18+), and the endpoint address format.
+**Checked on the first deploy (2026-11-25):** Cloud keeps the whole repository (`../src/` resolves) and runs Node 24. The address serves the game. A join with a bad token is refused with "sign in to race". The race account opened a race on the live ledger. Only **one** process runs (`instances: 1`); two would run two race cycles.
+
+**Still to do when the game moves onto the site:** set `CONFIG.race.server` to `wss://sg-sgp-b4a82550.colyseus.cloud` (today `ws://localhost:2567`, which local development uses) and send that address to the website team for their CSP (`RACE_HANDOFF.md`).
 
 ## Prototype (local, 2026-11-23)
 

@@ -1,5 +1,7 @@
 # Racing from this PC against zerochill.com
 
+**Retired 2026-11-25:** the race now runs on Colyseus Cloud at `https://sg-sgp-b4a82550.colyseus.cloud/?portrait&live&race=here` (`docs/endurance-race.md`, "Colyseus Cloud setup"). Keep this as the fallback if Cloud is down. Never run both at once: each would open its own race for the same slot.
+
 How the multiplayer race runs before the game is on the site (DECISIONS 64). The race server and the web game run on this PC, a Cloudflare quick tunnel gives them one public https link, and riders use their real zerochill.com accounts and real Shards.
 
 ## What is live on the site
