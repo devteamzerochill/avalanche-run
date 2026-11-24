@@ -214,7 +214,8 @@ export class Sim {
       this.caught();
       return;
     }
-    if (this.score >= this.nextMilestone) {
+    // Milestones are metres ridden ("500 M"), not the score, which adds bonuses.
+    if (Math.floor(this.dist) >= this.nextMilestone) {
       this.emit('milestone', { at: this.nextMilestone });
       this.nextMilestone += CONFIG.score.milestoneEvery;
     }

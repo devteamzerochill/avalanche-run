@@ -431,7 +431,7 @@ test('dash pad: riding over it boosts above cruise; jumping over it does nothing
   eq(off.stats.dashes, 0);
 });
 
-test('milestone event every 500 m of score', () => {
+test('milestone event every 500 m ridden (not the score)', () => {
   const sim = bare();
   run(sim, 45);
   const m = events(sim, 'milestone').map((e) => e.at);

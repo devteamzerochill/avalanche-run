@@ -164,6 +164,7 @@ body.tapsteer #jumpBtn{display:block}
 #endCause{margin:0;font-size:calc(13.5px*var(--s));line-height:1.4;padding:10px 12px;border-radius:12px;background:rgba(255,77,94,.16);border-left:4px solid var(--danger);text-align:left}
 .end-score b{font-size:calc(58px*var(--s));font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
 .end-score span{margin-left:6px;font-weight:800;opacity:.8}
+.end-score small{display:block;margin-top:2px;font-size:calc(14px*var(--s));font-weight:800;opacity:.75}
 .newbest{font-weight:900;color:var(--reward);letter-spacing:1px;animation:bump2 .6s infinite alternate}
 @keyframes bump2{to{transform:scale(1.06)}}
 .rank{font-size:calc(13px*var(--s));font-weight:800;color:var(--accent)}
