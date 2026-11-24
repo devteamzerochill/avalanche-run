@@ -927,6 +927,7 @@ export class UI {
     if (name === 'ranks' && this.host()) this.hooks.refreshOnline();
     if (name === 'ranks' && this.raceClient()) this.raceClient().requestBoard();
     this.hooks.tap('panelOpen');
+    this.panelOpenedAt = performance.now();
     this.renderPanel();
     this.el.panel.classList.remove('hidden');
   }
@@ -1065,5 +1066,9 @@ export class UI {
       });
     }
     if (raceRanks) this.ranksTabs(body);
+    // Rows slide in once per opening. A re-render when data arrives (the live
+    // board, race leaders) carries on from where the slide-in has got to
+    // instead of starting it again (style.css: --since).
+    body.style.setProperty('--since', ((performance.now() - (this.panelOpenedAt || 0)) / 1000).toFixed(3) + 's');
   }
 }
