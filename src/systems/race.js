@@ -11,11 +11,14 @@ export function raceRequested() {
   return new URLSearchParams(location.search).has('race');
 }
 
-// ?race=here: the race server is the one serving this page (the owner's PC
-// behind a tunnel); otherwise CONFIG.race.server.
+// ?race=here: the race server is the one serving this page (Colyseus Cloud
+// serves both). Local Supabase sessions (?live=local, or tools/host-mock.html on
+// this PC) only work on the local race server; everything else races on Cloud.
 export function raceServer() {
-  if (new URLSearchParams(location.search).get('race') !== 'here') return CONFIG.race.server;
-  return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
+  const q = new URLSearchParams(location.search);
+  if (q.get('race') === 'here') return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
+  const onThisPc = !q.has('live') && /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  return q.get('live') === 'local' || onThisPc ? CONFIG.race.localServer : CONFIG.race.server;
 }
 
 function loadSdk() {
