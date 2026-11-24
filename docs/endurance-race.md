@@ -70,6 +70,26 @@ Until those exist, the local build uses stand-in test Shards.
 - Website path: the game asks the page for `race_token` and connects with it (`src/systems/host.js`). `tools/host-mock.html` has "Race on" and signs a local test account in to answer it. Checked: connect as the chosen account, signed out (no in-game sign-in button), back in.
 - Not done: the deploy. `npx @colyseus/cloud deploy` needs a git repository with a remote (Cloud pulls the code from it), and the server imports the game's `src/` from outside `server/`, so the repository must hold both. Choose one region and enter SUPABASE_URL, SUPABASE_ANON_KEY and SUPABASE_SERVICE_KEY in Cloud's settings.
 
+## Colyseus Cloud setup (prepared 2026-11-24)
+
+From the Colyseus Cloud docs ([cloud](https://docs.colyseus.io/cloud), [continuous deployment](https://docs.colyseus.io/cloud/continuous-deployment), [environment variables](https://docs.colyseus.io/cloud/environment-variables), [compute plans](https://docs.colyseus.io/cloud/compute-plans)). The owner signs in and clicks through; nothing here needs a code change.
+
+**Create now (owner, in the Cloud dashboard):**
+1. Create an application. Pick **one region** only (each push deploys to every region the app has, and the race needs exactly one race cycle). Choose the region nearest most players.
+2. Settings → Build & Deployment: connect the GitHub repository `devteamzerochill/avalanche-run`, branch `main`.
+3. **Root directory:** `server` (it holds `package.json` and `ecosystem.config.cjs`). **Build command:** leave the default (`npm run build`, a no-op here).
+4. **Watch paths:** add `src/core` and `src/config.js`. The server runs the game's simulation from there; without them, a push that changes only the game's rules would not redeploy the server.
+5. Compute plan: the smallest plan that is always on is enough for the first races (one process; the replay is light).
+
+**Set before the first deploy** (Settings → Environment variables, encrypted): `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY` for zerochill.com, once the website team has applied the race migration. Without them the server stops at start (`SUPABASE_SERVICE_KEY is not set`), which is on purpose: it must never fall back to the local stack.
+
+**Check on the first deploy:**
+- The log shows `race server on ...` and a race opening. If it fails with a missing `../src/config.js` or `../src/core/...`, Cloud only kept the `server` folder: switch the root directory to the repository root with a root `package.json` and `ecosystem.config.cjs` that run `server/index.mjs` (a small change; not made now because the docs suggest the repository is present).
+- Only **one** process runs (`server/ecosystem.config.cjs` pins `instances: 1`, unlike the docs' template of one per CPU). Two processes would run two race cycles.
+- Note the app's `wss://` address: it goes into `CONFIG.race.server` and to the website team (CSP, `RACE_HANDOFF.md`).
+
+Not covered by the docs: the Node.js version Cloud runs (the server needs Node 18+), and the endpoint address format.
+
 ## Prototype (local, 2026-11-23)
 
 Built and tested on this PC with the local Supabase and test Shards. Nothing is deployed.
