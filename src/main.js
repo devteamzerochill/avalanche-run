@@ -19,7 +19,7 @@ import { Announcer } from './systems/announcer.js';
 import { Input } from './systems/input.js';
 import { isAdBuild, hasCta, openStore, track } from './systems/playable.js';
 import { Stage } from './render/stage.js';
-import { Props } from './render/props.js';
+import { Props, setInk } from './render/props.js';
 import { Rider, GALAXY } from './render/rider.js';
 import { Racers } from './render/racers.js';
 import { Avalanche } from './render/avalanche.js';
@@ -338,6 +338,8 @@ class Game {
     this.stage.resize(L.pr);
     // Budget GPUs pay for every CSS filter over the canvas each frame (style.css).
     document.body.classList.toggle('q-low', level === 0);
+    setInk(level > 0);
+    this.stage.setFlatSky(level === 0);
   }
 
   applySkin() {
