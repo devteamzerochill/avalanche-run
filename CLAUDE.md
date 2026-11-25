@@ -1,6 +1,6 @@
 # Avalanche Run: working notes
 
-A mobile-first arcade snowboard runner (three.js r160, vendored) rebuilt from a minified playable-ad prototype. You ride as the **Zero Chill fox** (the owner's company mascot) and outrun an avalanche down a seeded daily mountain. The owner directs the look and feel; read `DECISIONS.md` (79 numbered entries) before changing anything. It records why each choice was made.
+A mobile-first arcade snowboard runner (three.js r160, vendored) rebuilt from a minified playable-ad prototype. You ride as the **Zero Chill fox** (the owner's company mascot) and outrun an avalanche down a seeded daily mountain. The owner directs the look and feel; read `DECISIONS.md` (80 numbered entries) before changing anything. It records why each choice was made.
 
 ## Commands
 
@@ -22,7 +22,7 @@ $env:JAVA_HOME = (Resolve-Path "C:\Program Files\Microsoft\jdk-21*").Path
 cd android; .\gradlew.bat assembleDebug       # app/build/outputs/apk/debug/app-debug.apk; adb install -r it
 ```
 
-A debug build's WebView can be inspected over adb (`webview_devtools_remote_<pid>`).
+Icon and splash art: `node tools/app-icon.mjs` with the dev server on 8124 (DECISIONS 80). A debug build's WebView can be inspected over adb (`webview_devtools_remote_<pid>`).
 
 The project moved from a Mac to a Windows PC (2026-11-23). The PC has Node 24 and no Python, so use `tools/serve.mjs` (also what `.claude/launch.json` runs). Git: private repo `devteamzerochill/avalanche-run` (set up 2026-11-23 for the Colyseus Cloud deploy, which pulls the whole project because the race server runs `src/core/`). `main` started empty; work goes on branches and pull requests. When testing in a browser, mute the game (`__GAME.game.audio.setMuted(true)`, which doesn't touch saved volumes).
 

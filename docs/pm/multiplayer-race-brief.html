@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multiplayer Race Brief</title>
+<style>
+  @page { size: A4; margin: 18mm 18mm 18mm 18mm; }
+  :root { --ink: #1b2430; --muted: #5b6675; --line: #d6dde6; --accent: #1f6fb2; --accent-soft: #e8f1fa; --warn: #b5482f; --warn-soft: #fbece8; --ok: #2d7a4b; --ok-soft: #e7f4ec; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #fff; color: var(--ink); font: 10pt/1.45 "Segoe UI", Arial, sans-serif; }
+  h1, h2, h3 { line-height: 1.25; }
+  h2 { font-size: 15pt; color: var(--accent); border-bottom: 2px solid var(--accent); padding-bottom: 3pt; margin: 16pt 0 7pt; break-after: avoid; }
+  h3 { font-size: 11.5pt; margin: 14pt 0 4pt; break-after: avoid; }
+  p { margin: 0 0 7pt; }
+  ul { margin: 0 0 8pt; padding-left: 16pt; }
+  li { margin-bottom: 3pt; }
+  table { width: 100%; border-collapse: collapse; margin: 6pt 0 10pt; font-size: 9.4pt; }
+  tr { break-inside: avoid; }
+  th, td { border: 1px solid var(--line); padding: 3.5pt 6pt; text-align: left; vertical-align: top; }
+  th { background: var(--accent-soft); font-weight: 600; }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+  .title { border-left: 6pt solid var(--accent); padding: 14pt 0 14pt 16pt; margin: 0 0 18pt; background: linear-gradient(90deg, var(--accent-soft), #fff 70%); }
+  .title .kicker { font-size: 9pt; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 6pt; }
+  .title h1 { font-size: 21pt; margin: 0 0 8pt; }
+  .title .meta { color: var(--muted); font-size: 9.5pt; }
+  .box { border: 1px solid var(--line); border-radius: 4pt; padding: 8pt 11pt; margin: 8pt 0 10pt; break-inside: avoid; }
+  .box.key { background: var(--accent-soft); border-color: #bcd5ec; }
+  .box.warn { background: var(--warn-soft); border-color: #efc6bb; }
+  .box.ok { background: var(--ok-soft); border-color: #bfe0cb; }
+  .box strong.lead { display: block; margin-bottom: 3pt; }
+  .flow { display: flex; gap: 6pt; align-items: stretch; margin: 6pt 0 10pt; break-inside: avoid; }
+  .flow div { flex: 1; border: 1px solid var(--line); border-radius: 4pt; padding: 6pt; font-size: 9pt; text-align: center; background: #fafcfe; }
+  .flow div b { display: block; color: var(--accent); font-size: 9.5pt; margin-bottom: 2pt; }
+  .muted { color: var(--muted); font-size: 9pt; }
+  .pill { display: inline-block; padding: 0 6pt; border-radius: 8pt; font-size: 8.5pt; font-weight: 600; }
+  .pill.live { background: var(--ok-soft); color: var(--ok); }
+  .pill.open { background: var(--warn-soft); color: var(--warn); }
+  .pill.check { background: #fff4d6; color: #8a6200; }
+  .pagebreak { break-before: page; }
+  footer { margin-top: 18pt; border-top: 1px solid var(--line); padding-top: 6pt; color: var(--muted); font-size: 8.5pt; }
+</style>
+</head>
+<body>
+
+<div class="title">
+  <div class="kicker">Project brief for the project manager</div>
+  <h1>Avalanche Run — Multiplayer race: how it works and how it earns</h1>
+  <div class="meta">25 November 2026 &middot; Based on the project's design notes, decision log, server code and database scripts &middot; Plain-language summary, not legal advice</div>
+</div>
+
+<h2>1. Summary</h2>
+<p>The Multiplayer race is a live online contest inside Avalanche Run. A new race starts every 5 minutes. Players pay an entry fee in <b>Shards</b> (the zerochill.com currency) to check in, everyone rides the same mountain at the same time, and the last rider still alive wins. The winner receives <b>90% of the pot</b>; the remaining <b>10% is a house fee</b> paid to one Zero Chill account, or "burned" (removed from circulation) if that account is not set. If fewer than 2 players check in, or the winner is found to be the game's own bot, the race is cancelled and every player gets their fee back. A game server replays every rider to decide the result, so a phone cannot simply claim a win. The race server runs on Colyseus Cloud (Singapore) and the Shards ledger lives in the zerochill.com database. Races are live with real Shards today; the main open items are the website's Terms update, the confirmed live fee level, and the legal and app-store work for the phone apps.</p>
+
+<div class="box key">
+  <strong class="lead">The numbers at a glance</strong>
+  <table style="margin:4pt 0 0">
+    <tr><th>Item</th><th class="num">Value</th><th>Note</th></tr>
+    <tr><td>Race frequency</td><td class="num">every 5 min</td><td>One race cycle for the whole game</td></tr>
+    <tr><td>Entry fee</td><td class="num">10 Shards</td><td>Default setting; kept as a test value, to be revisited before wider launch</td></tr>
+    <tr><td>Winner's share of the pot</td><td class="num">90%</td><td>Split evenly on an exact tie</td></tr>
+    <tr><td>House fee</td><td class="num">10%</td><td>Plus any odd Shard left over from a split prize</td></tr>
+    <tr><td>Riders per race</td><td class="num">2 to 50</td><td>Fewer than 2: race cancelled, all refunded</td></tr>
+    <tr><td>Target race length</td><td class="num">about 4 min</td><td>The avalanche speeds up so every race ends inside its cycle</td></tr>
+  </table>
+</div>
+
+<h2>2. How a race works for a player</h2>
+
+<div class="flow">
+  <div><b>1. Check in</b>Pay the entry fee for the next race</div>
+  <div><b>2. Lobby</b>Wait on the start grid, quick chat, may still leave</div>
+  <div><b>3. Lock</b>Check-in closes 8 s before the start</div>
+  <div><b>4. Intro</b>4 s flyover, then 3-2-1</div>
+  <div><b>5. Race</b>Last rider alive wins</div>
+  <div><b>6. Results</b>Podium, prize, fee; rematch</div>
+</div>
+
+<h3>Schedule and sign-in</h3>
+<ul>
+  <li>A race starts every <b>5 minutes</b>, all day. Check-in for the next race is always open.</li>
+  <li>Racing needs a zerochill.com account. The race server checks the player's sign-in when they join, so every result belongs to a real account.</li>
+  <li>On the home screen the race has its own panel next to solo play, with a LIVE badge, the countdown, the pot, the number of riders and a CHECK IN button showing the fee.</li>
+</ul>
+
+<h3>Check-in, lobby and withdrawing</h3>
+<ul>
+  <li>Checking in takes the entry fee from the player's Shards and holds it for that race.</li>
+  <li>The player then waits in the race lobby. Everyone who has checked in stands on the start grid in their own outfit, with name tags.</li>
+  <li><b>Quick chat:</b> six fixed phrases and six emotes, shown in each player's own language. There is no free text, so nothing needs moderating. At most one line every 1.5 seconds, and only riders in the same lobby or race see it.</li>
+  <li><b>Withdrawing:</b> until check-in locks (8 seconds before the start) a player may leave the lobby and gets the <b>whole fee back</b>. After the lock, they are committed.</li>
+</ul>
+
+<h3>Countdown and start</h3>
+<ul>
+  <li>At the lock the server shuffles the riders into a start grid (rows of 4). The lobby clock ends, a 4-second camera flyover sweeps over the grid, then a 3-2-1 countdown starts the race.</li>
+  <li>The countdown takes over the game wherever the player is. Pausing is not possible during a race.</li>
+</ul>
+
+<h3>During the race</h3>
+<ul>
+  <li>Everyone rides the <b>same mountain</b>. Riders do not collide; the others are shown as live riders in their own look. A place card shows position, riders left and the gap to the rider ahead or behind.</li>
+  <li><b>The course gets harder:</b> from 7,000 m to 11,000 m (about 2 to 3 minutes in) the slope gets denser, with obstacle rows 30% closer and more hazards. After 190 seconds the avalanche speeds up by 0.3 m/s every second until nobody can outrun it. Races are designed to end in about 4 minutes, leaving time for results and the next check-in.</li>
+  <li><b>Last rider standing wins.</b> Riders who go out on the same moment are ranked by distance travelled; only an exact tie on distance too splits the prize.</li>
+  <li>A player whose connection stops for 3 seconds, or who leaves, is out at that point, with <b>no refund</b>. A player who is out can watch the remaining riders.</li>
+</ul>
+
+<h3>Results and rematch</h3>
+<ul>
+  <li>Results show the player's own place, a podium for the top three, the prize paid and the house fee (shown as "Fee", or "Burned" when no house account is set).</li>
+  <li>A <b>Race leaders</b> board in Ranks lists riders by wins, then Shards won. Only settled races count.</li>
+  <li><b>Rematch</b> ("Ride it again"): between races, a player can ride the last fair race's slope against the recorded rides of its top 3. It is practice only: no fee, no prize, nothing saved. A voided race offers no rematch, and a server restart forgets the last race.</li>
+</ul>
+
+<h2>3. Money flow and monetization</h2>
+
+<div class="box key">
+  <strong class="lead">How the house earns</strong>
+  Every entry fee goes into the race's pot. When a race finishes normally, the winner (or tied winners) receive 90% of the pot and the house account receives the rest: 10%, plus any single Shard left over when a prize is split. The house does not put any Shards in; the pot is funded only by entry fees. Cancelled and voided races earn the house nothing.
+</div>
+
+<h3>Step by step</h3>
+<table>
+  <tr><th>Step</th><th>What happens to the Shards</th></tr>
+  <tr><td>Check in</td><td>The entry fee is taken from the player's wallet and held for the race (added to the pot). A player without enough Shards cannot check in.</td></tr>
+  <tr><td>Leave the lobby before the lock</td><td>The full fee goes back to the player.</td></tr>
+  <tr><td>Race settled (normal finish)</td><td>Winner gets 90% of the pot, rounded down to whole Shards. The rest goes to the house account, or is burned if no house account is set.</td></tr>
+  <tr><td>Race cancelled or voided</td><td>Every fee goes back in full. No prize, no house fee.</td></tr>
+</table>
+<p class="muted">Every race ends in exactly one of three ways: settled (paid out), cancelled (all refunded) or voided (all refunded). Only the race server can move Shards; the player's browser or phone cannot.</p>
+
+<h3>Worked examples (entry fee 10 Shards, prize share 90%)</h3>
+<table>
+  <tr><th>Race</th><th class="num">Pot</th><th class="num">Winner(s) get</th><th class="num">House fee</th></tr>
+  <tr><td>3 riders &times; 10 Shards</td><td class="num">30</td><td class="num">27</td><td class="num">3</td></tr>
+  <tr><td>10 riders &times; 10 Shards</td><td class="num">100</td><td class="num">90</td><td class="num">10</td></tr>
+  <tr><td>50 riders &times; 10 Shards (largest race)</td><td class="num">500</td><td class="num">450</td><td class="num">50</td></tr>
+  <tr><td>3 riders, exact tie between 2 winners</td><td class="num">30</td><td class="num">13 each (26)</td><td class="num">4</td></tr>
+  <tr><td>Only 1 rider checked in</td><td class="num">10</td><td class="num">0 (refunded)</td><td class="num">0</td></tr>
+</table>
+<p class="muted">In the tie example, 90% of 30 is 27, which cannot be split evenly in whole Shards, so each winner gets 13 and the odd Shard joins the house fee. The house earns 10% of every completed race; for example, a full 50-rider race every 5 minutes would earn 50 Shards per race. Actual earnings depend on how many players race, which this brief cannot predict.</p>
+
+<h3>Results so far (live database, 25 November 2026)</h3>
+<table>
+  <tr><th>Outcome</th><th class="num">Races</th><th class="num">Pot</th><th class="num">To winners</th><th class="num">House fee</th></tr>
+  <tr><td>Settled (paid out)</td><td class="num">4</td><td class="num">130</td><td class="num">117</td><td class="num">13</td></tr>
+  <tr><td>Cancelled (everyone refunded)</td><td class="num">244</td><td class="num">20</td><td class="num">0</td><td class="num">0</td></tr>
+</table>
+<p class="muted">Amounts are in Shards. Almost every cancelled race had fewer than two riders: a race opens every 5 minutes whether or not anyone joins. All four paid races ran on 24 November 2026, during testing.</p>
+
+<h3>Where the house fee goes</h3>
+<ul>
+  <li>The fee is paid to one Zero Chill account named in the race settings (<code>avalanche_race_config.house_user</code>). No player plays on it. It is separate from the race server's own login, so the server never holds Shards.</li>
+  <li><b>The house account is set on the live site</b> (checked in the live race settings on 25 November 2026), so the fee is being collected now. Had it been unset, the fee would have been burned (nobody receives it); no Shards have been burned so far.</li>
+  <li>Changing the house account later only affects races settled from then on.</li>
+  <li>The entry fee and the prize share can be changed on the server without a game update. A race keeps the fee and share it opened with.</li>
+</ul>
+
+<h3>Refunds</h3>
+<table>
+  <tr><th>Situation</th><th>Result</th></tr>
+  <tr><td>Fewer than 2 riders at the lock</td><td>No race; everyone refunded</td></tr>
+  <tr><td>Player leaves the lobby before the lock</td><td>That player refunded in full</td></tr>
+  <tr><td>Race left open by a server restart or redeploy</td><td>Closed automatically the next time the server opens a race (once its start is more than two cycles past) and everyone refunded. A race interrupted mid-ride is refunded, never paid out.</td></tr>
+  <tr><td>The winner's ride follows the game's own bot</td><td>Race voided: nobody paid, nothing burned, everyone refunded; not counted on anyone's record. Players see "RACE VOIDED" and "Entries refunded".</td></tr>
+  <tr><td>Player disconnects or quits mid-race</td><td>Out of the race, <b>no refund</b></td></tr>
+</table>
+
+<h3>Can Shards be turned into real money?</h3>
+<p>According to the zerochill.com Terms (as read on 24 November 2026 for the legal check):</p>
+<ul>
+  <li>Shards have <b>"no cash value"</b>. They cannot be cashed out, sold, transferred between players, or redeemed for money or crypto.</li>
+  <li><b>Players can buy Shards</b> with real money (with a first-purchase doubling bonus).</li>
+  <li>Shards unlock items; the game's own Shards shop sells cosmetic items only (trails, a board and a hoodie), which never affect races or scores.</li>
+</ul>
+<div class="box warn">
+  <strong class="lead">Why this matters</strong>
+  Because Shards can be bought, a paid entry for a Shards prize looks like paying to win a prize of value. The legal check found this carries gambling risk in several US states, and the 10% house cut (a "rake") adds to it. It also conflicts with the Terms' line "No purchase is ever needed to enter an event or win a prize". The owner chose to keep paid entry and the house fee and to limit who may race through the Terms (see section 6).
+</div>
+
+<h2>4. Fairness and anti-cheat</h2>
+<ul>
+  <li><b>The server decides.</b> Each phone plays the race locally for instant controls and sends its button inputs 10 times a second. The server replays every rider's inputs with the game's own simulation and alone decides who went out, the places and the winner. Phones only send inputs.</li>
+  <li><b>Same mountain for everyone.</b> All riders share the same course and the same speed-ups; the result comes from steering, timing and endurance. A fairness test on 30 race courses found a safe line through every one, even at the densest stretch.</li>
+  <li><b>Timing checks.</b> A rider is ruled out if inputs stop for 3 seconds, if inputs arrive more than 1 second ahead of the server's clock (a sped-up game), or if the input stream does not line up.</li>
+  <li><b>Bot detection.</b> When a race ends, the server compares each winner's ride with the game's built-in bot on the same slope. If the win follows the bot (for example, steering almost exactly like it and jumping on its cue), the race is voided and everyone is refunded. There is no back office; the server decides on its own. Only the race winner is checked.</li>
+  <li><b>One session per account.</b> Each account has one connection; signing in from a second tab or device takes over and disconnects the first ("signed in elsewhere").</li>
+  <li><b>Real looks only.</b> The server reads each rider's outfit from their profile, so nobody can show items they do not own.</li>
+</ul>
+<div class="box warn">
+  <strong class="lead">Known limits of the anti-cheat</strong>
+  <ul style="margin:0">
+    <li>A bot written from scratch (not the game's own) is not detected.</li>
+    <li>Very short wins (under about 10 seconds of steering) cannot be judged.</li>
+    <li>The bot check was calibrated on only three human rides, all from one person; the notes say to collect more real races before real stakes.</li>
+  </ul>
+</div>
+
+<h2>5. Where it runs and who owns what</h2>
+<table>
+  <tr><th>Part</th><th>Where</th><th>Who owns it</th></tr>
+  <tr><td>Race server (runs the race cycle, replays riders, decides results)</td><td>Colyseus Cloud, one process in Singapore; it also serves the web game. Every update to the main code line redeploys it.</td><td>Zero Chill (the owner's account)</td></tr>
+  <tr><td>Race tables and Shards ledger (entries, pot, payouts, refunds)</td><td>zerochill.com database (Supabase). Shards move through the site's own reward ledger, one recorded entry per movement.</td><td>Website team (applied as site migration 0310)</td></tr>
+  <tr><td>Shards wallet and player display names</td><td>zerochill.com database</td><td>Website team</td></tr>
+  <tr><td>House account for the 10% fee</td><td>zerochill.com database</td><td>Website team creates it and sets it in the race settings</td></tr>
+  <tr><td>Embedding the game on the site (sign-in hand-off to the game, allowing the race server address)</td><td>zerochill.com game page</td><td>Website team</td></tr>
+  <tr><td>Terms of Service</td><td>zerochill.com</td><td>Website team</td></tr>
+</table>
+<p class="muted">The race server signs in to the site as its own account rather than holding the database master key. Only that account can call the race functions; the player's browser can read race information but cannot move Shards.</p>
+
+<h2>6. Status and open items</h2>
+
+<h3>Live now</h3>
+<table>
+  <tr><th>Item</th><th>Status</th></tr>
+  <tr><td>Race ledger on zerochill.com</td><td><span class="pill live">Live</span> since 24 November 2026 (site migration 0310), with real Shards</td></tr>
+  <tr><td>Race server on Colyseus Cloud (Singapore)</td><td><span class="pill live">Live</span> since 25 November 2026; the game points at it</td></tr>
+  <tr><td>Bot check, voiding and refunds</td><td><span class="pill live">Live</span>; every race winner is judged</td></tr>
+  <tr><td>Automatic closing and refund of races left open by a restart</td><td><span class="pill live">Built</span> 25 November 2026</td></tr>
+  <tr><td>Android app shell</td><td><span class="pill live">Started</span>; the app wraps the web game</td></tr>
+</table>
+
+<h3>Open items</h3>
+<table>
+  <tr><th>Item</th><th>Status</th><th>Detail</th></tr>
+  <tr><td>Terms of Service update</td><td><span class="pill open">Open</span></td><td>The website team is asked to update the Terms before races go live on the site: make an exception to "no purchase needed" for this race, set paid races to 18+ and exclude Arizona, Arkansas, Delaware, Louisiana, Montana, South Carolina and Tennessee, and describe the rules (90% / 10%, ties, refunds, disconnects). The game and server do not check age or location; the Terms are the only limit.</td></tr>
+  <tr><td>Legal review</td><td><span class="pill open">Open</span></td><td>The legal check so far was done without a lawyer and covers mainly the US. Countries outside the US were not researched. The owner accepted that the phone apps bring a legal review into the app work, because the apps include the Shards race and the Shards shop.</td></tr>
+  <tr><td>App-store billing for Shards</td><td><span class="pill open">Open</span></td><td>The Multiplayer race and the Shards shop are planned in the first app builds. The owner accepted that the stores' billing rules for Shards become part of the app work. Not done yet for Android: release signing, the Play listing, ads, store billing (the app icon and splash screen are being added now).</td></tr>
+  <tr><td>House account</td><td><span class="pill live">Set</span></td><td>Set in the live race settings (checked 25 November 2026); the 10% fee is paid to it. Some older project notes still say it is unset; they predate this.</td></tr>
+  <tr><td>Entry fee level</td><td><span class="pill check">Decide</span></td><td>10 Shards is the default, kept by the owner for testing; to be revisited against real Shard balances before going live.</td></tr>
+  <tr><td>Check-in and countdown timings</td><td><span class="pill check">Decide</span></td><td>Listed as not finally decided.</td></tr>
+  <tr><td>Website page changes</td><td><span class="pill open">Open</span></td><td>When the game moves onto the site page, the site must hand the game the player's sign-in for racing and allow the race server address. The rebuilt game files and address still need to be handed over.</td></tr>
+  <tr><td>Testing on real phones and Safari</td><td><span class="pill open">Open</span></td><td>Some race screens were checked only in a desktop browser; a pass on real phones is part of the current polish work.</td></tr>
+</table>
+
+<h3>Known gaps (accepted for now)</h3>
+<ul>
+  <li>A hidden browser tab stops sending inputs and the rider is dropped after 3 seconds (treated as going out, no refund).</li>
+  <li>A home-made bot is not detected; very short wins are not judged; the bot check needs more human data.</li>
+  <li>The rematch is forgotten if the server restarts.</li>
+</ul>
+
+<footer>Sources: project notes (CLAUDE.md), decision log (DECISIONS.md entries 59&ndash;64, 66, 68, 70&ndash;72, 74, 79), docs/endurance-race.md, docs/race-legal-check.md, docs/race-from-this-pc.md, RACE_HANDOFF.md, src/config.js, server/index.mjs, server/race-room.mjs, server/supabase.mjs and the race database scripts in supabase/. Where notes and code disagree, this brief follows the code.</footer>
+
+</body>
+</html>
