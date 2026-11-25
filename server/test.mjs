@@ -440,6 +440,29 @@ test('run check enforced: only a run replayed to exactly that score counts', () 
   eq(subObserve.counted, true, 'not enforced: counted without a check ' + JSON.stringify(subObserve));
 });
 
+// --- 8. races left behind by a restart are cancelled and refunded ------------------
+const CYCLE = 20000;
+const staleUser = await db.user(await signUp('stale'));
+const staleId = 'r' + (Date.now() - 3 * CYCLE).toString(36) + '-stale';
+const freshId = 'r' + (Date.now() + CYCLE).toString(36) + '-fresh';
+await db.rpc('race_open', { p_race: staleId, p_seed: 7 });
+await db.rpc('race_open', { p_race: freshId, p_seed: 8 });
+const beforeIn = (await db.rpc('race_balance', { p_user: staleUser.id })).balance;
+const staleIn = await db.rpc('race_check_in', { p_race: staleId, p_user: staleUser.id });
+const staleLogs = [];
+await EnduranceRoom.prototype.closeStale.call({ db, cycleMs: CYCLE, next: null, race: null, log: (...a) => staleLogs.push(a.join(' ')) }, Date.now());
+const statusOf = async (id) => (await (await fetch(db.s.url + '/rest/v1/avalanche_races?select=status&id=eq.' + id, { headers: { apikey: db.s.service, Authorization: 'Bearer ' + db.s.service } })).json())[0].status;
+const staleAfter = { stale: await statusOf(staleId), fresh: await statusOf(freshId), balance: (await db.rpc('race_balance', { p_user: staleUser.id })).balance };
+await db.rpc('race_cancel', { p_race: freshId });
+
+test('a race left open by a restart is cancelled and its fees refunded; a current one is left alone', () => {
+  eq(staleIn.ok, true, 'checked in: ' + JSON.stringify(staleIn));
+  eq(staleAfter.stale, 'cancelled');
+  eq(staleAfter.fresh, 'open');
+  eq(staleAfter.balance, beforeIn, 'fee refunded');
+  ok(staleLogs.some((l) => l.includes(staleId) && l.includes('1 refunded')), staleLogs.join('; '));
+});
+
 const failed = report();
 if (failed) console.log(logs.join('\n'));
 process.exit(failed ? 1 : 0);

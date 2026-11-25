@@ -167,6 +167,11 @@ Built and tested on this PC with the local Supabase and test Shards. Nothing is 
 - Checking a winner replays the whole race once (about 0.3 s of server time for a 190 s race), only for place-1 riders.
 - `node server/test.mjs` (9/9) adds: a bot win on a normal account is voided and both riders are refunded with nothing on their record; the tie race's winners are judged and paid.
 
+**Races left behind by a restart** (2026-11-25)
+- A restart or redeploy used to leave its open or running race in the ledger for good, holding any fees. Each time the server opens a race it now cancels every race still open or racing whose start is more than two cycles past, which refunds its fees (`closeStale` in `server/race-room.mjs`). Races end inside their cycle, and the two-cycle margin spares a race an old process is still running beside a new one during a deploy.
+- A race interrupted mid-ride is therefore refunded, never settled.
+- `node server/test.mjs` covers it: an old race with a paid check-in is cancelled and refunded; a current one is left open.
+
 **Known gaps**
 - A hidden tab stops sending inputs and is dropped after 3 s (as agreed: a drop is a death).
 - A bot written from scratch (not the game's own) is not detected; the check only catches riders who follow the shipped bot.

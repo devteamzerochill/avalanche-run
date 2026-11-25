@@ -78,6 +78,15 @@ export class Supabase {
     return { id: u.id, email: u.email || '', name: name.trim().slice(0, 20) };
   }
 
+  // Races the ledger still has open or racing (races are public to read).
+  async unclosedRaces() {
+    const res = await fetch(this.s.url + '/rest/v1/avalanche_races?status=in.(open,racing)&select=id,created_at', {
+      headers: { apikey: this.s.service || this.s.anon, Authorization: 'Bearer ' + (await this.bearer()) },
+    });
+    if (!res.ok) throw new Error('unclosed races: ' + res.status);
+    return res.json();
+  }
+
   async rpc(name, args) {
     const bearer = await this.bearer();
     const res = await fetch(this.s.url + '/rest/v1/rpc/' + name, {
