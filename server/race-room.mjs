@@ -101,6 +101,23 @@ export class EnduranceRoom extends Room {
     this.next = { id, seed, startAt, fee: res.fee, prizePct: res.prize_pct, entries: new Set(), pot: 0 };
     this.log('open', id, new Date(startAt).toISOString());
     this.broadcastNext();
+    this.queue(() => this.closeStale(now)); // after whatever called this, one ledger call at a time
+  }
+
+  // A restart or redeploy leaves its open or running race behind in the ledger,
+  // with any fees still held. Races end inside their cycle, so one whose start
+  // is two cycles past is stale: cancel it, which refunds every fee. The margin
+  // also spares the race of an old process still running beside a new one.
+  async closeStale(now) {
+    const rows = await this.db.unclosedRaces();
+    for (const row of rows) {
+      if ((this.next && row.id === this.next.id) || (this.race && row.id === this.race.id)) continue;
+      const fromId = /^r([0-9a-z]+)-/.exec(row.id);
+      const startAt = fromId ? parseInt(fromId[1], 36) : Date.parse(row.created_at) + this.cycleMs;
+      if (!(startAt + 2 * this.cycleMs < now)) continue;
+      const res = await this.db.rpc('race_cancel', { p_race: row.id });
+      this.log('stale race cancelled', row.id, (res && res.refunded) || 0, 'refunded');
+    }
   }
 
   nextInfo(userId) {
