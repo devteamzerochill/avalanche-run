@@ -958,7 +958,7 @@ export class UI {
     }
     // The apps are the real thing, not a test: no warning, and a way to an account.
     const warn = APP ? `<p class="note">${esc(t('acct.appNote'))}</p>` : `<p class="note warn">${esc(t('acct.warn'))}</p>`;
-    const join = APP ? `<p class="note">${esc(t('acct.noAccount'))} <a href="https://zerochill.com" target="_blank" rel="noopener" id="acctJoin">${esc(t('acct.createOnSite'))}</a></p>` : '';
+    const join = APP ? `<p class="note">${esc(t('acct.noAccount'))} <a href="https://zerochill.com/register" target="_blank" rel="noopener" id="acctJoin">${esc(t('acct.createOnSite'))}</a></p>` : '';
     if (live.session) {
       body.innerHTML =
         `<div class="row"><div class="ico">👤</div><div class="grow"><h3>${esc(t('acct.signedIn'))}</h3><p>${esc(live.email)}</p></div></div>` +
