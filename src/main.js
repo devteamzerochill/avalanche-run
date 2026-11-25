@@ -1141,7 +1141,8 @@ class Game {
   // only then, so the shell exits; true means the game handled it.
   back() {
     if (this.ui.busyKey) return true; // a server call is under way
-    if (this.ui.panelName) return this.ui.closePanel(), true;
+    // The sign-in gate can't be closed, so Back there works like on the title: press twice to leave.
+    if (this.ui.panelName && !(this.ui.panelName === 'account' && this.ui.signInGate())) return this.ui.closePanel(), true;
     if (this.state === 'play') return this.pause(), true;
     if (this.state === 'paused') return this.resume(), true;
     if (this.state === 'end' && !this.raceMode && this.endT > 0.9) return this.toTitle(), true;

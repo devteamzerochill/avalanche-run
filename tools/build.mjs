@@ -110,9 +110,13 @@ fs.mkdirSync(path.join(dist, 'web/vendor'), { recursive: true });
 fs.copyFileSync(path.join(root, 'vendor/colyseus.js'), path.join(dist, 'web/vendor/colyseus.js'));
 
 // --- phone apps: the web build with window.__APP (live sign-in first, Cloud
-// races, a lasting session); the native shell packages dist/app/ (DECISIONS 75).
+// races, a lasting session); the native shell in mobile/ packages dist/app/
+// (DECISIONS 75, 79). Android's back button goes to the game first; it exits
+// only when the game says so (the second press on the title).
+const appBack = `(function(){var A=window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.App;if(!A)return;` +
+  `A.addListener('backButton',function(){if(!(window.__appBack&&window.__appBack()))A.exitApp();});})();`;
 fs.cpSync(path.join(dist, 'web'), path.join(dist, 'app'), { recursive: true });
-fs.writeFileSync(path.join(dist, 'app/index.html'), page(`<style>${css}</style>`, `<script>window.__APP=true;window.__PORTRAIT=true;</script>
+fs.writeFileSync(path.join(dist, 'app/index.html'), page(`<style>${css}</style>`, `<script>window.__APP=true;window.__PORTRAIT=true;${appBack}</script>
 ` + gameTag));
 
 // --- single-file playable ---

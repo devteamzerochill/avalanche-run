@@ -1,0 +1,16 @@
+{
+  "name": "avalanche-run-mobile",
+  "private": true,
+  "description": "Capacitor shell for the phone apps. Packages ../dist/app (node tools/build.mjs) into a native Android project (DECISIONS 79).",
+  "scripts": {
+    "sync": "node ../tools/build.mjs && cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.2",
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.6.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.2"
+  }
+}
