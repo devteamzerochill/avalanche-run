@@ -227,13 +227,23 @@ void main() {
   #include <colorspace_fragment>
 }`;
 export const outlineFog = { uFog: { value: new THREE.Color('#b9ecff') }, uFogNear: { value: 110 }, uFogFar: { value: 400 } };
+// Low quality draws no ink at all (DECISIONS 78): every hull material is listed here.
+const inkMats = [];
+export const ink = { on: true };
+export function setInk(on) {
+  ink.on = on;
+  for (const m of inkMats) m.visible = on;
+}
 export function outlineMaterial(width) {
-  return new THREE.ShaderMaterial({
+  const m = new THREE.ShaderMaterial({
     uniforms: { uWidth: { value: width }, uInk: { value: new THREE.Color(INK) }, uFog: outlineFog.uFog, uFogNear: outlineFog.uFogNear, uFogFar: outlineFog.uFogFar },
     vertexShader: OUT_VERT,
     fragmentShader: OUT_FRAG,
     side: THREE.BackSide,
   });
+  m.visible = ink.on;
+  inkMats.push(m);
+  return m;
 }
 // Same shape with normals averaged per position, so the hull has no cracks.
 export function outlineGeo(geo) {

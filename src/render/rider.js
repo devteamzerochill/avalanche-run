@@ -2,7 +2,7 @@
 // blended by the game state; legs and arms are solved with two-bone IK so the
 // feet stay on the board whatever the body does.
 import * as THREE from 'three';
-import { toonRamp, outlineMaterial } from './props.js';
+import { toonRamp, outlineMaterial, ink } from './props.js';
 import { furTexture, headGeometry, earGeometry, paintMasks } from './fox.js';
 
 // Galaxy cloth (Shards shop, DECISIONS 68): a drifting nebula with twinkling
@@ -453,7 +453,7 @@ export class Rider {
     for (const b of this.allMats) {
       // The ink hull draws solid whatever the opacity: off while see-through.
       if (b.m.isShaderMaterial) {
-        b.m.visible = solid;
+        b.m.visible = solid && ink.on;
         continue;
       }
       const tr = solid ? b.transparent : true;

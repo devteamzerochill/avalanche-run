@@ -275,6 +275,13 @@ export class Stage {
     this.applyMood();
   }
 
+  // Low quality: one sky colour instead of the painted dome (DECISIONS 78).
+  setFlatSky(on) {
+    this.sky.visible = !on;
+    this.scene.background = on ? new THREE.Color() : null;
+    this.applyMood();
+  }
+
   applyMood() {
     const m = this.mood;
     this.scene.fog.color.copy(m.fog);
@@ -296,6 +303,7 @@ export class Stage {
     s.uGlow.value = m.sunGlow;
     s.uClouds.value = m.clouds;
     s.uRainbow.value = m.rainbow;
+    if (this.scene.background) this.scene.background.copy(m.horizon).lerp(m.skyTop, 0.35);
     this.mountainMat.color.copy(m.mountain);
     this.valleyMat.color.copy(m.fog);
     // Sun direction in the tilted slope frame, for the snow shader.
