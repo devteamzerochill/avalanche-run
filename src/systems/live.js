@@ -6,11 +6,12 @@
 // Opt-in with ?live. Every write is real: counted runs show on the public daily
 // board. Only the public app key is used; the player's password goes straight
 // to the auth endpoint and is never stored. The session lives in sessionStorage,
-// so it ends with the browser tab.
+// so it ends with the browser tab; in the apps it stays (localStorage).
 import { CONFIG } from '../config.js';
 
 const GAME = 'avalanche_run';
 const SESSION_KEY = 'avalanche-run-live-session';
+const store = () => (APP ? localStorage : sessionStorage);
 const RETRY_DELAYS = [700, 1400, 2800, 5600]; // the website's helper: five attempts in all
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -19,10 +20,14 @@ function utcDateKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// The phone apps (tools/build.mjs writes dist/app/ with window.__APP): always
+// live, with a sign-in screen first and a session that outlasts the app.
+export const APP = typeof window !== 'undefined' && !!window.__APP;
+
 // ?live talks to zerochill.com; ?live=local to the local Supabase in supabase/.
 export function liveTarget() {
   const q = new URLSearchParams(location.search);
-  if (!q.has('live')) return null;
+  if (!q.has('live') && !APP) return null;
   const t = q.get('live') === 'local' ? CONFIG.online.local : CONFIG.online;
   return t && t.url && t.anonKey ? t : null;
 }
@@ -56,7 +61,7 @@ export class LiveBackend {
   // --- session ---------------------------------------------------------------
   loadSession() {
     try {
-      const s = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
+      const s = JSON.parse(store().getItem(SESSION_KEY) || 'null');
       return s && s.access_token ? s : null;
     } catch (err) {
       return null;
@@ -66,8 +71,8 @@ export class LiveBackend {
   saveSession(s) {
     this.session = s && s.access_token ? { access_token: s.access_token, refresh_token: s.refresh_token, expires_at: s.expires_at || Math.floor(Date.now() / 1000) + (s.expires_in || 3600), user: s.user ? { id: s.user.id, email: s.user.email } : null } : null;
     try {
-      if (this.session) sessionStorage.setItem(SESSION_KEY, JSON.stringify(this.session));
-      else sessionStorage.removeItem(SESSION_KEY);
+      if (this.session) store().setItem(SESSION_KEY, JSON.stringify(this.session));
+      else store().removeItem(SESSION_KEY);
     } catch (err) {
       /* private mode: the session just lasts for this page */
     }

@@ -100,13 +100,20 @@ fs.mkdirSync(path.join(dist, 'web/assets/audio'), { recursive: true });
 
 // --- web build ---
 fs.writeFileSync(path.join(dist, 'web/game.js'), bundle);
-fs.writeFileSync(path.join(dist, 'web/index.html'), page(`<style>${css}</style>`, `<script src="game.js?v=${zlib.crc32 ? zlib.crc32(bundle).toString(36) : bundle.length.toString(36)}"></script>`));
+const gameTag = `<script src="game.js?v=${zlib.crc32 ? zlib.crc32(bundle).toString(36) : bundle.length.toString(36)}"></script>`;
+fs.writeFileSync(path.join(dist, 'web/index.html'), page(`<style>${css}</style>`, gameTag));
 const audioDir = path.join(root, 'assets/audio');
 const audio = fs.readdirSync(audioDir).filter((f) => f.endsWith('.mp3'));
 for (const f of audio) fs.copyFileSync(path.join(audioDir, f), path.join(dist, 'web/assets/audio', f));
 // The race client loads on demand (src/systems/race.js), from vendor/ next to the page.
 fs.mkdirSync(path.join(dist, 'web/vendor'), { recursive: true });
 fs.copyFileSync(path.join(root, 'vendor/colyseus.js'), path.join(dist, 'web/vendor/colyseus.js'));
+
+// --- phone apps: the web build with window.__APP (live sign-in first, Cloud
+// races, a lasting session); the native shell packages dist/app/ (DECISIONS 75).
+fs.cpSync(path.join(dist, 'web'), path.join(dist, 'app'), { recursive: true });
+fs.writeFileSync(path.join(dist, 'app/index.html'), page(`<style>${css}</style>`, `<script>window.__APP=true;window.__PORTRAIT=true;</script>
+` + gameTag));
 
 // --- single-file playable ---
 const assets = {};
@@ -160,6 +167,7 @@ console.log(`  audio (8 mp3)        ${kb(audioBytes)}`);
 console.log(`web build   dist/web/`);
 console.log(`  index.html + game.js ${kb(webFiles.reduce((n, f) => n + size(f), 0))}   gzip ${kb(webFiles.reduce((n, f) => n + gz(fs.readFileSync(f)), 0))}`);
 console.log(`  total with audio     ${kb(webFiles.reduce((n, f) => n + size(f), 0) + audioBytes)}`);
+console.log(`app build   dist/app/ (web build for the phone apps)`);
 console.log(`playable    dist/avalanche-run-playable.html`);
 console.log(`  single file          ${kb(size(singlePath))}   gzip ${kb(gz(fs.readFileSync(singlePath)))}`);
 console.log(`player      dist/avalanche-run.html (single file, no ad layer)  ${kb(size(playerPath))}`);

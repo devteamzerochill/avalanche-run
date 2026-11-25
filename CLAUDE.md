@@ -1,6 +1,6 @@
 # Avalanche Run: working notes
 
-A mobile-first arcade snowboard runner (three.js r160, vendored) rebuilt from a minified playable-ad prototype. You ride as the **Zero Chill fox** (the owner's company mascot) and outrun an avalanche down a seeded daily mountain. The owner directs the look and feel; read `DECISIONS.md` (74 numbered entries) before changing anything. It records why each choice was made.
+A mobile-first arcade snowboard runner (three.js r160, vendored) rebuilt from a minified playable-ad prototype. You ride as the **Zero Chill fox** (the owner's company mascot) and outrun an avalanche down a seeded daily mountain. The owner directs the look and feel; read `DECISIONS.md` (75 numbered entries) before changing anything. It records why each choice was made.
 
 ## Commands
 
@@ -18,6 +18,7 @@ The project moved from a Mac to a Windows PC (2026-11-23). The PC has Node 24 an
 
 Build outputs in `dist/`:
 - `web/`: multi-file web build.
+- `app/`: the web build for the phone apps (`window.__APP`: live sign-in first, Cloud races, a lasting session; DECISIONS 75).
 - `avalanche-run-playable.html`: single-file playable ad (ad layer, 300 s cap, store CTA, landscape layout allowed).
 - `avalanche-run.html`: single-file web player (no ad layer, portrait lock).
 - `avalanche-run-artifact.html`: the player without `<html>/<head>/<body>`, for the claude.ai artifact.
