@@ -10,16 +10,20 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 
 function press(el, fn) {
   // Fire on pointerup for speed, fall back to click (keyboard, assistive tech).
+  // Then let go of focus: a button that keeps it is clicked again by Enter or
+  // Space even once hidden, which restarted runs mid-ride from PLAY.
   let last = 0;
   el.addEventListener('pointerdown', (e) => e.stopPropagation());
   el.addEventListener('pointerup', (e) => {
     e.stopPropagation();
     last = performance.now();
     fn(e);
+    el.blur();
   });
   el.addEventListener('click', (e) => {
     e.stopPropagation();
     if (performance.now() - last > 500) fn(e);
+    el.blur();
   });
 }
 
