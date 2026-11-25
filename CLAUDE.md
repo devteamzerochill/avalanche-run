@@ -17,7 +17,7 @@ node tools/serve.mjs 8124     # dev server from this folder; open /index.html, /
 **Phone apps** (`mobile/`, Capacitor; DECISIONS 79, 81; the `/build-apps` skill builds them and sends the zip). Once: `npm install` in `mobile/`. Needs the Android SDK (`%LOCALAPPDATA%\Android\Sdk`) and JDK 21 (`C:\Program Files\Microsoft\jdk-21.*`; Android Studio's own Java 25 is too new for Gradle 8.14):
 
 ```powershell
-cd mobile; node build-apps.mjs    # mobile/builds/<app>-<version>.zip: debug APK, release APK and AAB, and the Xcode project
+cd mobile; node build-apps.mjs 1.0.1    # new version + build number; no argument rebuilds the current one. mobile/builds/<app>-v<X.Y.Z>.zip: debug APK, release APK and AAB, and the Xcode project
 ```
 
 Release builds are signed only with the owner's `mobile/android/keystore.properties` (never committed). The iOS project (`mobile/ios/App/App.xcodeproj`) builds in Xcode on a Mac.
