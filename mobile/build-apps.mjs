@@ -1,10 +1,10 @@
 // One command for the phone app builds (DECISIONS 79, 81):
-//   cd mobile; node build-apps.mjs
+//   cd mobile; node build-apps.mjs [1.0.1]
 // The same file serves any web game with a mobile/ Capacitor shell (the
 // /build-apps skill); only GAME_BUILD below differs between games.
 // Rebuilds the game, syncs it into the Android and iOS projects, builds the
 // debug APK, the release APK and the release AAB, and zips them with the Xcode
-// project into builds/<app>-<version>.zip. Apple's tools can't compile the iOS
+// project into builds/<app>-v<version>.zip. Apple's tools can't compile the iOS
 // app on Windows; the zip's xcode/ folder opens in Xcode on a Mac.
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -30,16 +30,35 @@ const sdk = process.env.ANDROID_HOME || [path.join(process.env.LOCALAPPDATA || '
 if (!sdk) throw new Error('Android SDK not found');
 const env = { ...process.env, JAVA_HOME: javaHome(), ANDROID_HOME: sdk };
 
+// Versions are X.Y.Z (named vX.Y.Z on the files). `node build-apps.mjs 1.0.1`
+// sets a new version on both platforms and raises the build number by one,
+// since the stores refuse a build number they've already seen.
+const gradleFile = path.join(here, 'android/app/build.gradle');
+const pbxFile = path.join(here, 'ios/App/App.xcodeproj/project.pbxproj');
+let gradle = fs.readFileSync(gradleFile, 'utf8');
+let version = (gradle.match(/versionName "([^"]+)"/) || [])[1];
+let build = +(gradle.match(/versionCode (\d+)/) || [])[1];
+const wanted = process.argv[2]?.replace(/^v/, '');
+const semver = /^\d+\.\d+\.\d+$/;
+if (wanted && !semver.test(wanted)) throw new Error(`version must look like 1.0.0, not ${process.argv[2]}`);
+if (wanted && wanted !== version) {
+  version = wanted;
+  build += 1;
+  fs.writeFileSync(gradleFile, gradle.replace(/versionName "[^"]+"/, `versionName "${version}"`).replace(/versionCode \d+/, `versionCode ${build}`));
+  fs.writeFileSync(pbxFile, fs.readFileSync(pbxFile, 'utf8').replace(/MARKETING_VERSION = [^;]+;/g, `MARKETING_VERSION = ${version};`).replace(/CURRENT_PROJECT_VERSION = [^;]+;/g, `CURRENT_PROJECT_VERSION = ${build};`));
+}
+if (!semver.test(version)) throw new Error(`versionName "${version}" isn't X.Y.Z: pass one, e.g. node build-apps.mjs 1.0.0`);
+console.log(`Building v${version} (build ${build})`);
+
 run(GAME_BUILD);
 run('npx cap sync');
 // Full path: some Windows setups don't run programs from the current folder by name.
 const gradlew = JSON.stringify(path.join(here, 'android', process.platform === 'win32' ? 'gradlew.bat' : 'gradlew'));
 run(`${gradlew} assembleDebug assembleRelease bundleRelease --console=plain`, path.join(here, 'android'), env);
 
-const version = (fs.readFileSync(path.join(here, 'android/app/build.gradle'), 'utf8').match(/versionName "([^"]+)"/) || [])[1] || '0';
 const signed = fs.existsSync(path.join(here, 'android/keystore.properties'));
 const tag = signed ? 'release' : 'release-unsigned';
-const name = `${slug}-${version}`;
+const name = `${slug}-v${version}`;
 
 // Everything goes into one folder, then one zip: the three Android files and an
 // xcode/ folder that opens on a Mac as it is.
@@ -64,7 +83,7 @@ for (const [, rel] of pkg.matchAll(/path: "\.\.\/\.\.\/\.\.\/(node_modules\/[^"]
   fs.cpSync(path.join(here, rel), path.join(stage, 'xcode', rel), { recursive: true, filter: (p) => !/[\\/]android$/.test(p) });
 const signNote = signed ? 'signed with your upload key' : 'unsigned: sign it before sharing or uploading';
 fs.writeFileSync(path.join(stage, 'README.txt'), [
-  name,
+  `${name} (build ${build})`,
   '',
   `${files[0][1]}: install on an Android phone for testing (debug key).`,
   `${files[1][1]}: release APK, ${signNote}.`,
