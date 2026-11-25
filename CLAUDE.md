@@ -26,6 +26,23 @@ Icon and splash art: `node tools/app-icon.mjs` with the dev server on 8124 (DECI
 
 The project moved from a Mac to a Windows PC (2026-11-23). The PC has Node 24 and no Python, so use `tools/serve.mjs` (also what `.claude/launch.json` runs). Git: private repo `devteamzerochill/avalanche-run` (set up 2026-11-23 for the Colyseus Cloud deploy, which pulls the whole project because the race server runs `src/core/`). `main` started empty; work goes on branches and pull requests. When testing in a browser, mute the game (`__GAME.game.audio.setMuted(true)`, which doesn't touch saved volumes).
 
+**Before merging to `main`:** a merge redeploys Cloud and restarts the race server, which drops a running race. Merge only when this returns 0 (the Lovable connector's `query_database`, project `f813694a-43b6-47cb-a176-ba40a0c56733`); otherwise wait for the race to end:
+
+```sql
+select count(*) from avalanche_race_entries e join avalanche_races r on r.id = e.race_id where r.status in ('open', 'racing')
+```
+
+Redeploys cost nothing extra: Colyseus Cloud bills per server plan per month (checked 2026-11-25). The owner chose to keep `mobile/**` in the watch paths.
+
+**On another machine:** clone this repo, then:
+- Claude's rules come from the owner's AI workflow repo (`seanconsolacion/ai-workflow`, see its README; `setup.ps1` once).
+- Everything else Claude needs is in this file, `DECISIONS.md` and `docs/`; no per-machine memory is used.
+- Not in git, so set up or copy by hand only when needed:
+  - `server/.env` (only for the race server on that PC; copy `server/.env.example`, the owner types the race account);
+  - `supabase/local-standins/test-account.json` (sign up again on the local stack);
+  - `mobile/android/keystore.properties` and the keystore (the owner's);
+  - for `/build-apps`: `npm install` in `mobile/`, the Android SDK and JDK 21 (see the skill's Windows notes).
+
 Build outputs in `dist/`:
 - `web/`: multi-file web build.
 - `app/`: the web build for the phone apps (`window.__APP`: live sign-in first, Cloud races, a lasting session; DECISIONS 75); `mobile/` packages it.
