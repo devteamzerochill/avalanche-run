@@ -56,6 +56,68 @@ function galaxyMaterial(m) {
 }
 
 const Y = new THREE.Vector3(0, 1, 0);
+
+// Parts that never move against their joint are drawn as one mesh per
+// material (DECISIONS 77): the fox was 126 draw calls, most of a budget
+// phone's frame. parts: [{ geo, m }] with m the part's matrix in joint space.
+const HIDDEN = 31; // the camera never renders this layer: the source parts stay for re-baking
+const _v = new THREE.Vector3();
+const _n = new THREE.Matrix3();
+function mergeParts(parts, withColor) {
+  let nv = 0;
+  let ni = 0;
+  for (const { geo } of parts) {
+    nv += geo.attributes.position.count;
+    ni += geo.index ? geo.index.count : geo.attributes.position.count;
+  }
+  const pos = new Float32Array(nv * 3);
+  const nor = new Float32Array(nv * 3);
+  const uv = new Float32Array(nv * 2);
+  const col = withColor ? new Float32Array(nv * 3) : null;
+  const idx = nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni);
+  let vo = 0;
+  let io = 0;
+  for (const { geo, m } of parts) {
+    const P = geo.attributes.position;
+    const N = geo.attributes.normal;
+    const U = geo.attributes.uv;
+    const C = geo.attributes.color;
+    _n.getNormalMatrix(m);
+    for (let i = 0; i < P.count; i++) {
+      const o = (vo + i) * 3;
+      _v.fromBufferAttribute(P, i).applyMatrix4(m);
+      pos[o] = _v.x;
+      pos[o + 1] = _v.y;
+      pos[o + 2] = _v.z;
+      if (N) {
+        _v.fromBufferAttribute(N, i).applyMatrix3(_n).normalize();
+        nor[o] = _v.x;
+        nor[o + 1] = _v.y;
+        nor[o + 2] = _v.z;
+      }
+      if (U) {
+        uv[(vo + i) * 2] = U.getX(i);
+        uv[(vo + i) * 2 + 1] = U.getY(i);
+      }
+      if (col && C) {
+        col[o] = C.getX(i);
+        col[o + 1] = C.getY(i);
+        col[o + 2] = C.getZ(i);
+      }
+    }
+    if (geo.index) for (let i = 0; i < geo.index.count; i++) idx[io + i] = geo.index.getX(i) + vo;
+    else for (let i = 0; i < P.count; i++) idx[io + i] = vo + i;
+    io += geo.index ? geo.index.count : P.count;
+    vo += P.count;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  if (col) g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.setIndex(new THREE.BufferAttribute(idx, 1));
+  return g;
+}
 const THIGH = 0.37;
 const SHIN = 0.37;
 const UPPER = 0.27;
@@ -318,7 +380,47 @@ export class Rider {
     this.handR.scale.setScalar(1.35);
     this.spin = 0;
     for (const g of this.vc) paintMasks(g, '#E8622A', '#FFF3E6');
+    // Joints whose fixed parts are baked (the tail swings, so it stays apart).
+    this.bakeSets = [[this.board], [this.head], [this.torso], [this.hips, this.tail[0]], [this.handF], [this.handR]];
+    this.bake();
     this.solve();
+  }
+
+  // (Re)build each joint's merged meshes from its fixed parts, which stay in
+  // the scene graph on a layer the camera skips (setSkin repaints their colours).
+  bake() {
+    for (const [joint, skip] of this.bakeSets) {
+      for (const m of joint.userData.baked || []) {
+        joint.remove(m);
+        m.geometry.dispose();
+      }
+      const byMat = new Map();
+      const walk = (node, mat) => {
+        for (const c of node.children) {
+          if (c.userData.bake || c === skip) continue;
+          c.updateMatrix();
+          const m = mat.clone().multiply(c.matrix);
+          if (c.isMesh) {
+            if (!byMat.has(c.material)) byMat.set(c.material, []);
+            byMat.get(c.material).push({ geo: c.geometry, m });
+            c.layers.set(HIDDEN);
+          }
+          walk(c, m);
+        }
+      };
+      if (joint.isMesh) {
+        byMat.set(joint.material, [{ geo: joint.geometry, m: new THREE.Matrix4() }]);
+        joint.layers.set(HIDDEN);
+      }
+      walk(joint, new THREE.Matrix4());
+      joint.userData.baked = [];
+      for (const [material, parts] of byMat) {
+        const mesh = new THREE.Mesh(mergeParts(parts, !!material.vertexColors), material);
+        mesh.userData.bake = true;
+        joint.add(mesh);
+        joint.userData.baked.push(mesh);
+      }
+    }
   }
 
   setSkin(rider, board) {
@@ -327,6 +429,7 @@ export class Rider {
     if (rider) {
       for (const k of ['fur', 'cream', 'hoodie', 'trim', 'shorts', 'shortsTrim', 'gear']) if (rider[k]) m[k].color.set(rider[k]);
       for (const g of this.vc) paintMasks(g, rider.fur, rider.cream);
+      this.bake(); // the baked head and ears carry copies of those colours
       m.hoodie.userData.galaxy.value = rider.fx === 'galaxy' ? 1 : 0;
     }
     if (board) {

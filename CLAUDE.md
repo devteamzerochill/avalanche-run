@@ -1,6 +1,6 @@
 # Avalanche Run: working notes
 
-A mobile-first arcade snowboard runner (three.js r160, vendored) rebuilt from a minified playable-ad prototype. You ride as the **Zero Chill fox** (the owner's company mascot) and outrun an avalanche down a seeded daily mountain. The owner directs the look and feel; read `DECISIONS.md` (76 numbered entries) before changing anything. It records why each choice was made.
+A mobile-first arcade snowboard runner (three.js r160, vendored) rebuilt from a minified playable-ad prototype. You ride as the **Zero Chill fox** (the owner's company mascot) and outrun an avalanche down a seeded daily mountain. The owner directs the look and feel; read `DECISIONS.md` (77 numbered entries) before changing anything. It records why each choice was made.
 
 ## Commands
 
@@ -46,7 +46,7 @@ The game is published at https://claude.ai/artifact/JnTQMKbipLCs5inWNdTe4D (vers
 ## Architecture in one breath
 
 - `src/core/`: deterministic sim (fixed 60 Hz, only + − × ÷ √, seed + inputs → replay). `course.js` plans a safe line first. `bot.js` has the test `Bot` and the `HumanBot` (reaction delay, spring finger, lazy carves, air tricks, `distracted`). Bump `CONFIG.version` if sim rules change. For drawing, `main.js` carries the rider forward by the part of a tick not yet simulated (`this.lead`); anything else drawn relative to `sim.dist` (ghosts, race riders) must add its own speed × `lead`, or it shakes against the rider.
-- `src/render/`: toon materials + inverted-hull ink outlines, GPU terrain, avalanche lobe, particles. `rider.js` is the IK rig; `fox.js` is the sculpted head, ears and fur texture.
+- `src/render/`: toon materials + inverted-hull ink outlines, GPU terrain, avalanche lobe, particles. `rider.js` is the IK rig (fixed parts merged per joint by `bake()`; re-bake after changing them); `fox.js` is the sculpted head, ears and fur texture.
 - `src/systems/`: audio (samples + synth SFX + procedural chiptune), save, meta, input, i18n (en/es/zh), perf, record, host (zerochill.com bridge).
 - `src/ui/`: DOM HUD and menus, `style.css`, `frame.js` (portrait frame: fixed 450×800 layout scaled to fit on screens wider than 9:16).
 
