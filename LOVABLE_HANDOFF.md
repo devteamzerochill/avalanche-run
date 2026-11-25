@@ -59,6 +59,10 @@ What changes on the site's side:
 
 Adds `avalanche_run_checks` and `avalanche_run_check_config` (both closed to players), `avalanche_run_check(...)` for the race server account only, and replaces our own `submit_avalanche_run` with the same body plus one check at the start. Nothing changes while `enforce` is false (the default). Live functions (`submit_avalanche_score` and the rest) are untouched.
 
+## Gold skin (migration `20261130000000_gold_skin.sql`, DECISIONS 83)
+
+Two catalogue rows, nothing else: a Gold rider for 750 Shards and a Gold board for 350 Shards. `buy_avalanche_item` and `select_avalanche_item` already handle any Shards item, so the site needs no change. Until it is applied, the game shows Gold in the shop but buying it fails with an unknown item.
+
 ## Tested locally
 
 On a local Supabase (Postgres 17, same auth and REST stack) with stand-ins for the live functions, `node tests/db.mjs` passes 11/11:

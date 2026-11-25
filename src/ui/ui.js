@@ -77,6 +77,7 @@ export class UI {
     this.cache = {};
     this.panelName = '';
     this.shopTab = 'rider';
+    this.tryOn = {}; // shop items on the fox but not worn: { rider, board, trail } ids
     this.fx = this.el.speedfx.getContext('2d');
     this.lines = [];
     for (let i = 0; i < 26; i++) this.lines.push({ a: Math.random() * 6.28, r: Math.random(), l: 0.05 + Math.random() * 0.08 });
@@ -112,7 +113,8 @@ export class UI {
       this.openPanel(this.raceIn() ? 'lobby' : 'race');
     });
     this.el.panel.addEventListener('pointerup', (e) => {
-      if (e.target === this.el.panel) this.closePanel();
+      // In the shop the space above the panel spins the fox; ✕ closes it.
+      if (e.target === this.el.panel && this.panelName !== 'shop') this.closePanel();
     });
     document.querySelectorAll('[data-panel]').forEach((b) => press(b, () => this.openPanel(b.getAttribute('data-panel'))));
     const jb = this.el.jumpBtn;
@@ -600,7 +602,7 @@ export class UI {
   }
 
   showTitle(on) {
-    this.el.title.classList.toggle('out', !on || this.panelName === 'lobby');
+    this.el.title.classList.toggle('out', !on || this.panelName === 'lobby' || this.panelName === 'shop');
     if (on) this.refreshTitle();
     if (on) this.requireSignIn();
   }
@@ -1059,8 +1061,9 @@ export class UI {
     $('panelClose').classList.remove('hidden'); // accountPanel hides it behind the apps' sign-in
     this.renderPanel();
     this.el.panel.classList.toggle('lobby', name === 'lobby');
-    // The lobby's riders stand on the slope behind it: no title stack over them.
-    if (name === 'lobby') this.el.title.classList.add('out');
+    this.el.panel.classList.toggle('shop', name === 'shop');
+    // The lobby's riders and the shop's fox stand behind the panel: no title stack over them.
+    if (name === 'lobby' || name === 'shop') this.el.title.classList.add('out');
     this.el.panel.classList.remove('hidden');
   }
 
@@ -1085,6 +1088,7 @@ export class UI {
     const was = this.panelName;
     this.panelName = '';
     this.shopConfirm = null;
+    if (was === 'shop') (this.tryOn = {}), this.hooks.preview();
     this.el.panel.classList.add('hidden');
     this.hooks.tap('panelClose');
     this.hooks.panelClosed(was);
@@ -1128,13 +1132,14 @@ export class UI {
       // Shards items need the server profile, which carries the wallet balance.
       const shards = typeof p.shards === 'number' ? p.shards : null;
       const galaxyDefs = `<defs><radialGradient id="galx" cx="35%" cy="40%" r="75%"><stop offset="0" stop-color="#B57CFF"/><stop offset="0.45" stop-color="#4B2AA8"/><stop offset="1" stop-color="#120C2E"/></radialGradient></defs>`;
+      const goldDefs = `<defs><linearGradient id="gldx" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFF1B8"/><stop offset="0.45" stop-color="#E8B530"/><stop offset="1" stop-color="#8A5A0C"/></linearGradient></defs>`;
       const galaxyStars = `<g fill="#fff"><circle cx="22" cy="42" r="0.9"/><circle cx="35" cy="48" r="1.2"/><circle cx="40" cy="39" r="0.8"/><circle cx="27" cy="51" r="0.7"/></g>`;
       const streakDay = (id) => (CONFIG.meta.streakRewards.find((r) => r[type] === id) || {}).day;
       const sw = (it) =>
         type === 'rider'
-          ? `<svg viewBox="0 0 60 60" style="position:absolute;left:50%;top:2px;width:56px;height:56px;transform:translateX(-50%)">${it.fx === 'galaxy' ? galaxyDefs : ''}<path d="M14 46 Q30 60 46 46 L44 34 H16 Z" fill="${it.fx === 'galaxy' ? 'url(#galx)' : it.hoodie}"/>${it.fx === 'galaxy' ? galaxyStars : ''}<path d="M15 46 Q30 58 45 46" stroke="${it.trim}" stroke-width="2.5" fill="none"/><path d="M12 6 L22 18 L16 26 Z M48 6 L38 18 L44 26 Z" fill="${it.fur}"/><path d="M14 10 L20 18 L17 22 Z M46 10 L40 18 L43 22 Z" fill="${it.cream}"/><ellipse cx="30" cy="24" rx="16" ry="13" fill="${it.fur}"/><path d="M14 26 Q20 38 30 38 Q40 38 46 26 Q38 32 30 31 Q22 32 14 26 Z" fill="${it.cream}"/><rect x="18" y="20" width="24" height="6" rx="3" fill="#0E0F13"/><circle cx="30" cy="31" r="2.2" fill="#0E0F13"/><path d="M13 24 Q12 8 30 8 Q48 8 47 24" stroke="#0E0F13" stroke-width="2" fill="none"/><circle cx="13" cy="25" r="4" fill="#0E0F13" stroke="${it.gear}" stroke-width="1.5"/><circle cx="47" cy="25" r="4" fill="#0E0F13" stroke="${it.gear}" stroke-width="1.5"/></svg>`
+          ? `<svg viewBox="0 0 60 60" style="position:absolute;left:50%;top:2px;width:56px;height:56px;transform:translateX(-50%)">${it.fx === 'galaxy' ? galaxyDefs : it.fx === 'gold' ? goldDefs : ''}<path d="M14 46 Q30 60 46 46 L44 34 H16 Z" fill="${it.fx === 'galaxy' ? 'url(#galx)' : it.fx === 'gold' ? 'url(#gldx)' : it.hoodie}"/>${it.fx === 'galaxy' ? galaxyStars : ''}<path d="M15 46 Q30 58 45 46" stroke="${it.trim}" stroke-width="2.5" fill="none"/><path d="M12 6 L22 18 L16 26 Z M48 6 L38 18 L44 26 Z" fill="${it.fur}"/><path d="M14 10 L20 18 L17 22 Z M46 10 L40 18 L43 22 Z" fill="${it.cream}"/><ellipse cx="30" cy="24" rx="16" ry="13" fill="${it.fx === 'gold' ? 'url(#gldx)' : it.fur}"/><path d="M14 26 Q20 38 30 38 Q40 38 46 26 Q38 32 30 31 Q22 32 14 26 Z" fill="${it.cream}"/><rect x="18" y="20" width="24" height="6" rx="3" fill="#0E0F13"/><circle cx="30" cy="31" r="2.2" fill="#0E0F13"/><path d="M13 24 Q12 8 30 8 Q48 8 47 24" stroke="#0E0F13" stroke-width="2" fill="none"/><circle cx="13" cy="25" r="4" fill="#0E0F13" stroke="${it.gear}" stroke-width="1.5"/><circle cx="47" cy="25" r="4" fill="#0E0F13" stroke="${it.gear}" stroke-width="1.5"/></svg>`
           : type === 'board'
-            ? `<i class="${it.fx === 'galaxy' ? 'gx' : ''}" style="left:8%;top:20px;width:84%;height:18px;border-radius:9px;background:${it.deck};box-shadow:0 3px 0 ${it.edge}"></i><i style="left:36%;top:20px;width:28%;height:18px;background:${it.stripe}"></i>`
+            ? `<i class="${it.fx === 'galaxy' ? 'gx' : it.fx === 'gold' ? 'gd' : ''}" style="left:8%;top:20px;width:84%;height:18px;border-radius:9px;background:${it.deck};box-shadow:0 3px 0 ${it.edge}"></i><i style="left:36%;top:20px;width:28%;height:18px;background:${it.stripe}"></i>`
             : it.id === 'none'
               ? `<i class="trail-sw none"></i>`
               : `<i class="trail-sw ${it.pulse ? 'pulse' : ''}" style="--a:${it.colors[0]};--b:${it.colors[1]};--c:${it.colors[2] || it.colors[1]};${it.rainbow ? 'background:linear-gradient(90deg,#ff4d6d,#ffd23f,#3ddc97,#35d6ff,#9b6bff,#ff4d6d);background-size:200% 100%' : ''}"></i>`;
@@ -1161,23 +1166,32 @@ export class UI {
         body.style.setProperty('--since', ((performance.now() - (this.panelOpenedAt || 0)) / 1000).toFixed(3) + 's');
         return;
       }
+      // Try before buying (DECISIONS 82): tapping a card puts it on the fox above
+      // the panel; the bar under the fox holds what can be done with it.
+      const pick = list.find((it) => it.id === (this.tryOn[type] || current)) || list[0];
+      const have = (it) => it.id === 'none' || owns(p, type, it.id);
+      let act;
+      if (pick.id === current) act = `<button class="btn" disabled>${esc(t('shop.inUse'))}</button>`;
+      else if (have(pick)) act = `<button class="btn primary" data-use="${pick.id}">${esc(t(pick.id === 'none' ? 'shop.off' : 'shop.use'))}</button>`;
+      else if (pick.shards) act = shards == null ? `<button class="btn" disabled>💎 ${pick.shards} · ${esc(t('shop.signIn'))}</button>` : `<button class="btn buy gem" data-buy="${pick.id}" ${shards < pick.shards ? 'disabled' : ''}>${esc(t('shop.buy'))} 💎 ${pick.shards}</button>`;
+      else if (pick.cost < 0) act = `<button class="btn" disabled>${esc(t('shop.streak', { n: streakDay(pick.id) || 7 }))}</button>`;
+      else act = `<button class="btn buy" data-buy="${pick.id}" ${p.flakes < pick.cost ? 'disabled' : ''}>${esc(t('shop.buy'))} ❄ ${pick.cost}</button>`;
+      const tag = (it) => (it.id === current ? '✓ ' + t('shop.inUse') : have(it) ? t('shop.owned') : it.shards ? '💎 ' + it.shards : it.cost < 0 ? t('shop.streak', { n: streakDay(it.id) || 7 }) : '❄ ' + it.cost);
       body.innerHTML =
+        `<div class="try-bar"><b>${esc(t(type + '.' + pick.id))}</b>${act}</div>` +
         `<div class="tabs">${tab('rider', 'shop.riders')}${tab('board', 'shop.boards')}${tab('trail', 'shop.trails')}</div>` +
         `<div class="shop-wallet"><div class="chip gold">❄ <b>${p.flakes}</b></div>${shards != null ? `<div class="chip gold shards">💎 <b>${shards}</b></div>` : ''}</div><div class="grid">` +
-        list
-          .map((it) => {
-            const have = it.id === 'none' || owns(p, type, it.id);
-            const sel = current === it.id;
-            let btn;
-            if (sel) btn = `<button disabled>${esc(t('shop.inUse'))}</button>`;
-            else if (have) btn = `<button data-use="${it.id}">${esc(t(it.id === 'none' ? 'shop.off' : 'shop.use'))}</button>`;
-            else if (it.shards) btn = shards == null ? `<button disabled>💎 ${it.shards} · ${esc(t('shop.signIn'))}</button>` : `<button class="buy gem" data-buy="${it.id}" ${shards < it.shards ? 'disabled' : ''}>💎 ${it.shards}</button>`;
-            else if (it.cost < 0) btn = `<button disabled>${esc(t('shop.streak', { n: streakDay(it.id) || 7 }))}</button>`;
-            else btn = `<button class="buy" data-buy="${it.id}" ${p.flakes < it.cost ? 'disabled' : ''}>❄ ${it.cost}</button>`;
-            return `<div class="item ${sel ? 'sel' : ''} ${it.shards ? 'gem' : ''}"><div class="swatch">${sw(it)}</div><strong>${esc(t(type + '.' + it.id))}</strong>${btn}</div>`;
-          })
-          .join('') +
+        list.map((it) => `<div class="item ${it.id === current ? 'sel' : ''} ${it.id === pick.id ? 'try' : ''} ${it.shards ? 'gem' : ''}" data-pick="${it.id}"><div class="swatch">${sw(it)}</div><strong>${esc(t(type + '.' + it.id))}</strong><small>${esc(tag(it))}</small></div>`).join('') +
         `</div><p class="note">${esc(t(type === 'trail' || list.some((it) => it.shards) ? 'shop.shardsNote' : 'shop.cosmetic'))}</p>`;
+      body.querySelectorAll('[data-pick]').forEach((b) =>
+        press(b, () => {
+          const id = b.getAttribute('data-pick');
+          this.tryOn[type] = id === current ? undefined : id;
+          this.hooks.tap('toggle');
+          this.hooks.preview();
+          this.renderPanel();
+        })
+      );
       body.querySelectorAll('[data-tab]').forEach((b) =>
         press(b, () => {
           this.shopTab = b.getAttribute('data-tab');
@@ -1187,6 +1201,7 @@ export class UI {
       );
       body.querySelectorAll('[data-use]').forEach((b) =>
         press(b, () => {
+          this.tryOn[type] = undefined;
           this.hooks.select(type, b.getAttribute('data-use'));
           this.renderPanel();
         })

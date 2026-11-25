@@ -173,8 +173,9 @@ class Game {
           this.store.save();
         }
       },
+      preview: () => this.applySkin(),
       panelClosed: (name) => {
-        if (name === 'lobby' && this.state === 'title') this.ui.showTitle(true);
+        if ((name === 'lobby' || name === 'shop') && this.state === 'title') this.ui.showTitle(true);
         // A race is over once its result panel is closed.
         if (name === 'race' && this.raceMode && this.state === 'end') this.toTitle();
         if (name === 'how' && !this.profile.seenHow) {
@@ -184,6 +185,30 @@ class Game {
         }
       },
     });
+
+    // Dragging across the open space above the shop panel spins the fox.
+    const panel = this.ui.el.panel;
+    let lastX = null;
+    panel.addEventListener('pointerdown', (e) => {
+      if (e.target !== panel || this.ui.panelName !== 'shop' || !this.shopCam) return;
+      lastX = e.clientX;
+      this.shopCam.drag = true;
+      this.shopCam.vel = 0;
+      panel.setPointerCapture(e.pointerId);
+    });
+    panel.addEventListener('pointermove', (e) => {
+      if (lastX == null) return;
+      const d = (e.clientX - lastX) * 0.012;
+      lastX = e.clientX;
+      this.shopCam.spin += d;
+      this.shopCam.vel = d * 60; // keeps the flick going after release
+    });
+    const endDrag = () => {
+      lastX = null;
+      if (this.shopCam) this.shopCam.drag = false;
+    };
+    panel.addEventListener('pointerup', endDrag);
+    panel.addEventListener('pointercancel', endDrag);
 
     this.ui.instant = TEST && !query.has('anim');
     const firstGesture = () => {
@@ -342,11 +367,13 @@ class Game {
     this.stage.setFlatSky(level === 0);
   }
 
+  // The worn look, with anything being tried on in the shop over it.
   applySkin() {
-    const r = RIDERS.find((x) => x.id === this.profile.rider) || RIDERS[0];
-    const b = BOARDS.find((x) => x.id === this.profile.board) || BOARDS[0];
+    const on = this.ui.panelName === 'shop' ? this.ui.tryOn : {};
+    const r = RIDERS.find((x) => x.id === (on.rider || this.profile.rider)) || RIDERS[0];
+    const b = BOARDS.find((x) => x.id === (on.board || this.profile.board)) || BOARDS[0];
     this.rider.setSkin(r, b);
-    this.trailItem = TRAILS.find((x) => x.id === this.profile.trail) || null;
+    this.trailItem = TRAILS.find((x) => x.id === (on.trail || this.profile.trail)) || null;
     this.speedTrail.setStyle(this.trailItem);
   }
 
@@ -967,7 +994,7 @@ class Game {
     R.root.position.z = o.z;
     if (o.hop) R.root.position.y += Math.sin(o.hop * Math.PI) * 0.7;
     const sim = this.sim;
-    const inView = o.fade && Math.abs(o.x - sim.x) < 1.7 && o.z > -4 && o.z < CONFIG.camera.distance + 1;
+    const inView = o.dim || (o.fade && Math.abs(o.x - sim.x) < 1.7 && o.z > -4 && o.z < CONFIG.camera.distance + 1);
     r.alpha += ((inView ? 0.3 : 1) - r.alpha) * Math.min(1, visDt * 8);
     R.setOpacity(r.alpha > 0.97 ? 1 : r.alpha);
     const tr = r.items.trail;
@@ -1020,11 +1047,14 @@ class Game {
     if (n && n.in && n.names && n.me >= 0) {
       const N = n.names.length;
       const mine = gridStart(n.me, N);
+      // During a close-up, riders between the camera and the one shown fade out.
+      const sp = this.spotW > 0 && this.spot ? gridStart(this.spot.i, N) : null;
       for (let i = 0, k = 0; i < N && k < this.racerCap(); i++) {
         if (i === n.me) continue;
         const s = gridStart(i, N);
         const dz = s.d - mine.d;
-        const r = this.drawRacer(k++, n.looks && n.looks[i], { mode: 'idle', x: s.x - mine.x, y: terrain.groundStep(sim.dist + dz), z: -dz, v: 0, air: false, grab: false, speed01: 0, riding: false, fade: false, hop: this.hop(i) }, visDt);
+        const dim = !!sp && i !== this.spot.i && s.d > sp.d && Math.abs(s.x - sp.x) < 2.2;
+        const r = this.drawRacer(k++, n.looks && n.looks[i], { mode: 'idle', x: s.x - mine.x, y: terrain.groundStep(sim.dist + dz), z: -dz, v: 0, air: false, grab: false, speed01: 0, riding: false, fade: false, dim, hop: this.hop(i) }, visDt);
         this.tagFor(tags, r.rider, this.sayTag(i, n.names[i]), dz, false);
       }
     }
@@ -1090,12 +1120,54 @@ class Game {
     L[2].set(fx, g(0) + 1, 0);
     P[3].set(fx, g(5.5) + 2.6, 5.5);
     L[3].set(fx, g(-12), -12);
+    // The lobby is a place to show off (DECISIONS 84): the shot drifts along
+    // the line, and each rider who arrives (the player first) gets a close-up.
+    if (this.state === 'title') {
+      const span = Math.max(1.5, (x1 - x0) * 0.35);
+      P[0].x += Math.sin(this.time * 0.18) * span;
+      L[0].x += Math.sin(this.time * 0.18) * span * 0.8;
+    }
     const e = u * u * (3 - 2 * u);
     S.path.getPoint(e, S.pos);
     S.aim.getPoint(e, S.look);
+    if (this.state === 'title') {
+      const N = pts.length;
+      if (!this.spot || this.spot.race !== n.id) this.spot = { race: n.id, seen: N, i: n.me, at: this.time };
+      else if (N > this.spot.seen) Object.assign(this.spot, { seen: N, i: N - 1, at: this.time }); // newest check-in is last
+      else this.spot.seen = N;
+      const age = this.time - this.spot.at;
+      const p = pts[this.spot.i];
+      const sw = (this.spotW = p && age < CONFIG.race.spotSeconds ? clamp(age / 0.5, 0, 1) * clamp((CONFIG.race.spotSeconds - age) / 0.6, 0, 1) : 0);
+      if (sw > 0) {
+        const k = sw * sw * (3 - 2 * sw);
+        const v = S.v || (S.v = new THREE.Vector3());
+        S.pos.lerp(v.set(p.x + 0.8, p.y + 3.2, p.z - 4.4), k); // high enough to look over the rows in front
+        S.look.lerp(v.set(p.x, p.y + 0.1, p.z), k); // aimed low: the rider stands above the lobby panel
+      }
+    }
     // The last stretch hands over to the chase camera itself.
     const k = clamp((u - 0.72) / 0.28, 0, 1);
     S.w = this.shotW * (1 - k * k * (3 - 2 * k));
+    return S;
+  }
+
+  // The shop's try-on shot (DECISIONS 82): the fox close up in the top part of
+  // the screen, above the panel, turning slowly; a drag spins it.
+  shopShot(dt) {
+    const on = this.state === 'title' && this.ui.panelName === 'shop';
+    const S = this.shopCam || (this.shopCam = { pos: new THREE.Vector3(), look: new THREE.Vector3(), w: 0, spin: 0, vel: 0.5, drag: false });
+    S.w += ((on ? 1 : 0) - S.w) * Math.min(1, dt * 4);
+    if (!S.drag) S.vel += ((on ? 0.5 : 0) - S.vel) * Math.min(1, dt * 1.5); // eases back to a slow turn after a flick
+    S.spin += S.vel * dt;
+    if (!on && S.w < 0.01) S.spin = 0;
+    // Back to facing the camera as the shop closes.
+    this.rider.root.rotation.y = on ? S.spin : S.spin * S.w;
+    if (S.w < 0.001) return null;
+    const x = this.sim.x;
+    const g = this.stage.terrain.groundStep(this.sim.dist);
+    const K = CONFIG.shop.camera;
+    S.pos.set(x + K.x, g + K.y, K.z);
+    S.look.set(x, g + K.lookY, 0);
     return S;
   }
 
@@ -1713,6 +1785,7 @@ class Game {
     const boost01 = clamp(sim.boostNow / CONFIG.boost.amount, 0, 1);
     this.speedTrail.update(dt, sim.x, riderY, sim.dist, sim.vx, riding ? clamp((sim.v - 24) / 26, 0, 1) : 0, riding ? boost01 : 0, st.mood.accent, riding);
     if (riding) this.trailSparks(dt, this.trailItem, this, sim.x, riderY, sim.dist, sim.v, sim.air);
+    else if (title && this.ui.panelName === 'shop') this.trailSparks(dt, this.trailItem, this, sim.x, riderY, sim.dist + 0.9, 0, false); // a trail being tried on
     GALAXY.uGTime.value = this.time;
     GALAXY.uGPx.value = 1 / Math.max(1, st.renderer.domElement.height);
 
@@ -1807,7 +1880,7 @@ class Game {
       wipe,
       reduced: !!set.reducedMotion,
       shakeScale: set.shake,
-      shot: this.raceShot(dt),
+      shot: this.raceShot(dt) || this.shopShot(dt),
     });
     if (first) this.camera.snap({ mode: 'title', x: 0, ground: 0 });
 
