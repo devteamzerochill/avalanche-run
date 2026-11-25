@@ -5,55 +5,96 @@ import * as THREE from 'three';
 import { toonRamp, outlineMaterial, ink } from './props.js';
 import { furTexture, headGeometry, earGeometry, paintMasks } from './fox.js';
 
-// Galaxy cloth (Shards shop, DECISIONS 68): a drifting nebula with twinkling
-// stars, laid out in screen space so it reads as a window onto space rather
-// than a print on the fabric. Shared clock and pixel scale for every galaxy part.
+// Shards skin effects (DECISIONS 68, 83), one shader hook on every fox and board
+// material, switched per material by its uFx uniform:
+// 1 galaxy: a nebula drifting through the cloth with stars at two depths,
+//   laid out in screen space so it reads as a window onto space, not a print;
+// 2 gold: polished metal keeping the fur and mask detail as light and dark,
+//   with a highlight, a bright rim and a glint sweeping across.
+// Shared clock and pixel scale for every part.
 export const GALAXY = { uGTime: { value: 0 }, uGPx: { value: 1 / 800 } };
-const GALAXY_HEAD = `
-uniform float uGalaxy;
+export const FX = { none: 0, galaxy: 1, gold: 2 };
+const FX_HEAD = `
+uniform float uFx;
 uniform float uGTime;
 uniform float uGPx;
-vec3 galaxyNebula(vec2 p) {
-  float t = uGTime;
-  float n = sin(p.x * 1.3 + t * 0.21) + sin(p.y * 1.7 - t * 0.17) + sin((p.x + p.y) * 0.9 + t * 0.13) + 0.6 * sin(length(p - vec2(2.0, 3.0)) * 2.1 - t * 0.3);
-  n = n * 0.2 + 0.5;
-  vec3 deep = vec3(0.05, 0.03, 0.2);
-  vec3 violet = vec3(0.45, 0.12, 0.75);
-  vec3 cyan = vec3(0.1, 0.65, 0.95);
-  return mix(mix(deep, violet, smoothstep(0.45, 0.8, n)), cyan, smoothstep(0.82, 0.98, n));
-}
-float galaxyStars(vec2 p) {
+float fxHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float fxNoise(vec2 p) {
   vec2 i = floor(p);
   vec2 f = fract(p);
-  float h = fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(fxHash(i), fxHash(i + vec2(1.0, 0.0)), f.x), mix(fxHash(i + vec2(0.0, 1.0)), fxHash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+float fxFbm(vec2 p) {
+  float v = 0.0;
+  float a = 0.5;
+  for (int i = 0; i < 4; i++) {
+    v += a * fxNoise(p);
+    p = p * 2.03 + vec2(1.7, 9.2);
+    a *= 0.5;
+  }
+  return v;
+}
+vec3 galaxyNebula(vec2 p) {
+  vec2 q = p + vec2(uGTime * 0.07, uGTime * 0.025);
+  vec2 w = vec2(fxFbm(q + vec2(0.0, uGTime * 0.04)), fxFbm(q + vec2(5.2, 1.3)));
+  float n = fxFbm(q + w * 1.8);
+  float m = fxFbm(q * 1.7 - w + 3.0);
+  vec3 c = vec3(0.02, 0.01, 0.09);
+  c = mix(c, vec3(0.2, 0.05, 0.45), smoothstep(0.47, 0.62, n));
+  c = mix(c, vec3(0.95, 0.22, 0.7), smoothstep(0.55, 0.68, m) * 0.85);
+  c = mix(c, vec3(0.3, 0.85, 1.0), smoothstep(0.6, 0.7, n) * 0.9);
+  return c;
+}
+float galaxyStars(vec2 p, float speed) {
+  p += vec2(uGTime * speed, uGTime * speed * 0.4);
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  float h = fxHash(i);
   vec2 c = vec2(fract(h * 13.7), fract(h * 71.3)) * 0.7 + 0.15;
-  float tw = 0.45 + 0.55 * sin(uGTime * 3.0 + h * 40.0);
-  return step(0.8, h) * smoothstep(0.16, 0.0, length(f - c)) * tw;
+  float tw = 0.4 + 0.6 * sin(uGTime * 3.0 + h * 40.0);
+  vec2 d = f - c;
+  float core = smoothstep(0.12, 0.0, length(d));
+  float flare = h > 0.96 ? smoothstep(0.02, 0.0, abs(d.x)) * smoothstep(0.35, 0.0, abs(d.y)) + smoothstep(0.02, 0.0, abs(d.y)) * smoothstep(0.35, 0.0, abs(d.x)) : 0.0;
+  return step(0.82, h) * (core + flare * 0.6) * tw;
 }
 `;
-function galaxyMaterial(m) {
-  m.userData.galaxy = { value: 0 };
+function fxMaterial(m) {
+  m.userData.fx = { value: 0 };
   m.onBeforeCompile = (sh) => {
-    sh.uniforms.uGalaxy = m.userData.galaxy;
+    sh.uniforms.uFx = m.userData.fx;
     sh.uniforms.uGTime = GALAXY.uGTime;
     sh.uniforms.uGPx = GALAXY.uGPx;
     sh.fragmentShader = sh.fragmentShader
-      .replace('void main() {', GALAXY_HEAD + 'void main() {')
+      .replace('void main() {', FX_HEAD + 'void main() {')
       .replace(
         '#include <color_fragment>',
         `#include <color_fragment>
-  vec2 gp = gl_FragCoord.xy * uGPx * 9.0;
-  vec3 gNeb = galaxyNebula(gp * 0.9);
-  if (uGalaxy > 0.5) diffuseColor.rgb = gNeb;`
+  vec2 gp = gl_FragCoord.xy * uGPx * 16.0;
+  vec3 gNeb = vec3(0.0);
+  float gLum = dot(diffuseColor.rgb, vec3(0.3, 0.55, 0.15));
+  if (uFx > 0.5 && uFx < 1.5) { gNeb = galaxyNebula(gp); diffuseColor.rgb = gNeb; }
+  if (uFx > 1.5) diffuseColor.rgb = mix(vec3(0.3, 0.15, 0.02), vec3(0.95, 0.66, 0.18), 0.3 + 0.7 * smoothstep(0.0, 0.9, gLum));`
       )
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
-  if (uGalaxy > 0.5) totalEmissiveRadiance += gNeb * 0.12 + vec3(galaxyStars(gp * 7.0) + 0.7 * galaxyStars(gp * 11.0 + 11.0)) * 1.8;`
+  if (uFx > 0.5 && uFx < 1.5) totalEmissiveRadiance += gNeb * 0.3 + vec3(0.85, 0.9, 1.0) * (galaxyStars(gp * 2.6, 0.5) + 0.7 * galaxyStars(gp * 4.5 + 11.0, 0.25)) * 2.6;
+  if (uFx > 1.5) {
+    vec3 vd = normalize(vViewPosition);
+    float rim = pow(1.0 - abs(dot(normal, vd)), 2.5);
+    float spec = pow(max(dot(normal, normalize(vec3(0.35, 0.75, 0.55) + vd)), 0.0), 28.0);
+    float sweep = fract((gl_FragCoord.x + gl_FragCoord.y * 0.6) * uGPx * 0.35 - uGTime * 0.22);
+    float glint = smoothstep(0.0, 0.03, sweep) * smoothstep(0.09, 0.03, sweep);
+    totalEmissiveRadiance += vec3(1.0, 0.72, 0.22) * (rim * 0.55 + glint * 0.8) * (0.3 + gLum) + vec3(1.0, 0.92, 0.7) * spec * 1.4;
+  }`
       );
   };
   return m;
 }
+
+// Which materials a rider skin effect covers.
+const FX_PARTS = { outfit: ['hoodie', 'shorts', 'boot'], fox: ['fur', 'cream', 'furVC', 'innerEar', 'nose', 'iris', 'trim', 'shortsTrim', 'gear'] };
 
 const Y = new THREE.Vector3(0, 1, 0);
 
@@ -212,17 +253,17 @@ export class Rider {
     this.yaw = 0;
     this.time = 0;
 
-    const mk = (hex, o) => (this.ghost ? null : new THREE.MeshToonMaterial(Object.assign({ color: hex, gradientMap: toonRamp() }, o)));
+    const mk = (hex, o) => (this.ghost ? null : fxMaterial(new THREE.MeshToonMaterial(Object.assign({ color: hex, gradientMap: toonRamp() }, o))));
     const fur = this.ghost ? null : furTexture();
     this.ghostMat = this.ghost ? new THREE.MeshBasicMaterial({ color: '#7fe3ff', transparent: true, opacity: 0.32, depthWrite: false, fog: false }) : null;
     // The rider is the Zero Chill fox: fur, cream ruff, hoodie, shorts, goggles, headphones.
     this.mats = {
       fur: mk('#E8622A', { map: fur }), cream: mk('#FFF3E6', { map: fur }), furVC: mk('#ffffff', { map: fur, vertexColors: true }),
-      hoodie: this.ghost ? null : galaxyMaterial(mk('#18191F')), trim: mk('#FF6B1A'), shorts: mk('#18191F'),
+      hoodie: mk('#18191F'), trim: mk('#FF6B1A'), shorts: mk('#18191F'),
       shortsTrim: mk('#E0262E'), gear: mk('#2F6BFF'), dark: mk('#0E0F13'), boot: mk('#24262E'),
       nose: mk('#2A1410'), iris: mk('#C2410C'), innerEar: mk('#B9A497', { map: fur }),
       sclera: this.ghost ? null : new THREE.MeshBasicMaterial({ color: '#FBF8F2' }), shine: this.ghost ? null : new THREE.MeshBasicMaterial({ color: '#ffffff' }),
-      deck: this.ghost ? null : galaxyMaterial(mk('#15161A')), stripe: mk('#1E6FE8'), edge: mk('#E0262E'),
+      deck: mk('#15161A'), stripe: mk('#1E6FE8'), edge: mk('#E0262E'),
     };
     const mat = (name) => this.ghostMat || this.mats[name];
     const ink = this.ghost ? null : outlineMaterial(0.013);
@@ -430,10 +471,15 @@ export class Rider {
       for (const k of ['fur', 'cream', 'hoodie', 'trim', 'shorts', 'shortsTrim', 'gear']) if (rider[k]) m[k].color.set(rider[k]);
       for (const g of this.vc) paintMasks(g, rider.fur, rider.cream);
       this.bake(); // the baked head and ears carry copies of those colours
-      m.hoodie.userData.galaxy.value = rider.fx === 'galaxy' ? 1 : 0;
+      // Galaxy is the outfit (fur and face stay); gold is the whole fox but the goggles.
+      const fx = FX[rider.fx] || 0;
+      for (const k of FX_PARTS.outfit) m[k].userData.fx.value = fx;
+      for (const k of FX_PARTS.fox) m[k].userData.fx.value = fx === FX.gold ? fx : 0;
     }
     if (board) {
-      m.deck.userData.galaxy.value = board.fx === 'galaxy' ? 1 : 0;
+      const fx = FX[board.fx] || 0;
+      m.deck.userData.fx.value = fx;
+      for (const k of ['stripe', 'edge']) m[k].userData.fx.value = fx === FX.gold ? fx : 0;
       m.deck.color.set(board.deck);
       m.stripe.color.set(board.stripe);
       m.edge.color.set(board.edge);

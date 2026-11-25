@@ -31,6 +31,7 @@ export const CONFIG = {
     sendEvery: 6, // ticks of input per message (10 a second)
     ghosts: 6, // nearest other riders drawn (fewer at lower quality: quality.levels racers; each is a full rider)
     slopeCount: 3, // seconds of 3-2-1 on the slope after the intro
+    spotSeconds: 3, // the lobby close-up on each rider who arrives (DECISIONS 84)
     introSeconds: 4, // the grid flyover between the lobby clock reaching 0 and the 3-2-1 (DECISIONS 70)
     // The start grid (DECISIONS 70): rows of perRow riders, lane m apart across
     // the slope, rows row m apart; the back row starts at 0 m.
@@ -184,6 +185,10 @@ export const CONFIG = {
     slopeDeg: 11,
   },
 
+  // The shop's try-on shot (DECISIONS 82): camera offset from the fox (m) and
+  // the height it aims at; aimed low so the fox stands above the shop panel.
+  shop: { camera: { x: 0.3, y: 1.2, z: -6.6, lookY: -1.45 } },
+
   // --- look (P where the prototype exposed it) ----------------------------
   look: {
     background: 'Morning', // Morning | Midday (forest lighting)
@@ -246,6 +251,7 @@ export const RIDERS = [
   { id: 'frost', cost: 500, fur: '#EEF4FA', cream: '#FFFFFF', hoodie: '#3FD0F5', trim: '#16406B', shorts: '#16406B', shortsTrim: '#F07A1E', glove: '#16406B', gear: '#F07A1E' },
   // Shards shop (DECISIONS 68): `shards` is the price in Shards (cost -1: never for snowflakes); `fx` a material effect.
   { id: 'galaxy', cost: -1, shards: 500, fx: 'galaxy', fur: '#E8622A', cream: '#FFF3E6', hoodie: '#1A1240', trim: '#B57CFF', shorts: '#120C2E', shortsTrim: '#FF7AD9', glove: '#120C2E', gear: '#5EE7FF' },
+  { id: 'gold', cost: -1, shards: 750, fx: 'gold', fur: '#E8B530', cream: '#FFE9A8', hoodie: '#C8901E', trim: '#FFE07A', shorts: '#9A6A12', shortsTrim: '#FFE07A', glove: '#9A6A12', gear: '#FFF1B8' },
   { id: 'yeti', cost: -1, fur: '#5E6B7D', cream: '#F4F7FB', hoodie: '#F4F7FB', trim: '#7A5CFF', shorts: '#DDE7F0', shortsTrim: '#7A5CFF', glove: '#7A5CFF', gear: '#7A5CFF' },
 ];
 
@@ -256,6 +262,7 @@ export const BOARDS = [
   { id: 'ember', cost: -1, deck: '#2B0F12', stripe: '#FF5B2E', edge: '#FFD23F' },
   { id: 'aurora', cost: 400, deck: '#1B1740', stripe: '#3FD0F5', edge: '#7A5CFF' },
   { id: 'galaxy', cost: -1, shards: 250, fx: 'galaxy', deck: '#160F3A', stripe: '#B57CFF', edge: '#5EE7FF' },
+  { id: 'gold', cost: -1, shards: 350, fx: 'gold', deck: '#D9A42A', stripe: '#FFE07A', edge: '#9A6A12' },
 ];
 
 // Board trails, Shards shop only (DECISIONS 68): a ribbon off the board, worn all

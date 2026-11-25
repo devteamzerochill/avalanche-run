@@ -6,7 +6,8 @@ import { test, eq, ok } from './harness.mjs';
 import { CONFIG, RIDERS, BOARDS, TRAILS, MISSIONS } from '../src/config.js';
 
 const SQL = fs.readFileSync(new URL('../supabase/migrations/20261124000000_avalanche_profiles.sql', import.meta.url), 'utf8');
-const SHOP = fs.readFileSync(new URL('../supabase/migrations/20261127000000_shards_shop.sql', import.meta.url), 'utf8');
+// Shards items are added across several migrations.
+const SHOP = ['20261127000000_shards_shop.sql', '20261130000000_gold_skin.sql'].map((f) => fs.readFileSync(new URL('../supabase/migrations/' + f, import.meta.url), 'utf8')).join('\n');
 
 export function runCatalogTests() {
   test('server catalogue matches the game: rider and board prices', () => {

@@ -898,3 +898,23 @@ body.has-race .btn.big.rc-go small{font-size:calc(10px*var(--s))}
    opening got to (--since) instead of playing again on every redraw. */
 .card-body .race-hero,.card-body .race-in,.card-body .pod,.card-body .tiles div{animation-delay:calc(var(--d0,0s) - var(--since,0s))}
 .card-body .tiles div:nth-child(1){--d0:.4s}.card-body .tiles div:nth-child(2){--d0:.47s}.card-body .tiles div:nth-child(3){--d0:.54s}
+
+/* Shop try-on (DECISIONS 82): the panel fills the bottom; the fox stands in the
+   open space above it, where a drag spins it. */
+#panel.shop{align-items:flex-end;background:linear-gradient(to bottom,transparent 40%,rgba(8,18,36,.4));backdrop-filter:none;-webkit-backdrop-filter:none;touch-action:none}
+#panel.shop .card{max-height:57%}
+#panel.shop .card-head{padding:10px 14px 4px 18px}
+#panel.shop .card-body{padding:4px 14px 12px;gap:8px}
+#panel.shop .grid{grid-template-columns:repeat(3,1fr);gap:8px}
+#panel.shop .item{padding:7px;gap:4px;cursor:pointer}
+#panel.shop .swatch{height:50px}
+#panel.shop .item small{font-size:calc(11px*var(--s));font-weight:800;opacity:.75}
+#panel.shop .item.try{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.25)}
+.try-bar{display:flex;align-items:center;gap:10px}
+.try-bar b{flex:1;font-size:calc(18px*var(--s));font-weight:900;font-style:italic;text-transform:uppercase;letter-spacing:.5px}
+.try-bar .btn{flex:0 0 auto;min-width:46%;padding:10px 14px}
+.try-bar .btn.buy{background:var(--reward);color:#0c1c35}
+.try-bar .btn.buy.gem{background:linear-gradient(90deg,#b57cff,#5ee7ff);color:#120c2e}
+.try-bar .btn:disabled{opacity:.5}
+.swatch i.gd{background:linear-gradient(115deg,#8a5a0c 0,#e8b530 30%,#fff1b8 45%,#e8b530 60%,#8a5a0c 100%)!important;background-size:200% 100%!important;animation:goldsheen 2.4s linear infinite}
+@keyframes goldsheen{from{background-position:100% 0}to{background-position:-100% 0}}
