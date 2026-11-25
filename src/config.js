@@ -213,7 +213,7 @@ export const CONFIG = {
   quality: {
     // pixelRatio cap, particle share, scenery share
     levels: [
-      { name: 'low', pr: 0.6, particles: 0.35, scenery: 0.4, snow: 0, racers: 3 },
+      { name: 'low', pr: 0.5, particles: 0.35, scenery: 0.4, snow: 0, racers: 3 }, // pr 0.5: 1.0x on a 2x phone (body.q-low also drops the CSS filters)
       { name: 'medium', pr: 0.8, particles: 0.6, scenery: 0.7, snow: 0.5, racers: 4 },
       { name: 'high', pr: 1, particles: 1, scenery: 1, snow: 1, racers: 6 },
     ],

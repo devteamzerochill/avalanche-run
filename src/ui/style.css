@@ -228,6 +228,11 @@ body.reduced .logo,body.reduced .bests,body.reduced .nav,body.reduced .card,body
 /* ---------- arcade skin ---------- */
 :root{--accent:#35d6ff;--reward:#ffe14d;--hot:#ff3355;--ink:#14182a;--panel:rgba(22,20,60,.94)}
 #game canvas{filter:saturate(1.18) contrast(1.04)}
+/* Low quality (DECISIONS 76): on a Mali-G52 phone the canvas colour boost and the
+   frosted blurs cost the compositor more than the 3D scene's last few draw calls;
+   without them and at 1.0x it ran 49 fps instead of 37. */
+body.q-low #game canvas{filter:none}
+body.q-low *{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 .dist,#bannerBig,#bannerSmall,#logo1,#logo2,.end-card h2,.end-score b,.card h2{font-style:italic;-webkit-text-stroke:calc(5px*var(--s)) var(--ink);paint-order:stroke fill;text-shadow:0 calc(4px*var(--s)) 0 var(--ink)}
 .dist{color:#fff;font-size:calc(52px*var(--s))}
 .dist small{color:var(--reward)}

@@ -336,6 +336,8 @@ class Game {
     this.props.sceneryShare = L.scenery;
     this.snowScale = L.snow;
     this.stage.resize(L.pr);
+    // Budget GPUs pay for every CSS filter over the canvas each frame (style.css).
+    document.body.classList.toggle('q-low', level === 0);
   }
 
   applySkin() {
