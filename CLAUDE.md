@@ -1,24 +1,34 @@
 # Avalanche Run: working notes
 
-A mobile-first arcade snowboard runner (three.js r160, vendored) rebuilt from a minified playable-ad prototype. You ride as the **Zero Chill fox** (the owner's company mascot) and outrun an avalanche down a seeded daily mountain. The owner directs the look and feel; read `DECISIONS.md` (78 numbered entries) before changing anything. It records why each choice was made.
+A mobile-first arcade snowboard runner (three.js r160, vendored) rebuilt from a minified playable-ad prototype. You ride as the **Zero Chill fox** (the owner's company mascot) and outrun an avalanche down a seeded daily mountain. The owner directs the look and feel; read `DECISIONS.md` (79 numbered entries) before changing anything. It records why each choice was made.
 
 ## Commands
 
 No npm dependencies; Node 18+ only.
 
 ```bash
-node tests/run.mjs        # 39 tests: determinism, fairness validator, scoring, bot reaching 2,000 m, server catalogue matches config
+node tests/run.mjs        # 41 tests: determinism, fairness validator, scoring, bot reaching 2,000 m, server catalogue matches config
 node tests/db.mjs         # server profile APIs against the local Supabase (needs Docker + npx supabase start)
 node tools/build.mjs      # writes dist/ (see below)
 node server/test.mjs      # endurance race server: real races against the local Supabase (npm install in server/ once)
 node tools/serve.mjs 8124     # dev server from this folder; open /index.html, /dist/web/index.html or /tools/host-mock.html
 ```
 
+**Android app** (`mobile/`, Capacitor; DECISIONS 79). Once: `npm install` in `mobile/`. Needs the Android SDK (`%LOCALAPPDATA%\Android\Sdk`) and JDK 21 (`C:\Program Files\Microsoft\jdk-21.*`; Android Studio's own Java 25 is too new for Gradle 8.14):
+
+```powershell
+cd mobile; npm run sync                       # rebuild dist/app and copy it into the Android project
+$env:JAVA_HOME = (Resolve-Path "C:\Program Files\Microsoft\jdk-21*").Path
+cd android; .\gradlew.bat assembleDebug       # app/build/outputs/apk/debug/app-debug.apk; adb install -r it
+```
+
+A debug build's WebView can be inspected over adb (`webview_devtools_remote_<pid>`).
+
 The project moved from a Mac to a Windows PC (2026-11-23). The PC has Node 24 and no Python, so use `tools/serve.mjs` (also what `.claude/launch.json` runs). Git: private repo `devteamzerochill/avalanche-run` (set up 2026-11-23 for the Colyseus Cloud deploy, which pulls the whole project because the race server runs `src/core/`). `main` started empty; work goes on branches and pull requests. When testing in a browser, mute the game (`__GAME.game.audio.setMuted(true)`, which doesn't touch saved volumes).
 
 Build outputs in `dist/`:
 - `web/`: multi-file web build.
-- `app/`: the web build for the phone apps (`window.__APP`: live sign-in first, Cloud races, a lasting session; DECISIONS 75).
+- `app/`: the web build for the phone apps (`window.__APP`: live sign-in first, Cloud races, a lasting session; DECISIONS 75); `mobile/` packages it.
 - `avalanche-run-playable.html`: single-file playable ad (ad layer, 300 s cap, store CTA, landscape layout allowed).
 - `avalanche-run.html`: single-file web player (no ad layer, portrait lock).
 - `avalanche-run-artifact.html`: the player without `<html>/<head>/<body>`, for the claude.ai artifact.

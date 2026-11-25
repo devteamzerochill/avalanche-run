@@ -1,0 +1,5 @@
+{
+  "appId": "com.zerochill.avalancherun",
+  "appName": "Avalanche Run",
+  "webDir": "../dist/app"
+}
