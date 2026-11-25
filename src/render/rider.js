@@ -7,7 +7,8 @@ import { furTexture, headGeometry, earGeometry, paintMasks } from './fox.js';
 
 // Shards skin effects (DECISIONS 68, 83), one shader hook on every fox and board
 // material, switched per material by its uFx uniform:
-// 1 galaxy: a nebula drifting through the cloth with stars at two depths,
+// 1 galaxy: deep indigo space with violet and pink nebula, dense star dust and
+//   four-point sparkles, all drifting, with a violet rim glow; mostly self-lit and
 //   laid out in screen space so it reads as a window onto space, not a print;
 // 2 gold: polished metal keeping the fur and mask detail as light and dark,
 //   with a highlight, a bright rim and a glint sweeping across.
@@ -36,27 +37,30 @@ float fxFbm(vec2 p) {
   return v;
 }
 vec3 galaxyNebula(vec2 p) {
-  vec2 q = p + vec2(uGTime * 0.07, uGTime * 0.025);
-  vec2 w = vec2(fxFbm(q + vec2(0.0, uGTime * 0.04)), fxFbm(q + vec2(5.2, 1.3)));
-  float n = fxFbm(q + w * 1.8);
-  float m = fxFbm(q * 1.7 - w + 3.0);
-  vec3 c = vec3(0.02, 0.01, 0.09);
-  c = mix(c, vec3(0.2, 0.05, 0.45), smoothstep(0.47, 0.62, n));
-  c = mix(c, vec3(0.95, 0.22, 0.7), smoothstep(0.55, 0.68, m) * 0.85);
-  c = mix(c, vec3(0.3, 0.85, 1.0), smoothstep(0.6, 0.7, n) * 0.9);
+  vec2 q = p + vec2(uGTime * 0.06, uGTime * 0.02);
+  vec2 w = vec2(fxFbm(q + vec2(0.0, uGTime * 0.035)), fxFbm(q + vec2(5.2, 1.3)));
+  float n = fxFbm(q + w * 1.6);
+  float m = fxFbm(q * 1.6 - w + 3.0);
+  // Deep indigo shading to royal blue, violet clouds, pink-magenta glow (linear
+  // values: the sRGB output lifts them a lot).
+  vec3 c = mix(vec3(0.008, 0.004, 0.06), vec3(0.03, 0.03, 0.36), smoothstep(0.3, 0.7, fxFbm(q * 0.6 + 7.0)));
+  c = mix(c, vec3(0.2, 0.02, 0.6), smoothstep(0.5, 0.68, n) * 0.75);
+  c = mix(c, vec3(0.9, 0.08, 0.5), smoothstep(0.6, 0.75, m) * 0.7);
+  c += vec3(0.35, 0.15, 0.9) * smoothstep(0.7, 0.82, n) * 0.25;
   return c;
 }
-float galaxyStars(vec2 p, float speed) {
+// Star dust (dense pinpoints) or sparkles (rare four-point flares), drifting.
+float galaxyStars(vec2 p, float speed, float keep, float flareAmt) {
   p += vec2(uGTime * speed, uGTime * speed * 0.4);
   vec2 i = floor(p);
   vec2 f = fract(p);
   float h = fxHash(i);
-  vec2 c = vec2(fract(h * 13.7), fract(h * 71.3)) * 0.7 + 0.15;
-  float tw = 0.4 + 0.6 * sin(uGTime * 3.0 + h * 40.0);
+  vec2 c = vec2(fract(h * 13.7), fract(h * 71.3)) * 0.6 + 0.2;
+  float tw = 0.35 + 0.65 * sin(uGTime * (2.0 + h * 3.0) + h * 40.0);
   vec2 d = f - c;
-  float core = smoothstep(0.12, 0.0, length(d));
-  float flare = h > 0.96 ? smoothstep(0.02, 0.0, abs(d.x)) * smoothstep(0.35, 0.0, abs(d.y)) + smoothstep(0.02, 0.0, abs(d.y)) * smoothstep(0.35, 0.0, abs(d.x)) : 0.0;
-  return step(0.82, h) * (core + flare * 0.6) * tw;
+  float core = smoothstep(0.1, 0.0, length(d));
+  float flare = (smoothstep(0.035, 0.0, abs(d.x)) * smoothstep(0.42, 0.0, abs(d.y)) + smoothstep(0.035, 0.0, abs(d.y)) * smoothstep(0.42, 0.0, abs(d.x))) * flareAmt;
+  return step(keep, h) * (core + flare) * max(tw, 0.0);
 }
 `;
 function fxMaterial(m) {
@@ -73,13 +77,24 @@ function fxMaterial(m) {
   vec2 gp = gl_FragCoord.xy * uGPx * 16.0;
   vec3 gNeb = vec3(0.0);
   float gLum = dot(diffuseColor.rgb, vec3(0.3, 0.55, 0.15));
-  if (uFx > 0.5 && uFx < 1.5) { gNeb = galaxyNebula(gp); diffuseColor.rgb = gNeb; }
-  if (uFx > 1.5) diffuseColor.rgb = mix(vec3(0.3, 0.15, 0.02), vec3(0.95, 0.66, 0.18), 0.3 + 0.7 * smoothstep(0.0, 0.9, gLum));`
+  if (uFx > 0.5 && uFx < 1.5) { gNeb = galaxyNebula(gp); diffuseColor.rgb = gNeb * 0.1; } // mostly self-lit: daylight cannot wash it out
+  if (uFx > 1.5) diffuseColor.rgb = mix(vec3(0.2, 0.08, 0.0), vec3(0.86, 0.52, 0.08), 0.25 + 0.75 * smoothstep(0.0, 0.9, gLum));`
       )
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
-  if (uFx > 0.5 && uFx < 1.5) totalEmissiveRadiance += gNeb * 0.3 + vec3(0.85, 0.9, 1.0) * (galaxyStars(gp * 2.6, 0.5) + 0.7 * galaxyStars(gp * 4.5 + 11.0, 0.25)) * 2.6;
+  if (uFx > 0.5 && uFx < 1.5) {
+    float grim = pow(1.0 - abs(dot(normal, normalize(vViewPosition))), 2.2);
+    float dust = galaxyStars(gp * 7.0, 0.35, 0.72, 0.0) + galaxyStars(gp * 11.0 + 5.0, 0.2, 0.78, 0.0) * 0.7;
+    float sparkle = galaxyStars(gp * 1.6 + 3.0, 0.45, 0.8, 1.0);
+    // A glossy shine and a slow sweeping glint, like polished glass over space.
+    vec3 gvd = normalize(vViewPosition);
+    float gspec = pow(max(dot(normal, normalize(vec3(0.35, 0.75, 0.55) + gvd)), 0.0), 24.0);
+    float gsw = fract((gl_FragCoord.x + gl_FragCoord.y * 0.6) * uGPx * 0.35 - uGTime * 0.18);
+    float gglint = smoothstep(0.0, 0.03, gsw) * smoothstep(0.09, 0.03, gsw);
+    totalEmissiveRadiance += gNeb * 0.6 + vec3(0.55, 0.12, 1.0) * grim * 0.5 + vec3(0.85, 0.9, 1.0) * dust * 1.2 + vec3(1.0, 0.95, 1.0) * sparkle * 2.4
+      + vec3(1.0, 0.85, 1.0) * gspec * 1.1 + vec3(0.95, 0.7, 1.0) * gglint * 0.6;
+  }
   if (uFx > 1.5) {
     vec3 vd = normalize(vViewPosition);
     float rim = pow(1.0 - abs(dot(normal, vd)), 2.5);
@@ -87,10 +102,41 @@ function fxMaterial(m) {
     float sweep = fract((gl_FragCoord.x + gl_FragCoord.y * 0.6) * uGPx * 0.35 - uGTime * 0.22);
     float glint = smoothstep(0.0, 0.03, sweep) * smoothstep(0.09, 0.03, sweep);
     totalEmissiveRadiance += vec3(1.0, 0.72, 0.22) * (rim * 0.55 + glint * 0.8) * (0.3 + gLum) + vec3(1.0, 0.92, 0.7) * spec * 1.4;
+    // Rare four-point sparkles twinkling across the metal.
+    totalEmissiveRadiance += vec3(1.0, 0.95, 0.75) * galaxyStars(gp * 1.9 + 7.0, 0.12, 0.86, 1.0) * 2.2;
   }`
       );
   };
   return m;
+}
+
+// The Galaxy rider is orbited by a glowing pink ring: a thin bright core in a
+// soft halo, tilted, additive so it glows against snow and sky.
+function galaxyRing(parent) {
+  const g = new THREE.Group();
+  g.userData.bake = true;
+  const add = (tube, color, opacity) => {
+    const mesh = new THREE.Mesh(
+      new THREE.TorusGeometry(0.78, tube, 8, 64),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })
+    );
+    mesh.userData.bake = true;
+    mesh.rotation.x = Math.PI / 2 - 0.35; // tilted; the group turning makes the tilt wobble like an orbit
+    g.add(mesh);
+    return mesh;
+  };
+  add(0.014, '#ffb3f0', 1);
+  add(0.05, '#c04dff', 0.35);
+  // Two small stars riding the ring show it travelling.
+  for (const a of [0, Math.PI]) {
+    const star = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), new THREE.MeshBasicMaterial({ color: '#ffffff', blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false }));
+    star.userData.bake = true;
+    star.position.set(Math.cos(a) * 0.78, Math.sin(a) * 0.78, 0);
+    g.children[0].add(star);
+  }
+  g.position.y = 1.0;
+  parent.add(g);
+  return g;
 }
 
 // Which materials a rider skin effect covers.
@@ -475,6 +521,8 @@ export class Rider {
       const fx = FX[rider.fx] || 0;
       for (const k of FX_PARTS.outfit) m[k].userData.fx.value = fx;
       for (const k of FX_PARTS.fox) m[k].userData.fx.value = fx === FX.gold ? fx : 0;
+      if (fx === FX.galaxy && !this.ring) this.ring = galaxyRing(this.root);
+      if (this.ring) this.ring.visible = fx === FX.galaxy;
     }
     if (board) {
       const fx = FX[board.fx] || 0;
@@ -591,6 +639,11 @@ export class Rider {
   // s: {mode, x, y, vx, air, grab, speed01, wipe, wipeT, caught, drift}
   update(dt, s) {
     this.time += dt;
+    if (this.ring && this.ring.visible) {
+      this.ring.rotation.y = this.time * 0.9;
+      this.ring.children[0].rotation.z = this.time * 1.6;
+      this.ring.children[0].material.opacity = 0.75 + 0.25 * Math.sin(this.time * 3.1);
+    }
     this.landPulse = Math.max(0, this.landPulse - dt * 3.2);
     this.flailT = Math.max(0, this.flailT - dt);
     let name = 'ride';
