@@ -4,6 +4,7 @@ import { CONFIG, RIDERS, BOARDS, QUICK_CHAT, QUICK_EMOTES, TRAILS } from '../con
 import { FRAME } from './frame.js';
 import { t, LANGS, LANG_NAMES } from '../systems/i18n.js';
 import { missionById, nextStreakReward, owns, leaderboard } from '../systems/meta.js';
+import { APP } from '../systems/live.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -247,7 +248,7 @@ export class UI {
     // A small chip in the top bar: just the icon when signed in (the panel says who).
     if (live) {
       el.textContent = live.session ? '👤' : '🔑 ' + t('acct.chip');
-      el.title = live.session ? t('acct.as', { e: live.email }) : t('acct.signInToSave');
+      el.title = live.session ? t('acct.as', { e: live.email }) : t(APP ? 'acct.chip' : 'acct.signInToSave');
       el.classList.toggle('in', !!live.session);
     }
   }
@@ -601,6 +602,7 @@ export class UI {
   showTitle(on) {
     this.el.title.classList.toggle('out', !on || this.panelName === 'lobby');
     if (on) this.refreshTitle();
+    if (on) this.requireSignIn();
   }
 
   // --- HUD --------------------------------------------------------------
@@ -949,11 +951,14 @@ export class UI {
   // goes straight to the backend's auth endpoint; nothing here keeps it.
   accountPanel(body) {
     const live = this.live();
+    $('panelClose').classList.toggle('hidden', this.signInGate());
     if (!live) {
       body.innerHTML = '';
       return;
     }
-    const warn = `<p class="note warn">${esc(t('acct.warn'))}</p>`;
+    // The apps are the real thing, not a test: no warning, and a way to an account.
+    const warn = APP ? `<p class="note">${esc(t('acct.appNote'))}</p>` : `<p class="note warn">${esc(t('acct.warn'))}</p>`;
+    const join = APP ? `<p class="note">${esc(t('acct.noAccount'))} <a href="https://zerochill.com" target="_blank" rel="noopener" id="acctJoin">${esc(t('acct.createOnSite'))}</a></p>` : '';
     if (live.session) {
       body.innerHTML =
         `<div class="row"><div class="ico">👤</div><div class="grow"><h3>${esc(t('acct.signedIn'))}</h3><p>${esc(live.email)}</p></div></div>` +
@@ -968,7 +973,9 @@ export class UI {
       `<label>${esc(t('acct.email'))}<input id="acctEmail" type="email" autocomplete="username" required></label>` +
       `<label>${esc(t('acct.password'))}<input id="acctPass" type="password" autocomplete="current-password" required></label>` +
       `<p id="acctErr" class="note err"></p>` +
-      `<button class="btn primary" type="submit" id="acctGo">${esc(t('acct.signIn'))}</button></form>`;
+      `<button class="btn primary" type="submit" id="acctGo">${esc(t('acct.signIn'))}</button></form>` +
+      join;
+    if ($('acctJoin')) $('acctJoin').addEventListener('pointerdown', (e) => e.stopPropagation());
     const form = $('acctForm');
     form.querySelectorAll('input').forEach((i) => i.addEventListener('pointerdown', (e) => e.stopPropagation()));
     form.addEventListener('submit', (e) => {
@@ -981,7 +988,8 @@ export class UI {
         .signIn($('acctEmail').value.trim(), $('acctPass').value)
         .then(() => {
           this.hooks.tap('select');
-          this.renderPanel();
+          if (APP) this.closePanel(true);
+          else this.renderPanel();
         })
         .catch((err) => {
           go.disabled = false;
@@ -1048,6 +1056,7 @@ export class UI {
     if (name === 'ranks' && this.raceClient()) this.raceClient().requestBoard();
     this.hooks.tap('panelOpen');
     this.panelOpenedAt = performance.now();
+    $('panelClose').classList.remove('hidden'); // accountPanel hides it behind the apps' sign-in
     this.renderPanel();
     this.el.panel.classList.toggle('lobby', name === 'lobby');
     // The lobby's riders stand on the slope behind it: no title stack over them.
@@ -1055,10 +1064,24 @@ export class UI {
     this.el.panel.classList.remove('hidden');
   }
 
+  // The apps open on sign-in, and it stays until the player signs in (DECISIONS 75).
+  signInGate() {
+    const live = APP && this.live();
+    return !!live && !live.session;
+  }
+
+  requireSignIn() {
+    if (this.signInGate() && this.panelName !== 'account') {
+      if (this.panelName) this.closePanel(true);
+      this.openPanel('account');
+    }
+  }
+
   closePanel(force) {
     if (!this.panelName) return;
     // The lobby only closes by leaving (refund) or when the race starts.
     if (this.panelName === 'lobby' && !force) return;
+    if (this.panelName === 'account' && this.signInGate() && !force) return;
     const was = this.panelName;
     this.panelName = '';
     this.shopConfirm = null;

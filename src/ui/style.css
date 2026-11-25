@@ -630,6 +630,7 @@ body.reduced .daily-reward,body.reduced .online.saving .ol-line span{animation:n
 /* live test mode: sign-in to the real backend */
 .acct{font-size:calc(11px*var(--s));font-weight:800;padding:5px 12px;border-radius:999px;background:rgba(12,28,53,.62);border:1.5px solid rgba(255,255,255,.6);max-width:88%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .acct-form{display:flex;flex-direction:column;gap:10px}
+.note a{color:inherit;font-weight:800;text-decoration:underline}
 .acct-form label{display:flex;flex-direction:column;gap:4px;text-align:left;font-size:calc(12px*var(--s));font-weight:800}
 .acct-form input{font:inherit;font-size:16px;font-weight:600;padding:10px 12px;border-radius:10px;border:0;background:#fff;color:#0c1c35;-webkit-user-select:text;user-select:text;touch-action:auto}
 .note.warn{color:var(--danger);opacity:1}

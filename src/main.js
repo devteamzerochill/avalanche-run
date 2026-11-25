@@ -202,6 +202,7 @@ class Game {
     this.stage.blendMood(this.sim.biome.id, 0, true);
     this.resize();
     new ResizeObserver(() => requestAnimationFrame(() => this.resize())).observe(el);
+    this.ui.requireSignIn(); // the apps open on sign-in
     window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 200));
     // The scaled frame keeps its layout size when the window changes, so watch the window too.
     window.addEventListener('resize', () => {
@@ -1131,6 +1132,22 @@ class Game {
     this.input.clear();
   }
 
+  // The Android back button (the app shell calls window.__appBack): one step
+  // back. On the title a second press within 2 s leaves the app. Returns false
+  // only then, so the shell exits; true means the game handled it.
+  back() {
+    if (this.ui.busyKey) return true; // a server call is under way
+    if (this.ui.panelName) return this.ui.closePanel(), true;
+    if (this.state === 'play') return this.pause(), true;
+    if (this.state === 'paused') return this.resume(), true;
+    if (this.state === 'end' && !this.raceMode && this.endT > 0.9) return this.toTitle(), true;
+    if (this.state !== 'title') return true;
+    if (performance.now() - (this.backAt || -1e9) < 2000) return false;
+    this.backAt = performance.now();
+    this.ui.toast(t('app.backExit'));
+    return true;
+  }
+
   resume() {
     if (this.state !== 'paused') return;
     this.state = 'play';
@@ -1908,6 +1925,7 @@ class Game {
 function boot() {
   const game = new Game();
   // Hook for automated tests and ad-network QA.
+  window.__appBack = () => game.back();
   window.__GAME = {
     game,
     info: () => game.info(),

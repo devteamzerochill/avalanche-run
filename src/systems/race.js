@@ -6,9 +6,10 @@
 // Opt-in with ?race. The Colyseus browser client (vendor/colyseus.js) loads
 // only then, so it stays out of the artifact and playable-ad builds.
 import { CONFIG } from '../config.js';
+import { APP } from './live.js';
 
 export function raceRequested() {
-  return new URLSearchParams(location.search).has('race');
+  return APP || new URLSearchParams(location.search).has('race');
 }
 
 // ?race=here: the race server is the one serving this page (Colyseus Cloud
@@ -17,6 +18,7 @@ export function raceRequested() {
 export function raceServer() {
   const q = new URLSearchParams(location.search);
   if (q.get('race') === 'here') return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
+  if (APP && q.get('live') !== 'local') return CONFIG.race.server; // the app's page is served from localhost inside the phone
   const onThisPc = !q.has('live') && /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   return q.get('live') === 'local' || onThisPc ? CONFIG.race.localServer : CONFIG.race.server;
 }
