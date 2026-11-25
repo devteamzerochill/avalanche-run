@@ -86,7 +86,7 @@ function fxMaterial(m) {
   if (uFx > 0.5 && uFx < 1.5) {
     float grim = pow(1.0 - abs(dot(normal, normalize(vViewPosition))), 2.2);
     float dust = galaxyStars(gp * 7.0, 0.35, 0.72, 0.0) + galaxyStars(gp * 11.0 + 5.0, 0.2, 0.78, 0.0) * 0.7;
-    float sparkle = galaxyStars(gp * 1.6 + 3.0, 0.45, 0.8, 1.0);
+    float sparkle = galaxyStars(gp * 1.6 + 3.0, 0.45, 0.66, 1.0);
     // A glossy shine and a slow sweeping glint, like polished glass over space.
     vec3 gvd = normalize(vViewPosition);
     float gspec = pow(max(dot(normal, normalize(vec3(0.35, 0.75, 0.55) + gvd)), 0.0), 24.0);
@@ -103,7 +103,7 @@ function fxMaterial(m) {
     float glint = smoothstep(0.0, 0.03, sweep) * smoothstep(0.09, 0.03, sweep);
     totalEmissiveRadiance += vec3(1.0, 0.72, 0.22) * (rim * 0.55 + glint * 0.8) * (0.3 + gLum) + vec3(1.0, 0.92, 0.7) * spec * 1.4;
     // Rare four-point sparkles twinkling across the metal.
-    totalEmissiveRadiance += vec3(1.0, 0.95, 0.75) * galaxyStars(gp * 1.9 + 7.0, 0.12, 0.86, 1.0) * 2.2;
+    totalEmissiveRadiance += vec3(1.0, 0.95, 0.75) * (galaxyStars(gp * 1.9 + 7.0, 0.12, 0.62, 1.0) + galaxyStars(gp * 3.4 + 2.0, 0.08, 0.7, 1.0) * 0.8) * 2.4;
   }`
       );
   };
