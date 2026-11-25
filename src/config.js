@@ -188,6 +188,15 @@ export const CONFIG = {
   // The shop's try-on shot (DECISIONS 82): camera offset from the fox (m) and
   // the height it aims at; aimed low so the fox stands above the shop panel.
   shop: { camera: { x: 0.3, y: 1.2, z: -6.6, lookY: -1.45 } },
+  // Ads in the phone apps only (DECISIONS 85, docs/ads.md). These are Unity's
+  // public LevelPlay demo app key and test ad units (Mediation-Demo-Apps); swap in
+  // the owner's own once the LevelPlay account exists. Android only so far.
+  ads: {
+    android: { appKey: '25b63cf85', banner: '4fpetq4lhe5lsw3e', interstitial: 'h3xw38h9214adgxo', rewarded: 'syz3d8ekts22q0or' },
+    everyRuns: 3, // an interstitial at most every 3rd run
+    gapSeconds: 120, // and never twice within this
+    freeRunsPerDay: 2, // never in the first runs of the day
+  },
 
   // --- look (P where the prototype exposed it) ----------------------------
   look: {

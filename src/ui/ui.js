@@ -99,6 +99,7 @@ export class UI {
     press($('specNext'), () => this.hooks.specStep(1));
     press($('specLeave'), () => this.hooks.specLeave());
     press($('againBtn'), () => hooks.again());
+    press($('endDouble'), () => ($('endDouble').classList.add('hidden'), hooks.adDouble()));
     press($('backBtn'), () => hooks.back());
     press($('panelClose'), () => this.closePanel());
     press(this.el.titleCta, () => hooks.cta());
@@ -886,6 +887,10 @@ export class UI {
     $('endMissions').innerHTML = data.profile.missions.active
       .map((m) => this.missionRow(m, data.result.completed.includes(m.id)))
       .join('');
+    // A rewarded video doubles the run's snowflakes (DECISIONS 85); only once one is ready.
+    const dbl = $('endDouble');
+    dbl.classList.add('hidden');
+    if (s.flakes > 0 && this.hooks.adReady) this.hooks.adReady().then((ok) => ok && this.endShown && (dbl.textContent = t('ads.double', { n: s.flakes }), dbl.classList.remove('hidden')));
     this.el.end.classList.remove('hidden');
     this.endShown = true;
     if (document.hidden) $('endScore').textContent = String(s.score);

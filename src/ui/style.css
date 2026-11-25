@@ -75,7 +75,7 @@ body.tapsteer #jumpBtn{display:block}
 
 /* ---------- screens ---------- */
 .screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;text-align:center;gap:calc(10px*var(--s));
-  padding:calc(env(safe-area-inset-top,0px) + 14px) 18px calc(env(safe-area-inset-bottom,0px) + 18px);
+  padding:calc(env(safe-area-inset-top,0px) + 14px) 18px calc(env(safe-area-inset-bottom,0px) + 18px + var(--ad,0px));
   background:linear-gradient(180deg,rgba(12,28,53,.55) 0%,rgba(12,28,53,0) 26%,rgba(12,28,53,0) 46%,rgba(12,28,53,.82) 80%);transition:opacity .3s}
 .screen.out{opacity:0;pointer-events:none}
 .title-top{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);left:14px;right:14px;display:flex;justify-content:space-between;gap:8px}
@@ -108,7 +108,7 @@ body.tapsteer #jumpBtn{display:block}
 .nav em.on{display:block}
 
 /* ---------- overlays / cards ---------- */
-.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 12px) 12px calc(env(safe-area-inset-bottom,0px) + 12px);
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 12px) 12px calc(env(safe-area-inset-bottom,0px) + 12px + var(--ad,0px));
   background:rgba(8,18,36,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);animation:fade .2s both;z-index:5}
 /* Settings opened from the pause menu must sit above it. */
 #panel{z-index:6}
@@ -922,3 +922,6 @@ body.has-race .btn.big.rc-go small{font-size:calc(10px*var(--s))}
 .try-bar .btn:disabled{opacity:.5}
 .swatch i.gd{background:linear-gradient(115deg,#8a5a0c 0,#e8b530 30%,#fff1b8 45%,#e8b530 60%,#8a5a0c 100%)!important;background-size:200% 100%!important;animation:goldsheen 2.4s linear infinite}
 @keyframes goldsheen{from{background-position:100% 0}to{background-position:-100% 0}}
+
+/* Ads (DECISIONS 85): the rewarded-video offer on the results card. */
+.ad-btn{width:100%;background:linear-gradient(90deg,#ffd23f,#ffb13b);color:#0c1c35;font-weight:900}

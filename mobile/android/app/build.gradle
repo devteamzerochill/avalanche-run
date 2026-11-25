@@ -58,6 +58,13 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+    // Ads (DECISIONS 85): Unity LevelPlay mediation with Unity Ads as a network.
+    // Child-directed: no advertising ID (the permission is removed in the manifest),
+    // so the app set ID library stands in for frequency capping.
+    implementation "com.unity3d.ads-mediation:mediation-sdk:9.8.0"
+    implementation "com.unity3d.ads-mediation:unityads-adapter:5.17.0"
+    implementation "com.unity3d.ads:unity-ads:4.22.0"
+    implementation "com.google.android.gms:play-services-appset:16.1.0"
 }
 
 apply from: 'capacitor.build.gradle'
