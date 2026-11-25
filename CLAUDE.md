@@ -14,10 +14,10 @@ node server/test.mjs      # endurance race server: real races against the local 
 node tools/serve.mjs 8124     # dev server from this folder; open /index.html, /dist/web/index.html or /tools/host-mock.html
 ```
 
-**Phone apps** (`mobile/`, Capacitor; DECISIONS 79, 81; the `mobile-app-builds` skill). Once: `npm install` in `mobile/`. Needs the Android SDK (`%LOCALAPPDATA%\Android\Sdk`) and JDK 21 (`C:\Program Files\Microsoft\jdk-21.*`; Android Studio's own Java 25 is too new for Gradle 8.14):
+**Phone apps** (`mobile/`, Capacitor; DECISIONS 79, 81; the `/build-apps` skill builds them and sends the zip). Once: `npm install` in `mobile/`. Needs the Android SDK (`%LOCALAPPDATA%\Android\Sdk`) and JDK 21 (`C:\Program Files\Microsoft\jdk-21.*`; Android Studio's own Java 25 is too new for Gradle 8.14):
 
 ```powershell
-cd mobile; node build-apps.mjs    # debug APK, release APK and AAB in mobile/builds/; iOS project synced
+cd mobile; node build-apps.mjs    # mobile/builds/<app>-<version>.zip: debug APK, release APK and AAB, and the Xcode project
 ```
 
 Release builds are signed only with the owner's `mobile/android/keystore.properties` (never committed). The iOS project (`mobile/ios/App/App.xcodeproj`) builds in Xcode on a Mac.
