@@ -28,3 +28,6 @@ Thumbs.db
 
 # Tunnel binary (downloaded, not committed)
 tools/cloudflared/
+
+# Phone app build outputs (node mobile/build-apps.mjs)
+mobile/builds/

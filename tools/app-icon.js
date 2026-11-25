@@ -168,7 +168,9 @@ const canvas = (w, h = w) => {
   return c;
 };
 
-// Everything the Android project needs, as PNG data URLs keyed by res path.
+// Everything the Android and iOS projects need: PNG data URLs keyed by path
+// (Android res/, store/, ios/), and for the iOS icon raw RGB pixels, because
+// Apple refuses an icon with an alpha channel and canvas PNGs always have one.
 export function makeArt(game) {
   const fox = renderFox(game, 1024, 1024);
   const out = {};
@@ -203,11 +205,11 @@ export function makeArt(game) {
   }
   // Splash (Android 11 and older, and behind the Android 12+ system splash):
   // the game's navy with the round icon, matching the Loading screen after it.
-  const splash = (w, h, name) => {
+  const splash = (w, h, name, k = 0.42) => {
     const c = canvas(w, h), x = c.getContext('2d');
     x.fillStyle = NAVY;
     x.fillRect(0, 0, w, h);
-    const n = Math.round(Math.min(w, h) * 0.42);
+    const n = Math.round(Math.min(w, h) * k);
     x.drawImage(full(n, true), (w - n) / 2, (h - n) / 2 - n * 0.12);
     x.fillStyle = '#ffffff';
     x.textAlign = 'center';
@@ -221,5 +223,14 @@ export function makeArt(game) {
     splash(h, w, `drawable-land-${d}/splash.png`);
   }
   splash(480, 320, 'drawable/splash.png');
+  // iOS: one 2732 px square, cropped to fill the screen, so the art stays small
+  // in the middle where every iPhone and iPad shape keeps it.
+  splash(2732, 2732, 'ios/splash-2732x2732.png', 0.2);
+  const icon = full(1024).getContext('2d').getImageData(0, 0, 1024, 1024).data;
+  const rgb = new Uint8Array(1024 * 1024 * 3);
+  for (let i = 0, j = 0; i < icon.length; i += 4) (rgb[j++] = icon[i]), (rgb[j++] = icon[i + 1]), (rgb[j++] = icon[i + 2]);
+  let bin = '';
+  for (let i = 0; i < rgb.length; i += 0x8000) bin += String.fromCharCode.apply(null, rgb.subarray(i, i + 0x8000));
+  out['ios/AppIcon-512@2x.png'] = { rgb: btoa(bin), w: 1024, h: 1024 };
   return out;
 }

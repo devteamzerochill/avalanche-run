@@ -3,12 +3,14 @@
   "private": true,
   "description": "Capacitor shell for the phone apps. Packages ../dist/app (node tools/build.mjs) into a native Android project (DECISIONS 79).",
   "scripts": {
-    "sync": "node ../tools/build.mjs && cap sync android"
+    "sync": "node ../tools/build.mjs && cap sync android",
+    "apps": "node build-apps.mjs"
   },
   "dependencies": {
     "@capacitor/android": "8.6.2",
     "@capacitor/app": "8.1.2",
-    "@capacitor/core": "8.6.2"
+    "@capacitor/core": "8.6.2",
+    "@capacitor/ios": "8.6.2"
   },
   "devDependencies": {
     "@capacitor/cli": "8.6.2"

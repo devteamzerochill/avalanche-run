@@ -1,6 +1,6 @@
 # Avalanche Run: working notes
 
-A mobile-first arcade snowboard runner (three.js r160, vendored) rebuilt from a minified playable-ad prototype. You ride as the **Zero Chill fox** (the owner's company mascot) and outrun an avalanche down a seeded daily mountain. The owner directs the look and feel; read `DECISIONS.md` (80 numbered entries) before changing anything. It records why each choice was made.
+A mobile-first arcade snowboard runner (three.js r160, vendored) rebuilt from a minified playable-ad prototype. You ride as the **Zero Chill fox** (the owner's company mascot) and outrun an avalanche down a seeded daily mountain. The owner directs the look and feel; read `DECISIONS.md` (81 numbered entries) before changing anything. It records why each choice was made.
 
 ## Commands
 
@@ -14,13 +14,13 @@ node server/test.mjs      # endurance race server: real races against the local 
 node tools/serve.mjs 8124     # dev server from this folder; open /index.html, /dist/web/index.html or /tools/host-mock.html
 ```
 
-**Android app** (`mobile/`, Capacitor; DECISIONS 79). Once: `npm install` in `mobile/`. Needs the Android SDK (`%LOCALAPPDATA%\Android\Sdk`) and JDK 21 (`C:\Program Files\Microsoft\jdk-21.*`; Android Studio's own Java 25 is too new for Gradle 8.14):
+**Phone apps** (`mobile/`, Capacitor; DECISIONS 79, 81; the `mobile-app-builds` skill). Once: `npm install` in `mobile/`. Needs the Android SDK (`%LOCALAPPDATA%\Android\Sdk`) and JDK 21 (`C:\Program Files\Microsoft\jdk-21.*`; Android Studio's own Java 25 is too new for Gradle 8.14):
 
 ```powershell
-cd mobile; npm run sync                       # rebuild dist/app and copy it into the Android project
-$env:JAVA_HOME = (Resolve-Path "C:\Program Files\Microsoft\jdk-21*").Path
-cd android; .\gradlew.bat assembleDebug       # app/build/outputs/apk/debug/app-debug.apk; adb install -r it
+cd mobile; node build-apps.mjs    # debug APK, release APK and AAB in mobile/builds/; iOS project synced
 ```
+
+Release builds are signed only with the owner's `mobile/android/keystore.properties` (never committed). The iOS project (`mobile/ios/App/App.xcodeproj`) builds in Xcode on a Mac.
 
 Icon and splash art: `node tools/app-icon.mjs` with the dev server on 8124 (DECISIONS 80). A debug build's WebView can be inspected over adb (`webview_devtools_remote_<pid>`).
 
