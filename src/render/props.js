@@ -731,9 +731,11 @@ export class Props {
     for (const k of Object.keys(this.sets)) {
       const set = this.sets[k];
       set.mesh.count = set.n;
+      // An empty batch still costs a draw call: skip it.
+      set.mesh.visible = set.n > 0;
       set.mesh.instanceMatrix.needsUpdate = true;
     }
-    for (const [hull, set] of this.outlines) hull.count = set.n;
+    for (const [hull, set] of this.outlines) (hull.count = set.n), (hull.visible = set.n > 0);
     outlineFog.uFog.value.copy(mood.fog);
     outlineFog.uFogNear.value = mood.fogNear;
     outlineFog.uFogFar.value = mood.fogFar;
