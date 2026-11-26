@@ -172,8 +172,11 @@ public class AdsPlugin extends Plugin {
         LevelPlayBannerAdView.Config config = new LevelPlayBannerAdView.Config.Builder().setAdSize(LevelPlayAdSize.BANNER).build();
         banner = new LevelPlayBannerAdView(a, id, config);
         banner.setBannerListener(new LevelPlayBannerAdViewListener() {
-            @Override public void onAdLoaded(LevelPlayAdInfo info) { bannerLoaded = true; applyBanner(); }
-            @Override public void onAdLoadFailed(LevelPlayAdError error) { Log.w(TAG, "banner load failed: " + error); bannerLoaded = false; applyBanner(); retryLoad(() -> banner.loadAd()); }
+            @Override public void onAdLoaded(LevelPlayAdInfo info) { Log.i(TAG, "banner loaded"); bannerLoaded = true; applyBanner(); }
+            // No retry of our own: the banner view retries by itself (about every
+            // 25 s). A failed refresh keeps the last ad on screen, so the space
+            // the game made for it stays too.
+            @Override public void onAdLoadFailed(LevelPlayAdError error) { Log.w(TAG, "banner load failed: " + error); }
         });
         bannerHolder = new FrameLayout(a);
         bannerHolder.setVisibility(View.GONE);
@@ -185,7 +188,10 @@ public class AdsPlugin extends Plugin {
             return insets;
         });
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
-        bannerHolder.addView(banner, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        // A fixed 320x50 dp box, so the empty view has an area before the first
+        // ad: LevelPlay seems to stop retrying a banner it can't see on screen.
+        float dp = a.getResources().getDisplayMetrics().density;
+        bannerHolder.addView(banner, new FrameLayout.LayoutParams(Math.round(LevelPlayAdSize.BANNER.getWidth() * dp), Math.round(LevelPlayAdSize.BANNER.getHeight() * dp)));
         ((ViewGroup) a.findViewById(android.R.id.content)).addView(bannerHolder, lp);
         ViewCompat.requestApplyInsets(bannerHolder);
         banner.loadAd();
@@ -194,7 +200,10 @@ public class AdsPlugin extends Plugin {
     private void applyBanner() {
         if (bannerHolder == null) return;
         boolean show = bannerWanted && bannerLoaded;
-        bannerHolder.setVisibility(show ? View.VISIBLE : View.GONE);
+        // On screen whenever the game wants a banner, even before one arrives:
+        // LevelPlay stops retrying a banner view that isn't shown. Empty, it is
+        // transparent and lets taps through; the game only makes room once loaded.
+        bannerHolder.setVisibility(bannerWanted ? View.VISIBLE : View.GONE);
         // Only pause refresh once a banner has arrived: pausing while the first
         // load is still in flight stalls it, and the banner never shows.
         if (bannerLoaded) {
