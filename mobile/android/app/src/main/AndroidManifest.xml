@@ -38,8 +38,6 @@
     </application>
 
     <!-- Permissions -->
-    <!-- Ads are child-directed (DECISIONS 85): no advertising ID, even if an ad SDK asks for it. -->
-    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
 
     <uses-permission android:name="android.permission.INTERNET" />
 </manifest>

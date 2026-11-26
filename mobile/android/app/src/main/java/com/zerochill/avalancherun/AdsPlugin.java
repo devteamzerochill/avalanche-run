@@ -3,6 +3,7 @@ package com.zerochill.avalancherun;
 import android.app.Activity;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -25,7 +26,6 @@ import com.unity3d.mediation.LevelPlayConfiguration;
 import com.unity3d.mediation.LevelPlayInitError;
 import com.unity3d.mediation.LevelPlayInitListener;
 import com.unity3d.mediation.LevelPlayInitRequest;
-import com.unity3d.mediation.LevelPlayPrivacySettings;
 import com.unity3d.mediation.banner.LevelPlayBannerAdView;
 import com.unity3d.mediation.banner.LevelPlayBannerAdViewListener;
 import com.unity3d.mediation.interstitial.LevelPlayInterstitialAd;
@@ -39,6 +39,7 @@ import com.unity3d.mediation.rewarded.LevelPlayRewardedAdListener;
 // on the server; this file only initialises the SDK and shows what it is told to.
 @CapacitorPlugin(name = "Ads")
 public class AdsPlugin extends Plugin {
+    private static final String TAG = "AvalancheAds";
     private final Handler main = new Handler(Looper.getMainLooper());
     private boolean ready;
     private LevelPlayInterstitialAd interstitial;
@@ -61,10 +62,6 @@ public class AdsPlugin extends Plugin {
             call.resolve(status());
             return;
         }
-        // Every player is treated as a child: child-directed, no device ID
-        // (both must be set before init).
-        LevelPlayPrivacySettings.setCOPPA(true);
-        LevelPlay.setMetaData("is_deviceid_optout", "true");
         final String bannerId = call.getString("banner");
         final String interstitialId = call.getString("interstitial");
         final String rewardedId = call.getString("rewarded");
@@ -141,7 +138,7 @@ public class AdsPlugin extends Plugin {
         interstitial = new LevelPlayInterstitialAd(id);
         interstitial.setListener(new LevelPlayInterstitialAdListener() {
             @Override public void onAdLoaded(LevelPlayAdInfo info) { emit("loaded", "interstitial"); }
-            @Override public void onAdLoadFailed(LevelPlayAdError error) { retryLoad(() -> interstitial.loadAd()); }
+            @Override public void onAdLoadFailed(LevelPlayAdError error) { Log.w(TAG, "interstitial load failed: " + error); retryLoad(() -> interstitial.loadAd()); }
             @Override public void onAdDisplayed(LevelPlayAdInfo info) {}
             @Override public void onAdDisplayFailed(LevelPlayAdError error, LevelPlayAdInfo info) { finish(false); interstitial.loadAd(); }
             @Override public void onAdClosed(LevelPlayAdInfo info) { finish(true); interstitial.loadAd(); }
@@ -153,7 +150,7 @@ public class AdsPlugin extends Plugin {
         rewarded = new LevelPlayRewardedAd(id);
         rewarded.setListener(new LevelPlayRewardedAdListener() {
             @Override public void onAdLoaded(LevelPlayAdInfo info) { emit("loaded", "rewarded"); }
-            @Override public void onAdLoadFailed(LevelPlayAdError error) { retryLoad(() -> rewarded.loadAd()); }
+            @Override public void onAdLoadFailed(LevelPlayAdError error) { Log.w(TAG, "rewarded load failed: " + error); retryLoad(() -> rewarded.loadAd()); }
             @Override public void onAdDisplayed(LevelPlayAdInfo info) {}
             @Override public void onAdRewarded(LevelPlayReward reward, LevelPlayAdInfo info) { earned = true; }
             @Override public void onAdDisplayFailed(LevelPlayAdError error, LevelPlayAdInfo info) { finish(false); rewarded.loadAd(); }
@@ -172,7 +169,7 @@ public class AdsPlugin extends Plugin {
         banner = new LevelPlayBannerAdView(a, id, config);
         banner.setBannerListener(new LevelPlayBannerAdViewListener() {
             @Override public void onAdLoaded(LevelPlayAdInfo info) { bannerLoaded = true; applyBanner(); }
-            @Override public void onAdLoadFailed(LevelPlayAdError error) { bannerLoaded = false; applyBanner(); }
+            @Override public void onAdLoadFailed(LevelPlayAdError error) { Log.w(TAG, "banner load failed: " + error); bannerLoaded = false; applyBanner(); }
         });
         bannerHolder = new FrameLayout(a);
         bannerHolder.setVisibility(View.GONE);

@@ -11,9 +11,9 @@ Agreed with the owner on 2026-11-25 (DECISIONS 85). Anything marked **Proposal**
 
 ## Audience and privacy
 
-- **Every player is treated as a child.** Every ad request is child-directed and non-personalised.
-- There is no age question, no consent prompt and no iOS tracking prompt.
-- The store listings declare the audience to match.
+- **Not child-directed, for now (DECISIONS 87, replacing the child-directed rule in 85).** The app sends no COPPA flag and no device-ID opt-out, and keeps the advertising ID permission, so more networks fill.
+- Both LevelPlay apps still show COPPA "Directed" (the dashboard locks it after creation). The owner is asking LevelPlay support to change it to "Not directed" and to block gambling ads.
+- **Known risk, accepted by the owner:** the players include kids, so COPPA and Google Play's Families rules apply whatever the setting says. **Revisit before release**, together with any age question, consent prompt or iOS tracking prompt, and the store audience declaration.
 
 ## Rewarded video
 
@@ -50,13 +50,14 @@ Players choose to watch, and get one of two rewards:
 ## How it is built (slice 1, Android)
 
 - **Native plugin:** `mobile/android/app/src/main/java/com/zerochill/avalancherun/AdsPlugin.java`. It does three things:
-  - initialises LevelPlay 9.8.0 with COPPA on and the device ID opted out;
+  - initialises LevelPlay 9.8.0 (no COPPA flag or device-ID opt-out since DECISIONS 87);
   - shows the interstitial and rewarded video, and tells the game when each one closes;
   - places the banner above the navigation bar, over the bottom edge of the game.
-- **The advertising ID permission is removed** in the manifest.
+- **The advertising ID permission is kept** (it was removed until DECISIONS 87).
+- Load failures are logged to logcat under the tag `AvalancheAds` (for example 509, "Mediation No fill").
 - **The game side is `src/systems/ads.js`.** It does nothing outside the apps. It holds the pacing rules, kept in their own localStorage key so restarting the app doesn't reset them.
 - **The banner's height goes to the CSS variable `--ad`.** The title screen and the results card pad by it.
-- **Keys:** `CONFIG.ads` holds the owner's own LevelPlay app keys and ad unit ids (created 2026-11-26), for Android and iOS. The apps are "Not live yet" with COPPA set to "Directed". The ad units use the dashboard defaults with no capping or pacing, because the game paces itself. The rewarded units' reward ("Snowflakes", 1) is a placeholder, because the server decides the amount.
+- **Keys:** `CONFIG.ads` holds the owner's own LevelPlay app keys and ad unit ids (created 2026-11-26), for Android and iOS. The apps are "Not live yet". Their COPPA setting is "Directed", until LevelPlay support changes it (DECISIONS 87). The ad units use the dashboard defaults with no capping or pacing, because the game paces itself. The rewarded units' reward ("Snowflakes", 1) is a placeholder, because the server decides the amount.
 
 ## How a rewarded video is credited (slice 2, DECISIONS 86)
 
@@ -84,7 +85,7 @@ The dashboard's callback test (enter a ticket id as the User ID) checks the firs
 
 - **Use the owner's own keys** (done). Unity's demo key serves ordinary live campaigns that aren't child-directed. A test showed a game ad rated 16+ that opened the Play Store on its own.
 - **In the owner's LevelPlay dashboard:**
-  - mark the apps as child-directed (done: COPPA "Directed");
+  - COPPA: changed to "Not directed" by LevelPlay support (asked for, DECISIONS 87), and gambling ads blocked;
   - choose only certified networks for families;
   - set the ad content rating.
 - **Set up the server-to-server rewarded callback:**
