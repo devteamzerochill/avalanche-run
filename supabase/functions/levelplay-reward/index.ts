@@ -1,12 +1,17 @@
 // LevelPlay's server-to-server rewarded callback (ads slice 2, DECISIONS 86, docs/ads.md).
 //
+// LOCAL STAND-IN: the live project allows no new edge functions, so the live
+// callback is the website route /api/public/levelplay-reward
+// (src/routes/api/public/levelplay-reward.ts in the ZeroChill.com project),
+// which Lovable built to the same behaviour. Never deployed; tests/db.mjs uses it.
+//
 // LevelPlay calls this URL once a rewarded video has been watched, and retries
 // until the response contains "<eventId>:OK". The user id it carries is our
 // reward ticket (start_avalanche_ad_reward). A callback is trusted only if its
 // MD5 signature matches LEVELPLAY_PRIVATE_KEY, the private key set in the
 // LevelPlay dashboard; without that secret nothing is credited.
 //
-// Deploy with JWT verification off: LevelPlay sends no Supabase token.
+// Served with JWT verification off (supabase/config.toml): LevelPlay sends no Supabase token.
 import { createHash, timingSafeEqual } from 'node:crypto';
 
 const PRIVATE_KEY = Deno.env.get('LEVELPLAY_PRIVATE_KEY') ?? '';

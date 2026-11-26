@@ -3,16 +3,17 @@
 -- Before a rewarded video the app asks for a one-use ticket for what the video
 -- pays (today: doubling a counted run's snowflakes). The ticket id goes to
 -- LevelPlay as the user id. LevelPlay's server-to-server callback reaches the
--- levelplay-reward edge function, which checks the signature and calls
+-- website route /api/public/levelplay-reward (locally, the levelplay-reward
+-- edge function), which checks the signature and calls
 -- avalanche_ad_reward_callback as the service role. Only that call credits.
 -- The amount is ours (the run's own snowflakes), never LevelPlay's [REWARDS],
 -- which is tied to ad revenue.
 --
--- Only new objects; nothing existing is changed.
+-- Only new objects; nothing existing is changed. Live as migration 0320 (2026-11-26).
 
 create table public.avalanche_ad_rewards (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users on delete cascade,
+  user_id uuid not null, -- no auth.users link: the live project's rule for new tables
   kind text not null check (kind in ('double')),
   run_key text not null,
   flakes integer not null check (flakes > 0),
@@ -27,6 +28,7 @@ create table public.avalanche_ad_rewards (
 alter table public.avalanche_ad_rewards enable row level security;
 create policy "own ad rewards" on public.avalanche_ad_rewards for select to authenticated using (auth.uid() = user_id);
 grant select on public.avalanche_ad_rewards to authenticated;
+grant all on public.avalanche_ad_rewards to service_role;
 
 -- The ticket for doubling one counted run. Asking again for the same run
 -- returns the same ticket, so a retried request never makes a second one.
@@ -93,7 +95,7 @@ begin
 end;
 $$;
 
--- Called only by the levelplay-reward edge function after it has checked the
+-- Called only by the levelplay-reward route after it has checked the
 -- callback's signature. Every outcome but an error is final, so the function
 -- answers LevelPlay "<eventId>:OK" and the retries stop.
 create function public.avalanche_ad_reward_callback(p_ticket text, p_event_id text, p_ip text)
