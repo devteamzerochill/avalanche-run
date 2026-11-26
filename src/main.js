@@ -1151,7 +1151,12 @@ class Game {
     const S = this.shopCam || (this.shopCam = { pos: new THREE.Vector3(), look: new THREE.Vector3(), w: 0, spin: 0, vel: 0.5, drag: false });
     S.w += ((on ? 1 : 0) - S.w) * Math.min(1, dt * 4);
     if (!S.drag) S.vel += ((on ? 0.5 : 0) - S.vel) * Math.min(1, dt * 1.5); // eases back to a slow turn after a flick
-    S.spin += S.vel * dt;
+    // The turn adds up while the shop is open; on closing, take the nearest
+    // equivalent angle so the fox turns back the short way instead of
+    // unwinding every turn it made (faster the longer the shop was open).
+    if (on) S.spin += S.vel * dt;
+    else if (S.open) S.spin = Math.atan2(Math.sin(S.spin), Math.cos(S.spin));
+    S.open = on;
     if (!on && S.w < 0.01) S.spin = 0;
     // Back to facing the camera as the shop closes.
     this.rider.root.rotation.y = on ? S.spin : S.spin * S.w;
@@ -1827,8 +1832,16 @@ class Game {
       (tryOn ? this.rider.root : this.stage.world).add(this.speedTrail.mesh);
       this.trailTryOn = tryOn;
     }
-    if (tryOn) this.speedTrail.update(dt, 0, 0, this.time * 14, true, 0.7); // closer: the shop sees it side-on
-    else this.speedTrail.update(dt, sim.x, riderY, sim.dist, riding);
+    if (tryOn) {
+      // As the turntable (or a drag) turns the fox, the ribbon bends after the board.
+      const rot = this.rider.root.rotation.y;
+      if (this.trailRot != null && Math.abs(rot - this.trailRot) < 1) this.speedTrail.turn(rot - this.trailRot);
+      this.trailRot = rot;
+      this.speedTrail.update(dt, 0, 0, this.time * 14, true, 0.7); // closer: the shop sees it side-on
+    } else {
+      this.trailRot = null;
+      this.speedTrail.update(dt, sim.x, riderY, sim.dist, riding, 1.3, this.rider.yaw);
+    }
     GALAXY.uGTime.value = this.time;
     GALAXY.uGPx.value = 1 / Math.max(1, st.renderer.domElement.height);
 
