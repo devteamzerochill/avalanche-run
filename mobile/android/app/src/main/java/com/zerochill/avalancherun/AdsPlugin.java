@@ -1,6 +1,7 @@
 package com.zerochill.avalancherun;
 
 import android.app.Activity;
+import android.content.pm.ApplicationInfo;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -66,6 +67,8 @@ public class AdsPlugin extends Plugin {
         final String bannerId = call.getString("banner");
         final String interstitialId = call.getString("interstitial");
         final String rewardedId = call.getString("rewarded");
+        // Debug builds log every network's answer, so a no-fill can be traced.
+        if ((getContext().getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) LevelPlay.setAdaptersDebug(true);
         LevelPlay.init(getContext(), new LevelPlayInitRequest.Builder(appKey).build(), new LevelPlayInitListener() {
             @Override
             public void onInitSuccess(LevelPlayConfiguration configuration) {

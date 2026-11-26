@@ -1,3 +1,4 @@
+import AppTrackingTransparency
 import Capacitor
 import IronSource
 import UIKit
@@ -48,6 +49,20 @@ public class AdsPlugin: CAPPlugin, CAPBridgedPlugin {
         let interstitialId = call.getString("interstitial")
         let rewardedId = call.getString("rewarded")
         let bannerId = call.getString("banner")
+        // Apple's tracking prompt, once, before the SDK starts, so the first ad
+        // requests already know the answer (owner, 2026-11-26).
+        DispatchQueue.main.async {
+            if ATTrackingManager.trackingAuthorizationStatus == .notDetermined {
+                ATTrackingManager.requestTrackingAuthorization { _ in
+                    self.initLevelPlay(call, appKey: appKey, interstitialId: interstitialId, rewardedId: rewardedId, bannerId: bannerId)
+                }
+            } else {
+                self.initLevelPlay(call, appKey: appKey, interstitialId: interstitialId, rewardedId: rewardedId, bannerId: bannerId)
+            }
+        }
+    }
+
+    private func initLevelPlay(_ call: CAPPluginCall, appKey: String, interstitialId: String?, rewardedId: String?, bannerId: String?) {
         let request = LPMInitRequestBuilder(appKey: appKey).build()
         LevelPlay.initWith(request) { [weak self] _, error in
             DispatchQueue.main.async {

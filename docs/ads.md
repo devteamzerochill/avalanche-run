@@ -13,7 +13,7 @@ Agreed with the owner on 2026-11-25 (DECISIONS 85). Anything marked **Proposal**
 
 - **Not child-directed, for now (DECISIONS 87, replacing the child-directed rule in 85).** The app sends no COPPA flag and no device-ID opt-out, and keeps the advertising ID permission, so more networks fill.
 - LevelPlay locks COPPA when an app is created, so two new apps were made with COPPA "Not directed" (Android `29e30bffd`, iOS `29e30f985`). The first two ("Directed") are renamed "Avalanche Run (old)" and unused.
-- **Known risk, accepted by the owner:** the players include kids, so COPPA and Google Play's Families rules apply whatever the setting says. **Revisit before release**, together with any age question, consent prompt or iOS tracking prompt, and the store audience declaration.
+- **Known risk, accepted by the owner:** the players include kids, so COPPA and Google Play's Families rules apply whatever the setting says. Reviewed before release on 2026-11-26: the owner chose to leave it as is (no age question, no Families setup, no ad content rating cap). iOS asks Apple's tracking prompt once (DECISIONS 89).
 
 ## Rewarded video
 
@@ -65,7 +65,7 @@ Written on 2026-11-26 without a Mac, so **not compiled or run yet**. The owner c
   - `LevelPlay-Swift-Package` 9.8.0, product `UnityMediationSDK` (module `IronSource`);
   - `LevelPlay-UnityAds-Adapter-Swift-Package` 5.14.0, product `UnityAdsAdapter`;
   - `-ObjC` in Other Linker Flags, as LevelPlay's package README asks.
-- **Info.plist:** SKAdNetwork ids for LevelPlay (`su67r6k2v3`) and Unity Ads (`4dzt52r2t5`), and `NSAllowsArbitraryLoads` as LevelPlay's docs ask. No tracking (ATT) prompt yet; revisit before release with the rest of "Audience and privacy".
+- **Info.plist:** SKAdNetwork ids for LevelPlay (`su67r6k2v3`) and Unity Ads (`4dzt52r2t5`), and `NSAllowsArbitraryLoads` as LevelPlay's docs ask. Apple's tracking prompt (ATT) is asked once, before LevelPlay starts, with `NSUserTrackingUsageDescription` as its reason (DECISIONS 89).
 - **Needs Xcode 26 or newer** (LevelPlay 9.5.0 and later).
 
 **Not checked against the real SDK** (the docs show the calls but not every type name). If Xcode complains, look here first:
@@ -79,6 +79,8 @@ Written on 2026-11-26 without a Mac, so **not compiled or run yet**. The owner c
 3. Finish a solo run that pays snowflakes and watch the rewarded video: "+N ❄ added" should show within about 10 seconds.
 4. Keep playing: an interstitial should show after a run once the pacing rules allow it (see "Interstitial"; never in the first 2 runs of the day).
 5. Add the iPhone as a test device in LevelPlay and Unity first, as was done for the Android phone.
+
+**Banner fill (2026-11-26):** the banner gets 509 "No fill" on every try. The phone log shows Unity Ads loading the interstitial and rewarded but never once bidding on the banner, so LevelPlay has nobody to fill it; the setup itself is right (instance active, mapped to `BP_Banner_<platform>`). The owner chose to wait rather than add a second network such as AdMob or drop the banner. The app asks for `ACCESS_NETWORK_STATE`, which Unity reads for its bids, and debug builds turn on LevelPlay's adapter logging (`setAdaptersDebug`), so the cause can be checked again from the log.
 
 ## How a rewarded video is credited (slice 2, DECISIONS 86)
 
@@ -103,9 +105,10 @@ The amount is always ours. LevelPlay's `rewards` value follows ad revenue and is
 
 - **Use the owner's own keys** (done). Unity's demo key serves ordinary live campaigns that aren't child-directed. A test showed a game ad rated 16+ that opened the Play Store on its own.
 - **In the owner's LevelPlay dashboard:**
-  - COPPA: "Not directed" (done, DECISIONS 87); block gambling ads;
-  - choose only certified networks for families;
-  - set the ad content rating.
+  - COPPA: "Not directed" (done, DECISIONS 87);
+  - block gambling ads (the owner is handling it);
+  - ad content rating: left at the default, no cap (owner, 2026-11-26).
+- **Signed release builds:** copy the owner's `mobile/android/keystore.properties` and keystore to the build PC; without them the release APK and AAB come out unsigned.
 - **Set up the server-to-server rewarded callback:**
   - URL: `https://zerochill.com/api/public/levelplay-reward?userId=[USER_ID]&rewards=[REWARDS]&eventId=[EVENT_ID]` (done on both apps, 2026-11-26; the route is published);
   - set a private key (done, one key shared by both apps), and give the same value to Lovable as the website's `AR_LEVELPLAY_PRIVATE_KEY` secret;
