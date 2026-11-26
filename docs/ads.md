@@ -74,12 +74,9 @@ The amount is always ours. LevelPlay's `rewards` value follows ad revenue and is
 
 **Local testing:** copy `supabase/functions/.env.example` to `.env`, `npx supabase start`, then `node tests/db.mjs` signs callbacks with the local key and calls the function.
 
-**Not confirmed yet** (needs the owner's LevelPlay account):
-- that the `dynamicUserId` set before the video arrives as the callback's user id;
-- the exact parameter names on the wire (the docs disagree; the function accepts `userId`, `userid`, `applicationUserId` and `appUserId`);
-- that LevelPlay signs callbacks once a private key is set.
+**Confirmed on 2026-11-26** with the dashboard's callback test on the Android app: a real ticket id entered as the User ID was paid once on the live site (+44 ❄, balance 710 → 754), with LevelPlay's own event id recorded. So the `userId` parameter arrives as set in the callback URL, LevelPlay signs with the private key, and the website's `AR_LEVELPLAY_PRIVATE_KEY` matches.
 
-The dashboard's callback test (enter a ticket id as the User ID) checks the first two without a video.
+**Not confirmed yet:** that the `dynamicUserId` set before a real video arrives as the callback's user id. This needs ad fill.
 
 ## Before release
 
@@ -91,4 +88,4 @@ The dashboard's callback test (enter a ticket id as the User ID) checks the firs
 - **Set up the server-to-server rewarded callback:**
   - URL: `https://zerochill.com/api/public/levelplay-reward?userId=[USER_ID]&rewards=[REWARDS]&eventId=[EVENT_ID]` (done on both apps, 2026-11-26; the route is published);
   - set a private key (done, one key shared by both apps), and give the same value to Lovable as the website's `AR_LEVELPLAY_PRIVATE_KEY` secret;
-  - run the dashboard's callback test with a real ticket id.
+  - run the dashboard's callback test with a real ticket id (done on Android, 2026-11-26).
