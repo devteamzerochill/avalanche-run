@@ -6,7 +6,8 @@
 // Needs Docker and `npx supabase start`. Run: node tests/db.mjs
 // Local only: it signs up throwaway accounts on the local stack, never live.
 import { execSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { test, eq, ok, report } from './harness.mjs';
 
 const env = Object.fromEntries(
@@ -102,6 +103,45 @@ results.trailOff = await rpc(B, 'select_avalanche_item', { p_type: 'trail', p_id
 results.trailOn = await rpc(B, 'select_avalanche_item', { p_type: 'trail', p_id: 'aurora' });
 results.trailNotOwned = await rpc(B, 'select_avalanche_item', { p_type: 'trail', p_id: 'ember' });
 results.shopLog = sql(`select string_agg(amount || ':' || ref, ',' order by id) from standin_shards_log where user_id = '${B.id}';`);
+
+// Rewarded video crediting (DECISIONS 86): a ticket per counted run, paid only by
+// LevelPlay's signed callback through the levelplay-reward edge function. The
+// local function reads its key from supabase/functions/.env (copy .env.example).
+const LP_KEY = (readFileSync(new URL('../supabase/functions/.env', import.meta.url), 'utf8').match(/^AR_LEVELPLAY_PRIVATE_KEY=(.*)$/m) || [])[1];
+if (!LP_KEY) throw new Error('supabase/functions/.env has no AR_LEVELPLAY_PRIVATE_KEY (copy supabase/functions/.env.example)');
+const C = await signUp();
+// After a real video LevelPlay sends the ticket as dynamicUserId with userId empty
+// (seen live 2026-11-26); its dashboard test sends it as userId (o.dashboard).
+const callback = (ticket, eventId, o = {}) => {
+  const timestamp = '202612011200';
+  const rewards = '5';
+  const userId = o.dashboard ? ticket : '';
+  const signature = o.signature || createHash('md5').update(timestamp + eventId + (o.signTicket ? ticket : userId) + rewards + LP_KEY).digest('hex');
+  const q = new URLSearchParams(o.dashboard ? { userId, eventId, rewards, timestamp, signature } : { userId, eventId, rewards, timestamp, signature, dynamicUserId: ticket });
+  return fetch(URL_ + '/functions/v1/levelplay-reward?' + q).then(async (r) => ({ status: r.status, text: await r.text() }));
+};
+const cRun = key();
+results.adUnknownRun = await rpc(C, 'start_avalanche_ad_reward', { p_kind: 'double', p_key: key() });
+const cDry = key();
+await run(C, 150, cDry, stats({ distance: 150, flakes: 0 }));
+results.adNoFlakes = await rpc(C, 'start_avalanche_ad_reward', { p_kind: 'double', p_key: cDry });
+results.adRun = await run(C, 400, cRun, stats({ distance: 400, flakes: 12 }));
+results.adTicket = await rpc(C, 'start_avalanche_ad_reward', { p_kind: 'double', p_key: cRun });
+results.adTicketAgain = await rpc(C, 'start_avalanche_ad_reward', { p_kind: 'double', p_key: cRun });
+const ticket = results.adTicket.body.ticket;
+results.adOtherReads = await rpc(A, 'get_avalanche_ad_reward', { p_ticket: ticket });
+results.adPending = await rpc(C, 'get_avalanche_ad_reward', { p_ticket: ticket });
+results.adBefore = (await profile(C)).flakes;
+results.adDirect = await rpc(C, 'avalanche_ad_reward_callback', { p_ticket: ticket, p_event_id: 'forged', p_ip: '' });
+results.adBadSig = await callback(ticket, 'ev-bad', { signature: 'f'.repeat(32) });
+results.adPaid = await callback(ticket, 'ev-1');
+results.adRetry = await callback(ticket, 'ev-1');
+results.adSecond = await callback(ticket, 'ev-2', { dashboard: true });
+results.adSignedTicket = await callback(ticket, 'ev-4', { signTicket: true });
+results.adUnknownTicket = await callback(randomUUID(), 'ev-3');
+results.adCredited = await rpc(C, 'get_avalanche_ad_reward', { p_ticket: ticket });
+results.adAfter = (await profile(C)).flakes;
+results.adTicketUsed = await rpc(C, 'start_avalanche_ad_reward', { p_kind: 'double', p_key: cRun });
 
 // Row-level security: B sees only B's row and cannot write directly.
 const rest = (user, method, path, body) =>
@@ -212,13 +252,35 @@ test('Shards shop: priced in Shards, debited once, owned, worn, and trails can b
   eq(results.shopLog, '-100:avalanche shop trail aurora,-500:avalanche shop rider galaxy', 'one debit per purchase, nothing for refusals');
 });
 
+test('rewarded video: a ticket per counted run, paid once and only by a signed callback', () => {
+  eq(results.adUnknownRun.body.reason, 'unknown run');
+  eq(results.adNoFlakes.body.reason, 'no snowflakes');
+  eq(results.adTicket.body.ok, true);
+  eq(results.adTicket.body.flakes, results.adRun.body.avalanche.flakes_earned, 'the server pays its own count of the run');
+  eq(results.adTicketAgain.body.ticket, results.adTicket.body.ticket, 'asking again returns the same ticket');
+  eq(results.adOtherReads.body.reason, 'unknown ticket', "another player can't read the ticket");
+  eq(results.adPending.body.status, 'pending');
+  ok(results.adDirect.status >= 400, 'players cannot call the callback function: ' + results.adDirect.status);
+  eq(results.adBadSig.status, 403, 'a bad signature is refused');
+  eq(results.adPaid.status, 200);
+  eq(results.adPaid.text, 'ev-1:OK', 'LevelPlay is acknowledged');
+  eq(results.adRetry.text, 'ev-1:OK', 'a retried event is acknowledged again');
+  eq(results.adSecond.text, 'ev-2:OK', 'a second event on a used ticket is acknowledged (dashboard shape, ticket as userId)');
+  eq(results.adSignedTicket.text, 'ev-4:OK', 'a signature over the ticket itself is accepted too');
+  eq(results.adUnknownTicket.text, 'ev-3:OK', 'an unknown ticket is acknowledged so it stops retrying');
+  eq(results.adAfter - results.adBefore, results.adTicket.body.flakes, 'paid exactly once');
+  eq(results.adCredited.body.status, 'credited');
+  eq(results.adCredited.body.profile.flakes, results.adAfter, 'the credited ticket carries the new profile');
+  eq(results.adTicketUsed.body.reason, 'already credited');
+});
+
 test('row-level security: players read only their own row and cannot write directly', () => {
   eq(results.rlsRead.status, 200);
   eq(results.rlsRead.body.length, 1);
   eq(results.rlsRead.body[0].user_id, B.id);
   ok(results.rlsWrite.status >= 400 || (Array.isArray(results.rlsWrite.body) && results.rlsWrite.body.length === 0), 'direct write refused: ' + results.rlsWrite.status);
   eq(results.rlsWriteCheck, '0', 'balance unchanged');
-  eq(results.catalog.length, 17, 'catalogue readable without signing in');
+  eq(results.catalog.length, 19, 'catalogue readable without signing in (17 + the two Gold rows)');
 });
 
 report();

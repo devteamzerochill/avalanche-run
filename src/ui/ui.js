@@ -99,6 +99,7 @@ export class UI {
     press($('specNext'), () => this.hooks.specStep(1));
     press($('specLeave'), () => this.hooks.specLeave());
     press($('againBtn'), () => hooks.again());
+    press($('endDouble'), () => ($('endDouble').classList.add('hidden'), hooks.adDouble()));
     press($('backBtn'), () => hooks.back());
     press($('panelClose'), () => this.closePanel());
     press(this.el.titleCta, () => hooks.cta());
@@ -886,14 +887,28 @@ export class UI {
     $('endMissions').innerHTML = data.profile.missions.active
       .map((m) => this.missionRow(m, data.result.completed.includes(m.id)))
       .join('');
+    $('endDouble').classList.add('hidden');
     this.el.end.classList.remove('hidden');
     this.endShown = true;
+    this.offerDouble();
     if (document.hidden) $('endScore').textContent = String(s.score);
     else setTimeout(() => this.endShown && this.countUp($('endScore'), s.score, 900), 300);
     return { title, cause: $('endCause').textContent };
   }
 
   // Save status and rewards for this attempt on the end card.
+  // A rewarded video doubles the run's snowflakes (DECISIONS 85, 86). Offered
+  // once the server has counted the run (the save can land after the card
+  // shows) and a video is ready.
+  offerDouble() {
+    const dbl = $('endDouble');
+    const n = this.hooks.doubleFlakes ? this.hooks.doubleFlakes() : 0;
+    if (!n || !this.hooks.adReady) return;
+    this.hooks.adReady().then((ok) => {
+      if (ok && this.endShown && this.hooks.doubleFlakes() === n) (dbl.textContent = t('ads.double', { n })), dbl.classList.remove('hidden');
+    });
+  }
+
   online(a) {
     const el = $('endOnline');
     el.classList.toggle('hidden', !a);

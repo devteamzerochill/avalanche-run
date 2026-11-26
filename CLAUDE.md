@@ -1,6 +1,6 @@
 # Avalanche Run: working notes
 
-A mobile-first arcade snowboard runner (three.js r160, vendored) rebuilt from a minified playable-ad prototype. You ride as the **Zero Chill fox** (the owner's company mascot) and outrun an avalanche down a seeded daily mountain. The owner directs the look and feel; read `DECISIONS.md` (84 numbered entries) before changing anything. It records why each choice was made.
+A mobile-first arcade snowboard runner (three.js r160, vendored) rebuilt from a minified playable-ad prototype. You ride as the **Zero Chill fox** (the owner's company mascot) and outrun an avalanche down a seeded daily mountain. The owner directs the look and feel; read `DECISIONS.md` (88 numbered entries) before changing anything. It records why each choice was made.
 
 ## Commands
 
@@ -20,7 +20,7 @@ node tools/serve.mjs 8124     # dev server from this folder; open /index.html, /
 cd mobile; node build-apps.mjs 1.0.1    # new version + build number; no argument rebuilds the current one. mobile/builds/<app>-v<X.Y.Z>.zip: debug APK, release APK and AAB, and the Xcode project
 ```
 
-Release builds are signed only with the owner's `mobile/android/keystore.properties` (never committed). The iOS project (`mobile/ios/App/App.xcodeproj`) builds in Xcode on a Mac.
+The apps show ads through Unity LevelPlay via our own plugin (`mobile/android/.../AdsPlugin.java`, `src/systems/ads.js`; DECISIONS 85, `docs/ads.md`); the web game has none. Release builds are signed only with the owner's `mobile/android/keystore.properties` (never committed). The iOS project (`mobile/ios/App/App.xcodeproj`) builds in Xcode on a Mac.
 
 Icon and splash art: `node tools/app-icon.mjs` with the dev server on 8124 (DECISIONS 80). A debug build's WebView can be inspected over adb (`webview_devtools_remote_<pid>`).
 
@@ -40,6 +40,7 @@ Redeploys cost nothing extra: Colyseus Cloud bills per server plan per month (ch
 - Not in git, so set up or copy by hand only when needed:
   - `server/.env` (only for the race server on that PC; copy `server/.env.example`, the owner types the race account);
   - `supabase/local-standins/test-account.json` (sign up again on the local stack);
+  - `supabase/functions/.env` (copy `supabase/functions/.env.example`; the local LevelPlay key for `tests/db.mjs`);
   - `mobile/android/keystore.properties` and the keystore (the owner's);
   - for `/build-apps`: `npm install` in `mobile/`, the Android SDK and JDK 21 (see the skill's Windows notes).
 

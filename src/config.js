@@ -188,6 +188,16 @@ export const CONFIG = {
   // The shop's try-on shot (DECISIONS 82): camera offset from the fox (m) and
   // the height it aims at; aimed low so the fox stands above the shop panel.
   shop: { camera: { x: 0.3, y: 1.2, z: -6.6, lookY: -1.45 } },
+  // Ads in the phone apps only (DECISIONS 85 and 87, docs/ads.md). The owner's
+  // LevelPlay apps (COPPA "Not directed"); app keys and ad unit ids are public,
+  // not secrets. iOS has no native plugin yet, so its keys sit unused until slice 4.
+  ads: {
+    android: { appKey: '29e30bffd', banner: '1ejg36zjdcvyvay0', interstitial: 'rb8t4uhzod9wxlcy', rewarded: 'focit7rafbp2tmn3' },
+    ios: { appKey: '29e30f985', banner: 'oentsdc1l9utv4mr', interstitial: '90hn0hta1ck4y2v6', rewarded: 'ms1vuba2ujkn56zo' },
+    everyRuns: 3, // an interstitial at most every 3rd run
+    gapSeconds: 120, // and never twice within this
+    freeRunsPerDay: 2, // never in the first runs of the day
+  },
 
   // --- look (P where the prototype exposed it) ----------------------------
   look: {

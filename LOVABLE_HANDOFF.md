@@ -63,6 +63,22 @@ Adds `avalanche_run_checks` and `avalanche_run_check_config` (both closed to pla
 
 Two catalogue rows, nothing else: a Gold rider for 750 Shards and a Gold board for 350 Shards. `buy_avalanche_item` and `select_avalanche_item` already handle any Shards item, so the site needs no change. Until it is applied, the game shows Gold in the shop but buying it fails with an unknown item.
 
+## Rewarded video crediting (migration `20261201000000_ad_rewards.sql` + callback route, DECISIONS 86)
+
+**Applied 2026-11-26** as live migration `0320_avalanche_ad_rewards`. The project allows no new edge functions, so Lovable built the callback as the website route `/api/public/levelplay-reward` (`src/routes/api/public/levelplay-reward.ts`, commit `9356ef55`, live once published). The project's rules also meant two SQL changes, both now in our file: no `auth.users` reference on `user_id`, and a `service_role` grant on the table. Checked on the live database: the table has row-level security, and only `service_role` can run `avalanche_ad_reward_callback`.
+
+For the phone apps only; the website doesn't change. Only new objects:
+
+| New | What it is |
+|---|---|
+| `avalanche_ad_rewards` | One ticket per rewarded video: whose it is, what it pays, and the LevelPlay event that paid it. Players can read their own rows only. |
+| `start_avalanche_ad_reward(p_kind, p_key)` | A signed-in player gets the ticket for doubling one of their counted runs, worth the snowflakes the server counted for it. |
+| `get_avalanche_ad_reward(p_ticket)` | A signed-in player's ticket status, with the profile once paid. |
+| `avalanche_ad_reward_callback(p_ticket, p_event_id, p_ip)` | Pays a ticket once. **Service role only**: only the callback route calls it. |
+| Route `/api/public/levelplay-reward` | LevelPlay's server-to-server callback on the website. Checks the MD5 signature against the `AR_LEVELPLAY_PRIVATE_KEY` secret, then calls the function above. Our `supabase/functions/levelplay-reward/` is its local stand-in for testing. |
+
+Needs the secret `AR_LEVELPLAY_PRIVATE_KEY`, which the owner sets once they have a LevelPlay account. Until then the route answers 503 and pays nothing.
+
 ## Tested locally
 
 On a local Supabase (Postgres 17, same auth and REST stack) with stand-ins for the live functions, `node tests/db.mjs` passes 11/11:

@@ -28,6 +28,7 @@ import { ChaseCamera } from './render/camera.js';
 import { UI, chatText } from './ui/ui.js';
 import { FRAME, applyFrame } from './ui/frame.js';
 import { Perf } from './systems/perf.js';
+import { Ads } from './systems/ads.js';
 
 const query = new URLSearchParams(location.search);
 const TEST = query.has('test');
@@ -102,6 +103,7 @@ class Game {
 
     this.audio = new AudioEngine();
     this.haptics = new Haptics();
+    this.ads = new Ads();
     this.voice = new Announcer();
     this.voice.onTalk = (on) => this.audio.duck(on);
     this.input = new Input(el, {
@@ -174,6 +176,9 @@ class Game {
         }
       },
       preview: () => this.applySkin(),
+      adReady: () => this.ads.rewardedReady(),
+      doubleFlakes: () => this.doubleFlakes(),
+      adDouble: () => this.watchDouble(),
       panelClosed: (name) => {
         if ((name === 'lobby' || name === 'shop') && this.state === 'title') this.ui.showTitle(true);
         // A race is over once its result panel is closed.
@@ -1189,6 +1194,7 @@ class Game {
     if (this.state === 'title') this.ui.refreshTitle();
     if (this.ui.panelName === 'ranks' || ((type === 'profile' || type === 'item_result') && ['shop', 'missions'].includes(this.ui.panelName))) this.ui.renderPanel();
     if (this.ui.endShown) this.ui.online(this.attempt);
+    if (type === 'submit_result' && this.ui.endShown) this.ui.offerDouble();
     if (type === 'submit_result' && this.attempt && this.attempt.status === 'counted' && this.attempt.result) {
       const r = this.attempt.result;
       if (r.pop && r.pop.cleared) this.audio.play('mission');
@@ -1245,6 +1251,8 @@ class Game {
     const data = this.recorder.encode();
     this.result = finishRun(this.profile, summary, { data });
     this.summary = summary;
+    this.ads.runEnded(this.profile.day);
+    this.endAd = null;
     this.store.save();
     services.leaderboard.submit(this.profile.day, { score: summary.score, seed: summary.seed });
     if (this.attempt && this.host.current === this.attempt) {
@@ -1610,6 +1618,44 @@ class Game {
     if (steps === cap) this.acc = 0;
   }
 
+  // What a rewarded video would add: the snowflakes the server counted for this
+  // run, since it pays from its own record. 0 hides the offer.
+  doubleFlakes() {
+    const live = this.host.live;
+    const a = this.attempt;
+    const av = a && a.result && a.result.avalanche;
+    if (!live || !live.session || this.raceMode || !a || a.status !== 'counted' || a.doubled || !av || av.duplicate) return 0;
+    return av.flakes_earned > 0 ? av.flakes_earned : 0;
+  }
+
+  // A rewarded video for the run's snowflakes again (DECISIONS 86). Only the
+  // server credits it, from LevelPlay's callback: the ticket for this run rides
+  // along as the LevelPlay user id, and afterwards the game waits a little for
+  // the server to say it has paid.
+  async watchDouble() {
+    if (!this.doubleFlakes()) return;
+    const live = this.host.live;
+    this.attempt.doubled = true;
+    const ticket = await live.adTicket(this.attempt.key).catch(() => null);
+    if (!ticket || !ticket.ok) return this.ui.toast(t('ads.doubleFailed'));
+    const r = await this.ads.showRewarded(ticket.ticket);
+    if (!r.rewarded) return;
+    this.ui.busy('ad', t('ads.checking'));
+    const paid = await live.adCredited(ticket.ticket, 10000).finally(() => this.ui.done('ad'));
+    this.ui.toast(t(paid && paid.status === 'credited' ? 'ads.doubled' : 'ads.doubleLater', { n: ticket.flakes }));
+  }
+
+  // The interstitial plays after the burial and before the results (DECISIONS 85).
+  endAdDone() {
+    if (this.endAd === 'done') return true;
+    if (!this.endAd) {
+      if (!this.ads.interstitialDue()) return (this.endAd = 'done'), true;
+      this.endAd = 'showing';
+      this.ads.showInterstitial().finally(() => (this.endAd = 'done'));
+    }
+    return false;
+  }
+
   frame(dt, first) {
     let sim = this.sim;
     const st = this.stage;
@@ -1618,6 +1664,8 @@ class Game {
     this.time += dt;
     this.fxTime = (this.fxTime || 0) + dt * (this.state === 'play' ? this.timeScale : 1);
     this.particles.time = this.fxTime;
+    // The banner shows on the title and the results only: never in a run, a race or an open panel.
+    this.ads.banner(!this.ui.panelName && ((this.state === 'title' && !this.race?.next?.in) || (this.state === 'end' && this.ui.endShown && !this.raceMode)));
 
     if (this.state === 'count') {
       this.countT -= dt;
@@ -1681,7 +1729,7 @@ class Game {
           this.raceMode.shown = true;
           this.ui.openPanel('race');
         }
-      } else if (!this.ui.endShown && this.endT > 0.7) {
+      } else if (!this.ui.endShown && this.endT > 0.7 && this.endAdDone()) {
         this.ui.showEnd({ summary: this.summary, result: this.result, profile: this.profile, attempt: this.attempt });
         this.audio.play(this.result.newBest ? 'newBest' : this.summary.outcome === 'timeout' ? 'win' : 'lose');
         if (this.result.newBest) this.hype('newBest', 3, 'hype', 'horn');
