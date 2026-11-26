@@ -64,6 +64,8 @@
 	<true/>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>Lets us show ads that fit you better. Avalanche Run stays free either way.</string>
 	<key>NSAppTransportSecurity</key>

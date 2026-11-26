@@ -27,6 +27,7 @@ import com.unity3d.mediation.LevelPlayConfiguration;
 import com.unity3d.mediation.LevelPlayInitError;
 import com.unity3d.mediation.LevelPlayInitListener;
 import com.unity3d.mediation.LevelPlayInitRequest;
+import com.unity3d.mediation.LevelPlayPrivacySettings;
 import com.unity3d.mediation.banner.LevelPlayBannerAdView;
 import com.unity3d.mediation.banner.LevelPlayBannerAdViewListener;
 import com.unity3d.mediation.interstitial.LevelPlayInterstitialAd;
@@ -64,6 +65,7 @@ public class AdsPlugin extends Plugin {
             call.resolve(status());
             return;
         }
+        applyPrivacy(call);
         final String bannerId = call.getString("banner");
         final String interstitialId = call.getString("interstitial");
         final String rewardedId = call.getString("rewarded");
@@ -86,6 +88,22 @@ public class AdsPlugin extends Plugin {
                 call.reject("init failed: " + error);
             }
         });
+    }
+
+    // The player's ad privacy answers (DECISIONS 92), handed over before init and
+    // again whenever Settings changes them: { consent?: boolean, doNotSell?: boolean }.
+    // No consent key means the question was never asked, so nothing is set.
+    @PluginMethod
+    public void privacy(PluginCall call) {
+        applyPrivacy(call);
+        call.resolve();
+    }
+
+    private void applyPrivacy(PluginCall call) {
+        Boolean consent = call.getBoolean("consent");
+        if (consent != null) LevelPlayPrivacySettings.setGDPRConsent(consent);
+        Boolean doNotSell = call.getBoolean("doNotSell");
+        if (doNotSell != null) LevelPlayPrivacySettings.setCCPA(doNotSell);
     }
 
     @PluginMethod

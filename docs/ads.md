@@ -13,7 +13,7 @@ Agreed with the owner on 2026-11-25 (DECISIONS 85). Anything marked **Proposal**
 
 - **Not child-directed, for now (DECISIONS 87, replacing the child-directed rule in 85).** The app sends no COPPA flag and no device-ID opt-out, and keeps the advertising ID permission, so more networks fill.
 - LevelPlay locks COPPA when an app is created, so two new apps were made with COPPA "Not directed" (Android `29e30bffd`, iOS `29e30f985`). The first two ("Directed") are renamed "Avalanche Run (old)" and unused.
-- **Known risk, accepted by the owner:** the players include kids, so COPPA and Google Play's Families rules apply whatever the setting says. Reviewed before release on 2026-11-26: the owner chose to leave it as is (no age question, no Families setup, no ad content rating cap). iOS asks Apple's tracking prompt once (DECISIONS 89).
+- **Known risk, accepted by the owner:** the players include kids, so COPPA and Google Play's Families rules apply whatever the setting says. Reviewed before release on 2026-11-26: the owner chose to leave it as is (no age question, no Families setup, no ad content rating cap). iOS asks Apple's tracking prompt once (DECISIONS 89). EEA/UK consent, the US Do Not Sell switch and Settings › Privacy: DECISIONS 92 and `docs/store-readiness.md`.
 
 ## Rewarded video
 
@@ -65,7 +65,7 @@ Written on 2026-11-26 without a Mac, so **not compiled or run yet**. The owner c
   - `LevelPlay-Swift-Package` 9.8.0, product `UnityMediationSDK` (module `IronSource`);
   - `LevelPlay-UnityAds-Adapter-Swift-Package` 5.14.0, product `UnityAdsAdapter`;
   - `-ObjC` in Other Linker Flags, as LevelPlay's package README asks.
-- **Info.plist:** SKAdNetwork ids for LevelPlay (`su67r6k2v3`) and Unity Ads (`4dzt52r2t5`), and `NSAllowsArbitraryLoads` as LevelPlay's docs ask. Apple's tracking prompt (ATT) is asked once, before LevelPlay starts, with `NSUserTrackingUsageDescription` as its reason (DECISIONS 89).
+- **Info.plist:** SKAdNetwork ids for LevelPlay (`su67r6k2v3`) and Unity Ads (`4dzt52r2t5`), and `NSAllowsArbitraryLoads` as LevelPlay's docs ask. Apple's tracking prompt (ATT) is asked once on first launch, after the game's own explainer and before LevelPlay starts, with `NSUserTrackingUsageDescription` as its reason; players who declined the EEA/UK consent question aren't asked (DECISIONS 89, 92).
 - **Needs Xcode 26 or newer** (LevelPlay 9.5.0 and later).
 
 **Not checked against the real SDK** (the docs show the calls but not every type name). If Xcode complains, look here first:
