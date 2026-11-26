@@ -169,7 +169,7 @@ public class AdsPlugin extends Plugin {
         banner = new LevelPlayBannerAdView(a, id, config);
         banner.setBannerListener(new LevelPlayBannerAdViewListener() {
             @Override public void onAdLoaded(LevelPlayAdInfo info) { bannerLoaded = true; applyBanner(); }
-            @Override public void onAdLoadFailed(LevelPlayAdError error) { Log.w(TAG, "banner load failed: " + error); bannerLoaded = false; applyBanner(); }
+            @Override public void onAdLoadFailed(LevelPlayAdError error) { Log.w(TAG, "banner load failed: " + error); bannerLoaded = false; applyBanner(); retryLoad(() -> banner.loadAd()); }
         });
         bannerHolder = new FrameLayout(a);
         bannerHolder.setVisibility(View.GONE);
@@ -191,8 +191,12 @@ public class AdsPlugin extends Plugin {
         if (bannerHolder == null) return;
         boolean show = bannerWanted && bannerLoaded;
         bannerHolder.setVisibility(show ? View.VISIBLE : View.GONE);
-        if (show) banner.resumeAutoRefresh();
-        else banner.pauseAutoRefresh();
+        // Only pause refresh once a banner has arrived: pausing while the first
+        // load is still in flight stalls it, and the banner never shows.
+        if (bannerLoaded) {
+            if (show) banner.resumeAutoRefresh();
+            else banner.pauseAutoRefresh();
+        }
         JSObject o = new JSObject();
         // CSS pixels equal dp in the WebView.
         o.put("height", show ? LevelPlayAdSize.BANNER.getHeight() : 0);
