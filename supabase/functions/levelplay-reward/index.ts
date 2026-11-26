@@ -8,13 +8,13 @@
 // LevelPlay calls this URL once a rewarded video has been watched, and retries
 // until the response contains "<eventId>:OK". The user id it carries is our
 // reward ticket (start_avalanche_ad_reward). A callback is trusted only if its
-// MD5 signature matches LEVELPLAY_PRIVATE_KEY, the private key set in the
+// MD5 signature matches AR_LEVELPLAY_PRIVATE_KEY, the private key set in the
 // LevelPlay dashboard; without that secret nothing is credited.
 //
 // Served with JWT verification off (supabase/config.toml): LevelPlay sends no Supabase token.
 import { createHash, timingSafeEqual } from 'node:crypto';
 
-const PRIVATE_KEY = Deno.env.get('LEVELPLAY_PRIVATE_KEY') ?? '';
+const PRIVATE_KEY = Deno.env.get('AR_LEVELPLAY_PRIVATE_KEY') ?? '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 

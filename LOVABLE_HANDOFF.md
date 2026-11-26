@@ -75,9 +75,9 @@ For the phone apps only; the website doesn't change. Only new objects:
 | `start_avalanche_ad_reward(p_kind, p_key)` | A signed-in player gets the ticket for doubling one of their counted runs, worth the snowflakes the server counted for it. |
 | `get_avalanche_ad_reward(p_ticket)` | A signed-in player's ticket status, with the profile once paid. |
 | `avalanche_ad_reward_callback(p_ticket, p_event_id, p_ip)` | Pays a ticket once. **Service role only**: only the callback route calls it. |
-| Route `/api/public/levelplay-reward` | LevelPlay's server-to-server callback on the website. Checks the MD5 signature against the `LEVELPLAY_PRIVATE_KEY` secret, then calls the function above. Our `supabase/functions/levelplay-reward/` is its local stand-in for testing. |
+| Route `/api/public/levelplay-reward` | LevelPlay's server-to-server callback on the website. Checks the MD5 signature against the `AR_LEVELPLAY_PRIVATE_KEY` secret, then calls the function above. Our `supabase/functions/levelplay-reward/` is its local stand-in for testing. |
 
-Needs the secret `LEVELPLAY_PRIVATE_KEY`, which the owner sets once they have a LevelPlay account. Until then the route answers 503 and pays nothing.
+Needs the secret `AR_LEVELPLAY_PRIVATE_KEY`, which the owner sets once they have a LevelPlay account. Until then the route answers 503 and pays nothing.
 
 ## Tested locally
 

@@ -107,8 +107,8 @@ results.shopLog = sql(`select string_agg(amount || ':' || ref, ',' order by id) 
 // Rewarded video crediting (DECISIONS 86): a ticket per counted run, paid only by
 // LevelPlay's signed callback through the levelplay-reward edge function. The
 // local function reads its key from supabase/functions/.env (copy .env.example).
-const LP_KEY = (readFileSync(new URL('../supabase/functions/.env', import.meta.url), 'utf8').match(/^LEVELPLAY_PRIVATE_KEY=(.*)$/m) || [])[1];
-if (!LP_KEY) throw new Error('supabase/functions/.env has no LEVELPLAY_PRIVATE_KEY (copy supabase/functions/.env.example)');
+const LP_KEY = (readFileSync(new URL('../supabase/functions/.env', import.meta.url), 'utf8').match(/^AR_LEVELPLAY_PRIVATE_KEY=(.*)$/m) || [])[1];
+if (!LP_KEY) throw new Error('supabase/functions/.env has no AR_LEVELPLAY_PRIVATE_KEY (copy supabase/functions/.env.example)');
 const C = await signUp();
 const callback = (ticket, eventId, o = {}) => {
   const timestamp = '202612011200';

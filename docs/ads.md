@@ -56,7 +56,7 @@ Players choose to watch, and get one of two rewards:
 - **The advertising ID permission is removed** in the manifest.
 - **The game side is `src/systems/ads.js`.** It does nothing outside the apps. It holds the pacing rules, kept in their own localStorage key so restarting the app doesn't reset them.
 - **The banner's height goes to the CSS variable `--ad`.** The title screen and the results card pad by it.
-- **Keys:** `CONFIG.ads.android` holds **Unity's public demo app key and ad units**, from `ironsource-mobile/Mediation-Demo-Apps`. Replace them with the owner's own before release.
+- **Keys:** `CONFIG.ads` holds the owner's own LevelPlay app keys and ad unit ids (created 2026-11-26), for Android and iOS. The apps are "Not live yet" with COPPA set to "Directed". The ad units use the dashboard defaults with no capping or pacing, because the game paces itself. The rewarded units' reward ("Snowflakes", 1) is a placeholder, because the server decides the amount.
 
 ## How a rewarded video is credited (slice 2, DECISIONS 86)
 
@@ -64,7 +64,7 @@ Players choose to watch, and get one of two rewards:
 2. On a tap, the app asks for a ticket: `start_avalanche_ad_reward('double', <run key>)`. Asking again for the same run returns the same ticket.
 3. The video plays with the **ticket id as the LevelPlay user id** (`setDynamicUserId`).
 4. LevelPlay calls the website route **`https://zerochill.com/api/public/levelplay-reward`** (`src/routes/api/public/levelplay-reward.ts` in the ZeroChill.com project; the live project allows no new edge functions). Locally the same behaviour is the edge function `supabase/functions/levelplay-reward/`. It:
-   - refuses a callback whose signature doesn't match: `md5(timestamp + eventId + userId + rewards + LEVELPLAY_PRIVATE_KEY)`;
+   - refuses a callback whose signature doesn't match: `md5(timestamp + eventId + userId + rewards + AR_LEVELPLAY_PRIVATE_KEY)`;
    - calls `avalanche_ad_reward_callback` as the service role, which pays the ticket once and records the event id, so a retried event pays nothing;
    - answers `<eventId>:OK` for every final outcome (paid, retry, used ticket, unknown ticket) so LevelPlay stops retrying, and an error status only for a database failure.
 5. After the video the app checks the ticket (`get_avalanche_ad_reward`) for about 10 seconds. Paid: "+N ❄ added" and the new balance. Not yet: "on the way"; the balance updates on the next profile load.
@@ -82,12 +82,12 @@ The dashboard's callback test (enter a ticket id as the User ID) checks the firs
 
 ## Before release
 
-- **Use the owner's own keys.** Unity's demo key serves ordinary live campaigns that aren't child-directed. A test showed a game ad rated 16+ that opened the Play Store on its own.
+- **Use the owner's own keys** (done). Unity's demo key serves ordinary live campaigns that aren't child-directed. A test showed a game ad rated 16+ that opened the Play Store on its own.
 - **In the owner's LevelPlay dashboard:**
-  - mark the apps as child-directed / Families;
+  - mark the apps as child-directed (done: COPPA "Directed");
   - choose only certified networks for families;
   - set the ad content rating.
 - **Set up the server-to-server rewarded callback:**
-  - URL: `https://zerochill.com/api/public/levelplay-reward?userId=[USER_ID]&rewards=[REWARDS]&eventId=[EVENT_ID]` (live once the site is published with it);
-  - set a private key, and give the same value to Lovable as the website's `LEVELPLAY_PRIVATE_KEY` secret;
+  - URL: `https://zerochill.com/api/public/levelplay-reward?userId=[USER_ID]&rewards=[REWARDS]&eventId=[EVENT_ID]` (done on both apps, 2026-11-26; the route is published);
+  - set a private key (done, one key shared by both apps), and give the same value to Lovable as the website's `AR_LEVELPLAY_PRIVATE_KEY` secret;
   - run the dashboard's callback test with a real ticket id.

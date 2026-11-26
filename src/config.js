@@ -188,11 +188,12 @@ export const CONFIG = {
   // The shop's try-on shot (DECISIONS 82): camera offset from the fox (m) and
   // the height it aims at; aimed low so the fox stands above the shop panel.
   shop: { camera: { x: 0.3, y: 1.2, z: -6.6, lookY: -1.45 } },
-  // Ads in the phone apps only (DECISIONS 85, docs/ads.md). These are Unity's
-  // public LevelPlay demo app key and test ad units (Mediation-Demo-Apps); swap in
-  // the owner's own once the LevelPlay account exists. Android only so far.
+  // Ads in the phone apps only (DECISIONS 85, docs/ads.md). The owner's LevelPlay
+  // apps (COPPA "Directed"); app keys and ad unit ids are public, not secrets.
+  // iOS has no native plugin yet, so its keys sit unused until slice 4.
   ads: {
-    android: { appKey: '25b63cf85', banner: '4fpetq4lhe5lsw3e', interstitial: 'h3xw38h9214adgxo', rewarded: 'syz3d8ekts22q0or' },
+    android: { appKey: '29e263005', banner: 's5mwyyn4823prue0', interstitial: 's5heglg2dylilnft', rewarded: 'br41sq455t89jedv' },
+    ios: { appKey: '29e26a315', banner: 'h0jqtue1ohmlpalj', interstitial: 'mmx1o4z6elg17krf', rewarded: '73jsk74hhfjpcg0w' },
     everyRuns: 3, // an interstitial at most every 3rd run
     gapSeconds: 120, // and never twice within this
     freeRunsPerDay: 2, // never in the first runs of the day
