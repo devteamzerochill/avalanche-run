@@ -1,6 +1,6 @@
 # Avalanche Run: working notes
 
-A mobile-first arcade snowboard runner (three.js r160, vendored) rebuilt from a minified playable-ad prototype. You ride as the **Zero Chill fox** (the owner's company mascot) and outrun an avalanche down a seeded daily mountain. The owner directs the look and feel; read `DECISIONS.md` (87 numbered entries) before changing anything. It records why each choice was made.
+A mobile-first arcade snowboard runner (three.js r160, vendored) rebuilt from a minified playable-ad prototype. You ride as the **Zero Chill fox** (the owner's company mascot) and outrun an avalanche down a seeded daily mountain. The owner directs the look and feel; read `DECISIONS.md` (88 numbered entries) before changing anything. It records why each choice was made.
 
 ## Commands
 

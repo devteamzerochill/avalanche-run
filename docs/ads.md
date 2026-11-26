@@ -17,17 +17,12 @@ Agreed with the owner on 2026-11-25 (DECISIONS 85). Anything marked **Proposal**
 
 ## Rewarded video
 
-Players choose to watch, and get one of two rewards:
+Players choose to watch, and get **double the run's snowflakes**: a button on the results screen after a solo run that paid snowflakes.
 
-1. **Double the run's snowflakes.** A button on the results screen after a solo run that paid snowflakes.
-2. **Daily spin wheel.** Watching unlocks one spin a day. The wheel has its own button on the home screen.
-   - The slices are snowflake amounts, plus a rare item slice of about **1 in 30 spins**.
-   - The item slice unlocks a random snowflake-priced item the player doesn't own yet.
-   - Items with a Shards price are never on the wheel.
-
-**Proposal** (not agreed yet):
-- The snowflake slices are 20, 30, 40, 50, 60, 80, 100 and 200, with smaller amounts more likely (about 55 on average).
-- If the player already owns every snowflake item, the item slice gives 200 snowflakes instead.
+**Back burner: daily spin wheel** (owner, 2026-11-26, DECISIONS 88). Taken out of the plan for now; not built. What was agreed in 85, kept for when it comes back:
+- Watching unlocks one spin a day; the wheel has its own button on the home screen.
+- The slices are snowflake amounts, plus a rare item slice of about 1 in 30 spins that unlocks a random snowflake-priced item the player doesn't own yet. Items with a Shards price are never on the wheel.
+- Never agreed (was a proposal): slices of 20, 30, 40, 50, 60, 80, 100 and 200 with smaller amounts more likely (about 55 on average), and 200 snowflakes instead of the item slice once the player owns every snowflake item.
 
 **Granting:**
 - Rewards are credited only by the zerochill.com server, after **LevelPlay's server-to-server rewarded callback** confirms the video was completed. The game never credits a reward itself.
