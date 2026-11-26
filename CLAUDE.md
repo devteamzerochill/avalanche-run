@@ -40,6 +40,7 @@ Redeploys cost nothing extra: Colyseus Cloud bills per server plan per month (ch
 - Not in git, so set up or copy by hand only when needed:
   - `server/.env` (only for the race server on that PC; copy `server/.env.example`, the owner types the race account);
   - `supabase/local-standins/test-account.json` (sign up again on the local stack);
+  - `supabase/functions/.env` (copy `supabase/functions/.env.example`; the local LevelPlay key for `tests/db.mjs`);
   - `mobile/android/keystore.properties` and the keystore (the owner's);
   - for `/build-apps`: `npm install` in `mobile/`, the Android SDK and JDK 21 (see the skill's Windows notes).
 

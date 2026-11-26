@@ -177,6 +177,7 @@ class Game {
       },
       preview: () => this.applySkin(),
       adReady: () => this.ads.rewardedReady(),
+      doubleFlakes: () => this.doubleFlakes(),
       adDouble: () => this.watchDouble(),
       panelClosed: (name) => {
         if ((name === 'lobby' || name === 'shop') && this.state === 'title') this.ui.showTitle(true);
@@ -1193,6 +1194,7 @@ class Game {
     if (this.state === 'title') this.ui.refreshTitle();
     if (this.ui.panelName === 'ranks' || ((type === 'profile' || type === 'item_result') && ['shop', 'missions'].includes(this.ui.panelName))) this.ui.renderPanel();
     if (this.ui.endShown) this.ui.online(this.attempt);
+    if (type === 'submit_result' && this.ui.endShown) this.ui.offerDouble();
     if (type === 'submit_result' && this.attempt && this.attempt.status === 'counted' && this.attempt.result) {
       const r = this.attempt.result;
       if (r.pop && r.pop.cleared) this.audio.play('mission');
@@ -1616,12 +1618,31 @@ class Game {
     if (steps === cap) this.acc = 0;
   }
 
-  // A rewarded video for the run's snowflakes again. The server credits it from
-  // LevelPlay's callback (slice 2, docs/ads.md); until then the game only says so.
+  // What a rewarded video would add: the snowflakes the server counted for this
+  // run, since it pays from its own record. 0 hides the offer.
+  doubleFlakes() {
+    const live = this.host.live;
+    const a = this.attempt;
+    const av = a && a.result && a.result.avalanche;
+    if (!live || !live.session || this.raceMode || !a || a.status !== 'counted' || a.doubled || !av || av.duplicate) return 0;
+    return av.flakes_earned > 0 ? av.flakes_earned : 0;
+  }
+
+  // A rewarded video for the run's snowflakes again (DECISIONS 86). Only the
+  // server credits it, from LevelPlay's callback: the ticket for this run rides
+  // along as the LevelPlay user id, and afterwards the game waits a little for
+  // the server to say it has paid.
   async watchDouble() {
-    const n = this.summary ? this.summary.flakes : 0;
-    const r = await this.ads.showRewarded();
-    if (r.rewarded) this.ui.toast(t('ads.doubleTest', { n }));
+    if (!this.doubleFlakes()) return;
+    const live = this.host.live;
+    this.attempt.doubled = true;
+    const ticket = await live.adTicket(this.attempt.key).catch(() => null);
+    if (!ticket || !ticket.ok) return this.ui.toast(t('ads.doubleFailed'));
+    const r = await this.ads.showRewarded(ticket.ticket);
+    if (!r.rewarded) return;
+    this.ui.busy('ad', t('ads.checking'));
+    const paid = await live.adCredited(ticket.ticket, 10000).finally(() => this.ui.done('ad'));
+    this.ui.toast(t(paid && paid.status === 'credited' ? 'ads.doubled' : 'ads.doubleLater', { n: ticket.flakes }));
   }
 
   // The interstitial plays after the burial and before the results (DECISIONS 85).
