@@ -851,10 +851,10 @@ export class UI {
     }
     if (gust <= 0.02) return;
     // A navy tunnel at the edges, so the white streaks have something darker
-    // than snow to show against (owner, 2026-11-26).
+    // than snow to show against (owner, 2026-11-26; lightened twice the same day, to a quarter).
     const vg = g.createRadialGradient(cx, cy, R * 0.22, cx, cy, R * 0.8);
     vg.addColorStop(0, 'rgba(12,28,53,0)');
-    vg.addColorStop(1, 'rgba(12,28,53,' + (0.5 * gust).toFixed(3) + ')');
+    vg.addColorStop(1, 'rgba(12,28,53,' + (0.125 * gust).toFixed(3) + ')');
     g.fillStyle = vg;
     g.fillRect(0, 0, w, h);
     // Wind: long white streaks rushing out from the middle, fading in and out

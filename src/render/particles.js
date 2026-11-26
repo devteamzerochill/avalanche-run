@@ -284,6 +284,7 @@ export function makeBlobShadow() {
 // air too. With no trail worn the board leaves nothing; the owner removed the
 // twin speed streaks it used to draw at speed.
 const SPEED_N = 64;
+const TAIL = 0.98; // the board's tail behind the rider's centre (m), at the rider's scale
 export class SpeedTrail {
   constructor(stage) {
     const geo = new THREE.BufferGeometry();
@@ -344,26 +345,54 @@ export class SpeedTrail {
     if (trail) [u.uC0, u.uC1, u.uC2].forEach((c, i) => c.value.set(trail.colors[Math.min(i, trail.colors.length - 1)]));
   }
 
+  // The shop's turntable turned the fox (and the ribbon, which rides on it) by
+  // angle: swing the points already laid down back the other way, so they stay
+  // put while the board turns away and the ribbon bends after it.
+  turn(angle) {
+    const c = Math.cos(-angle), sn = Math.sin(-angle);
+    for (const p of this.pts) {
+      const z = this.lastDist - p.d;
+      const x = p.x * c + z * sn;
+      p.d = this.lastDist - (-p.x * sn + z * c);
+      p.x = x;
+    }
+  }
+
   // on: riding (the ribbon hides otherwise)
-  // gap: metres between the rider and the start of the ribbon.
-  update(dt, x, y, dist, on, gap = 1.3) {
+  // gap: metres from the rider to where the ribbon shows.
+  // yaw: the board's turn (rider.yaw). The ribbon starts at the board's tail,
+  // which swings out as the board turns, and each point stays where the tail
+  // actually was, so turning and panning bend it instead of sliding it sideways
+  // stiffly (owner, 2026-11-26).
+  update(dt, x, y, dist, on, gap = 1.3, yaw = 0) {
     this.t += dt;
-    this.pts.unshift({ x, y, d: dist });
+    this.lastDist = dist;
+    this.pts.unshift({ x: x + Math.sin(yaw) * TAIL, y, d: dist - Math.cos(yaw) * TAIL });
     if (this.pts.length > SPEED_N) this.pts.pop();
     this.uniforms.uT.value = this.t;
     const n = this.pts.length;
+    const at = (i) => this.pts[Math.min(i, n - 1)];
+    const lead = Math.max(0, gap - TAIL); // clear snow between the tail and the ribbon
+    let s = 0;
     for (let i = 0; i < SPEED_N; i++) {
-      const p = this.pts[Math.min(i, n - 1)];
+      const p = at(i);
+      if (i > 0) s += Math.hypot(p.x - at(i - 1).x, p.d - at(i - 1).d);
       const u = i / (SPEED_N - 1);
       // Grows out of nothing at the start, then tapers to a point.
       const w = 0.11 * (0.35 + 0.65 * Math.min(1, u / 0.12)) * (1 - u * 0.75);
-      const z = -(p.d - dist) + gap; // starts a little behind the board (owner, 2026-11-26)
+      // Width across the ribbon's own direction, so a curve keeps its width.
+      const a0 = at(Math.max(0, i - 1)), a1 = at(i + 1);
+      let tx = a0.x - a1.x, tz = a1.d - a0.d;
+      const tl = Math.hypot(tx, tz);
+      if (tl > 1e-4) (tx /= tl), (tz /= tl);
+      else (tx = 0), (tz = 1);
+      const z = -(p.d - dist);
       const v = i * 2;
-      this.pos.setXYZ(v, p.x - w, p.y + 0.04, z);
-      this.pos.setXYZ(v + 1, p.x + w, p.y + 0.04, z);
-      // See-through (owner, 2026-11-26); fades in over the first stretch and out
-      // smoothly towards the end, so neither end is a hard cut.
-      const fadeIn = Math.min(1, u / 0.12), fadeOut = 1 - Math.max(0, (u - 0.35) / 0.65);
+      this.pos.setXYZ(v, p.x - w * tz, p.y + 0.04, z + w * tx);
+      this.pos.setXYZ(v + 1, p.x + w * tz, p.y + 0.04, z - w * tx);
+      // See-through (owner, 2026-11-26); fades in over the first metre after
+      // the gap and out smoothly towards the end, so neither end is a hard cut.
+      const fadeIn = Math.min(1, Math.max(0, (s - lead) / 1.1)), fadeOut = 1 - Math.max(0, (u - 0.35) / 0.65);
       const a = !on || i >= n ? 0 : fadeIn * fadeIn * (3 - 2 * fadeIn) * fadeOut * fadeOut * (3 - 2 * fadeOut) * 0.85;
       this.alpha.setX(v, a);
       this.alpha.setX(v + 1, a);
