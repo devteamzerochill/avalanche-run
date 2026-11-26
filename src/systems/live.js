@@ -188,6 +188,26 @@ export class LiveBackend {
     return Array.isArray(rows) && rows[0] ? rows[0].best_distance : null;
   }
 
+  // --- rewarded videos (DECISIONS 86, docs/ads.md) ------------------------------
+  // A one-use ticket for doubling a counted run; its id goes to LevelPlay as the user id.
+  adTicket(key) {
+    return this.rpc('start_avalanche_ad_reward', { p_kind: 'double', p_key: key }, true);
+  }
+
+  // Asks about a ticket until LevelPlay's callback has paid it or `ms` have passed.
+  async adCredited(ticket, ms) {
+    const until = Date.now() + ms;
+    for (;;) {
+      const r = await this.rpc('get_avalanche_ad_reward', { p_ticket: ticket }, true).catch(() => null);
+      if (r && r.status === 'credited') {
+        if (r.profile) this.send({ type: 'profile', profile: r.profile });
+        return r;
+      }
+      if (Date.now() >= until) return r;
+      await wait(1000);
+    }
+  }
+
   // Best effort, like the website: play never waits for this.
   async startRun(attempt) {
     const seq = ++this.startSeq;

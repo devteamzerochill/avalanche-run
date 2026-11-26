@@ -58,7 +58,27 @@ Players choose to watch, and get one of two rewards:
 - **The banner's height goes to the CSS variable `--ad`.** The title screen and the results card pad by it.
 - **Keys:** `CONFIG.ads.android` holds **Unity's public demo app key and ad units**, from `ironsource-mobile/Mediation-Demo-Apps`. Replace them with the owner's own before release.
 
-**Until slice 2 lands:** the "watch a video" button plays the ad, then only shows a "will be credited" message. Nothing is credited.
+## How a rewarded video is credited (slice 2, DECISIONS 86)
+
+1. The results card offers **"Watch a video: +N ❄"** only once the server has counted the run, with N the snowflakes the server counted for it.
+2. On a tap, the app asks for a ticket: `start_avalanche_ad_reward('double', <run key>)`. Asking again for the same run returns the same ticket.
+3. The video plays with the **ticket id as the LevelPlay user id** (`setDynamicUserId`).
+4. LevelPlay calls the **`levelplay-reward` edge function** (`supabase/functions/levelplay-reward/`). It:
+   - refuses a callback whose signature doesn't match: `md5(timestamp + eventId + userId + rewards + LEVELPLAY_PRIVATE_KEY)`;
+   - calls `avalanche_ad_reward_callback` as the service role, which pays the ticket once and records the event id, so a retried event pays nothing;
+   - answers `<eventId>:OK` for every final outcome (paid, retry, used ticket, unknown ticket) so LevelPlay stops retrying, and an error status only for a database failure.
+5. After the video the app checks the ticket (`get_avalanche_ad_reward`) for about 10 seconds. Paid: "+N ❄ added" and the new balance. Not yet: "on the way"; the balance updates on the next profile load.
+
+The amount is always ours. LevelPlay's `rewards` value follows ad revenue and is only used in the signature.
+
+**Local testing:** copy `supabase/functions/.env.example` to `.env`, `npx supabase start`, then `node tests/db.mjs` signs callbacks with the local key and calls the function.
+
+**Not confirmed yet** (needs the owner's LevelPlay account):
+- that the `dynamicUserId` set before the video arrives as the callback's user id;
+- the exact parameter names on the wire (the docs disagree; the function accepts `userId`, `userid`, `applicationUserId` and `appUserId`);
+- that LevelPlay signs callbacks once a private key is set.
+
+The dashboard's callback test (enter a ticket id as the User ID) checks the first two without a video.
 
 ## Before release
 
@@ -67,4 +87,7 @@ Players choose to watch, and get one of two rewards:
   - mark the apps as child-directed / Families;
   - choose only certified networks for families;
   - set the ad content rating.
-- **Set up the server-to-server rewarded callback** (slice 2).
+- **Set up the server-to-server rewarded callback:**
+  - URL: `https://<project>.supabase.co/functions/v1/levelplay-reward?userId=[USER_ID]&rewards=[REWARDS]&eventId=[EVENT_ID]`;
+  - set a private key, and give the same value to Lovable as the `LEVELPLAY_PRIVATE_KEY` secret;
+  - run the dashboard's callback test with a real ticket id.

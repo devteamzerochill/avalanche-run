@@ -63,6 +63,20 @@ Adds `avalanche_run_checks` and `avalanche_run_check_config` (both closed to pla
 
 Two catalogue rows, nothing else: a Gold rider for 750 Shards and a Gold board for 350 Shards. `buy_avalanche_item` and `select_avalanche_item` already handle any Shards item, so the site needs no change. Until it is applied, the game shows Gold in the shop but buying it fails with an unknown item.
 
+## Rewarded video crediting (migration `20261201000000_ad_rewards.sql` + edge function `levelplay-reward`, DECISIONS 86)
+
+For the phone apps only; the website doesn't change. Only new objects:
+
+| New | What it is |
+|---|---|
+| `avalanche_ad_rewards` | One ticket per rewarded video: whose it is, what it pays, and the LevelPlay event that paid it. Players can read their own rows only. |
+| `start_avalanche_ad_reward(p_kind, p_key)` | A signed-in player gets the ticket for doubling one of their counted runs, worth the snowflakes the server counted for it. |
+| `get_avalanche_ad_reward(p_ticket)` | A signed-in player's ticket status, with the profile once paid. |
+| `avalanche_ad_reward_callback(p_ticket, p_event_id, p_ip)` | Pays a ticket once. **Service role only**: only the edge function calls it. |
+| Edge function `levelplay-reward` | LevelPlay's server-to-server callback. Checks the MD5 signature against the `LEVELPLAY_PRIVATE_KEY` secret, then calls the function above. **Deploy with JWT verification off** (`verify_jwt = false`, in `supabase/config.toml`): LevelPlay sends no token. |
+
+Needs the secret `LEVELPLAY_PRIVATE_KEY`, which the owner sets once they have a LevelPlay account. Until then the function answers 503 and pays nothing.
+
 ## Tested locally
 
 On a local Supabase (Postgres 17, same auth and REST stack) with stand-ins for the live functions, `node tests/db.mjs` passes 11/11:
