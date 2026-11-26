@@ -64,7 +64,7 @@ Players choose to watch, and get one of two rewards:
 
 1. The results card offers **"Watch a video: +N ❄"** only once the server has counted the run, with N the snowflakes the server counted for it.
 2. On a tap, the app asks for a ticket: `start_avalanche_ad_reward('double', <run key>)`. Asking again for the same run returns the same ticket.
-3. The video plays with the **ticket id as the LevelPlay user id** (`setDynamicUserId`).
+3. The video plays with the **ticket id as LevelPlay's dynamic user id** (`setDynamicUserId`). LevelPlay adds it to the callback as its own `dynamicUserId` parameter and leaves `userId` empty; the dashboard's callback test puts the ticket in `userId` instead. The route takes `dynamicUserId` first, then `userId`, and accepts a signature over either, since which one LevelPlay signs isn't documented.
 4. LevelPlay calls the website route **`https://zerochill.com/api/public/levelplay-reward`** (`src/routes/api/public/levelplay-reward.ts` in the ZeroChill.com project; the live project allows no new edge functions). Locally the same behaviour is the edge function `supabase/functions/levelplay-reward/`. It:
    - refuses a callback whose signature doesn't match: `md5(timestamp + eventId + userId + rewards + AR_LEVELPLAY_PRIVATE_KEY)`;
    - calls `avalanche_ad_reward_callback` as the service role, which pays the ticket once and records the event id, so a retried event pays nothing;
@@ -77,7 +77,7 @@ The amount is always ours. LevelPlay's `rewards` value follows ad revenue and is
 
 **Confirmed on 2026-11-26** with the dashboard's callback test on the Android app: a real ticket id entered as the User ID was paid once on the live site (+44 ❄, balance 710 → 754), with LevelPlay's own event id recorded. So the `userId` parameter arrives as set in the callback URL, LevelPlay signs with the private key, and the website's `AR_LEVELPLAY_PRIVATE_KEY` matches.
 
-**Not confirmed yet:** that the `dynamicUserId` set before a real video arrives as the callback's user id. This needs ad fill.
+**Found on 2026-11-26 after a real video:** LevelPlay sent the ticket as `dynamicUserId` with `userId` empty. The route only read `userId`, so it refused all three callbacks with 400 "missing parameters" and paid nothing. The route was fixed and published the same day (ZeroChill.com commit 9ac0affb).
 
 ## Before release
 

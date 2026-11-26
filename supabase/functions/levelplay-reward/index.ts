@@ -7,7 +7,8 @@
 //
 // LevelPlay calls this URL once a rewarded video has been watched, and retries
 // until the response contains "<eventId>:OK". The user id it carries is our
-// reward ticket (start_avalanche_ad_reward). A callback is trusted only if its
+// reward ticket (start_avalanche_ad_reward): after a real video it arrives as
+// dynamicUserId with userId empty; the dashboard's test puts it in userId. A callback is trusted only if its
 // MD5 signature matches AR_LEVELPLAY_PRIVATE_KEY, the private key set in the
 // LevelPlay dashboard; without that secret nothing is credited.
 //
@@ -31,7 +32,8 @@ const same = (a: string, b: string) => a.length === b.length && timingSafeEqual(
 
 Deno.serve(async (req) => {
   const q = new URL(req.url).searchParams;
-  const user = param(q, 'userId', 'userid', 'applicationUserId', 'appUserId');
+  const appUser = param(q, 'userId', 'userid', 'applicationUserId', 'appUserId');
+  const ticket = param(q, 'dynamicUserId') || appUser;
   const eventId = param(q, 'eventId', 'eventID', 'eventid');
   const rewards = param(q, 'rewards');
   const timestamp = param(q, 'timestamp');
@@ -39,16 +41,18 @@ Deno.serve(async (req) => {
 
   // Not acknowledged, so LevelPlay keeps retrying until the secret is set.
   if (!PRIVATE_KEY) return new Response('not configured', { status: 503 });
-  if (!user || !eventId || !timestamp || !signature) return new Response('missing parameters', { status: 400 });
-  // The user id is hashed URL-decoded, which URLSearchParams already did.
-  const expected = createHash('md5').update(timestamp + eventId + user + rewards + PRIVATE_KEY).digest('hex');
-  if (!same(expected, signature)) return new Response('bad signature', { status: 403 });
+  if (!ticket || !eventId || !timestamp || !signature) return new Response('missing parameters', { status: 400 });
+  // The user id is hashed URL-decoded, which URLSearchParams already did. Which
+  // id LevelPlay signs when the ticket rides in dynamicUserId isn't documented,
+  // so either the plain userId (often empty) or the ticket may be the signed one.
+  const sign = (u: string) => createHash('md5').update(timestamp + eventId + u + rewards + PRIVATE_KEY).digest('hex');
+  if (!same(sign(appUser), signature) && !same(sign(ticket), signature)) return new Response('bad signature', { status: 403 });
 
   const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim();
   const res = await fetch(SUPABASE_URL + '/rest/v1/rpc/avalanche_ad_reward_callback', {
     method: 'POST',
     headers: { apikey: SERVICE_KEY, Authorization: 'Bearer ' + SERVICE_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ p_ticket: user, p_event_id: eventId, p_ip: ip }),
+    body: JSON.stringify({ p_ticket: ticket, p_event_id: eventId, p_ip: ip }),
   });
   // A database error is not acknowledged, so LevelPlay tries again later.
   if (!res.ok) {

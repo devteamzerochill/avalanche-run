@@ -110,11 +110,14 @@ results.shopLog = sql(`select string_agg(amount || ':' || ref, ',' order by id) 
 const LP_KEY = (readFileSync(new URL('../supabase/functions/.env', import.meta.url), 'utf8').match(/^AR_LEVELPLAY_PRIVATE_KEY=(.*)$/m) || [])[1];
 if (!LP_KEY) throw new Error('supabase/functions/.env has no AR_LEVELPLAY_PRIVATE_KEY (copy supabase/functions/.env.example)');
 const C = await signUp();
+// After a real video LevelPlay sends the ticket as dynamicUserId with userId empty
+// (seen live 2026-11-26); its dashboard test sends it as userId (o.dashboard).
 const callback = (ticket, eventId, o = {}) => {
   const timestamp = '202612011200';
   const rewards = '5';
-  const signature = o.signature || createHash('md5').update(timestamp + eventId + ticket + rewards + LP_KEY).digest('hex');
-  const q = new URLSearchParams({ userId: ticket, eventId, rewards, timestamp, signature });
+  const userId = o.dashboard ? ticket : '';
+  const signature = o.signature || createHash('md5').update(timestamp + eventId + (o.signTicket ? ticket : userId) + rewards + LP_KEY).digest('hex');
+  const q = new URLSearchParams(o.dashboard ? { userId, eventId, rewards, timestamp, signature } : { userId, eventId, rewards, timestamp, signature, dynamicUserId: ticket });
   return fetch(URL_ + '/functions/v1/levelplay-reward?' + q).then(async (r) => ({ status: r.status, text: await r.text() }));
 };
 const cRun = key();
@@ -133,7 +136,8 @@ results.adDirect = await rpc(C, 'avalanche_ad_reward_callback', { p_ticket: tick
 results.adBadSig = await callback(ticket, 'ev-bad', { signature: 'f'.repeat(32) });
 results.adPaid = await callback(ticket, 'ev-1');
 results.adRetry = await callback(ticket, 'ev-1');
-results.adSecond = await callback(ticket, 'ev-2');
+results.adSecond = await callback(ticket, 'ev-2', { dashboard: true });
+results.adSignedTicket = await callback(ticket, 'ev-4', { signTicket: true });
 results.adUnknownTicket = await callback(randomUUID(), 'ev-3');
 results.adCredited = await rpc(C, 'get_avalanche_ad_reward', { p_ticket: ticket });
 results.adAfter = (await profile(C)).flakes;
@@ -261,7 +265,8 @@ test('rewarded video: a ticket per counted run, paid once and only by a signed c
   eq(results.adPaid.status, 200);
   eq(results.adPaid.text, 'ev-1:OK', 'LevelPlay is acknowledged');
   eq(results.adRetry.text, 'ev-1:OK', 'a retried event is acknowledged again');
-  eq(results.adSecond.text, 'ev-2:OK', 'a second event on a used ticket is acknowledged');
+  eq(results.adSecond.text, 'ev-2:OK', 'a second event on a used ticket is acknowledged (dashboard shape, ticket as userId)');
+  eq(results.adSignedTicket.text, 'ev-4:OK', 'a signature over the ticket itself is accepted too');
   eq(results.adUnknownTicket.text, 'ev-3:OK', 'an unknown ticket is acknowledged so it stops retrying');
   eq(results.adAfter - results.adBefore, results.adTicket.body.flakes, 'paid exactly once');
   eq(results.adCredited.body.status, 'credited');
