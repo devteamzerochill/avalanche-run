@@ -29,6 +29,7 @@ import { UI, chatText } from './ui/ui.js';
 import { FRAME, applyFrame } from './ui/frame.js';
 import { Perf } from './systems/perf.js';
 import { Ads } from './systems/ads.js';
+import { Purchases } from './systems/purchases.js';
 
 const query = new URLSearchParams(location.search);
 const TEST = query.has('test');
@@ -104,6 +105,7 @@ class Game {
     this.audio = new AudioEngine();
     this.haptics = new Haptics();
     this.ads = new Ads();
+    this.purchases = new Purchases();
     this.voice = new Announcer();
     this.voice.onTalk = (on) => this.audio.duck(on);
     this.input = new Input(el, {
@@ -159,6 +161,9 @@ class Game {
       jumpUp: () => this.input.buttonUp(),
       setting: (k, v) => this.setSetting(k, v),
       ads: () => this.ads,
+      purchases: () => this.purchases,
+      storeBuy: (id) => this.storeBuy(id),
+      storeRestore: () => this.storeRestore(),
       buy: (type, id) => {
         if (this.host.profile) this.ui.busy('item', t('busy.buy')), this.host.buy(type, id); // the server checks the price and balance
         else if (!buy(this.profile, type, id)) this.audio.play('deny');
@@ -479,6 +484,7 @@ class Game {
   useProfile() {
     const sp = this.host.profile;
     const local = this.store.profile;
+    this.ads.noAds = !!(sp && sp.no_ads);
     if (!sp) {
       if (this.profile !== local) {
         this.profile = local;
@@ -503,6 +509,7 @@ class Game {
       missions: { active: sp.missions.map((m) => Object.assign({}, m)), next: 0 },
       totals: Object.assign({ runs: 0, distance: 0, flakes: 0, nearMisses: 0 }, sp.totals),
       best: sp.best || 0,
+      noAds: !!sp.no_ads,
     });
     this.profile = v;
     if (skin !== v.rider + '/' + v.board + '/' + v.trail) this.applySkin();
@@ -1168,6 +1175,7 @@ class Game {
   onHost(type, m) {
     if (type === 'session') this.syncRace();
     if (type === 'profile' || type === 'session') this.useProfile();
+    if (type === 'profile') this.recoverPurchases();
     if (type === 'item_result') this.ui.done('item');
     if (type === 'submit_result') this.ui.done('save');
     if (type === 'item_result') this.audio.play(m.ok ? (m.action === 'buy' ? 'buy' : 'select') : 'deny');
@@ -1631,6 +1639,42 @@ class Game {
     this.ui.busy('ad', t('ads.checking'));
     const paid = await live.adCredited(ticket.ticket, 10000).finally(() => this.ui.done('ad'));
     this.ui.toast(t(paid && paid.status === 'credited' ? 'ads.doubled' : 'ads.doubleLater', { n: ticket.flakes }));
+  }
+
+  // --- in-app purchases (DECISIONS 93, docs/purchases.md) ----------------------
+  // Shard packs and No ads for real money in the apps. The site checks each
+  // purchase and credits it; the game then reloads the profile to show it.
+  async storeBuy(id) {
+    const live = this.host.live;
+    if (!live || !live.session) return this.ui.openPanel('account');
+    this.ui.busy('store', t('store.buying'));
+    const r = await this.purchases.buy(id, live).finally(() => this.ui.done('store'));
+    if (r.ok) {
+      this.audio.play('buy');
+      this.ui.toast(t(id === CONFIG.store.noAds.id ? 'store.noAdsDone' : 'store.shardsDone', { n: (CONFIG.store.packs.find((p) => p.id === id) || {}).shards }));
+      live.pushAll();
+    } else if (r.reason !== 'cancelled') {
+      this.audio.play('deny');
+      this.ui.toast(t(r.reason === 'pending' ? 'store.pending' : r.reason === 'check' ? 'store.later' : 'store.failed'));
+    }
+  }
+
+  async storeRestore() {
+    const live = this.host.live;
+    if (!live || !live.session) return this.ui.openPanel('account');
+    this.ui.busy('store', t('store.restoring'));
+    const found = await this.purchases.restore(live).catch(() => null).finally(() => this.ui.done('store'));
+    this.ui.toast(t(found ? 'store.restored' : found === false ? 'store.nothing' : 'store.failed'));
+    if (found) live.pushAll();
+  }
+
+  // Purchases that were paid but never reached the check, once per signed-in account.
+  recoverPurchases() {
+    const live = this.host.live;
+    const who = live && live.session && live.session.user && live.session.user.id;
+    if (!who || !this.purchases.available || this.recoveredFor === who) return;
+    this.recoveredFor = who;
+    this.purchases.recover(live).then((any) => any && live.pushAll());
   }
 
   // The interstitial plays after the burial and before the results (DECISIONS 85).

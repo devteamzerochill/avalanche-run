@@ -48,6 +48,7 @@ class ApiError extends Error {
     super((body && (body.message || body.msg || body.error_description || body.error)) || 'HTTP ' + status);
     this.status = status;
     this.code = body && body.code;
+    this.body = body;
   }
 }
 
@@ -137,7 +138,8 @@ export class LiveBackend {
     for (let pass = 0; pass < 2; pass++) {
       const headers = { 'Content-Type': 'application/json', apikey: this.key };
       if (this.session) headers.Authorization = 'Bearer ' + this.session.access_token;
-      const res = await fetch(this.url + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+      // A full URL is a website route (signed with the same session), not the database.
+      const res = await fetch(/^https:/.test(path) ? path : this.url + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
       const json = await res.json().catch(() => null);
       if (res.ok) return json;
       // An expired token: refresh once and repeat the same request.

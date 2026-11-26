@@ -7,6 +7,7 @@ Agreed with the owner on 2026-11-25 (DECISIONS 85). Anything marked **Proposal**
 - **Phone apps only** (Android and iOS, `mobile/`). The web game on zerochill.com, the claude.ai artifact and the playable ad stay ad-free.
 - **Ad mediation: Unity LevelPlay.** The apps call Unity's official LevelPlay SDK through **our own thin Capacitor plugin** in `mobile/` (Kotlin on Android, Swift on iOS), not a community plugin.
 - **Three formats:** rewarded video, interstitial and banner.
+- **No ads** (DECISIONS 93, `docs/purchases.md`): an account that bought it gets no banner and no interstitial. Rewarded videos stay.
 - **Test ads first.** The owner has no LevelPlay account yet. Everything is built and tested with LevelPlay's test setup. The owner creates the account and the two apps later and provides the app keys and ad unit IDs. These aren't secret and go in config.
 
 ## Audience and privacy

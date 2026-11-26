@@ -1,5 +1,10 @@
 {
   "appId": "com.zerochill.avalancherun",
   "appName": "Avalanche Run",
-  "webDir": "../dist/app"
+  "webDir": "../dist/app",
+  "plugins": {
+    "NativePurchases": {
+      "autoFinishTransactions": false
+    }
+  }
 }

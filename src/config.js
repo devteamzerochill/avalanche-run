@@ -188,21 +188,40 @@ export const CONFIG = {
   // The shop's try-on shot (DECISIONS 82): camera offset from the fox (m) and
   // the height it aims at; aimed low so the fox stands above the shop panel.
   shop: { camera: { x: 0.3, y: 1.2, z: -6.6, lookY: -1.45 } },
-  // Ads in the phone apps only (DECISIONS 85 and 87, docs/ads.md). The owner's
-  // LevelPlay apps (COPPA "Not directed"); app keys and ad unit ids are public,
-  // not secrets. iOS has no native plugin yet, so its keys sit unused until slice 4.
   // Settings' Privacy section in the apps (DECISIONS 92). Apple wants account
   // deletion to start in the app; the zerochill.com page finishes it.
   privacy: {
     policy: 'https://zerochill.com/avalanche-run/privacy-policy',
     deleteAccount: 'https://zerochill.com/delete-account',
   },
+  // Ads in the phone apps only (DECISIONS 85 and 87, docs/ads.md). The owner's
+  // LevelPlay apps (COPPA "Not directed"); app keys and ad unit ids are public,
+  // not secrets. iOS has no native plugin yet, so its keys sit unused until slice 4.
   ads: {
     android: { appKey: '29e30bffd', banner: '1ejg36zjdcvyvay0', interstitial: 'rb8t4uhzod9wxlcy', rewarded: 'focit7rafbp2tmn3' },
     ios: { appKey: '29e30f985', banner: 'oentsdc1l9utv4mr', interstitial: '90hn0hta1ck4y2v6', rewarded: 'ms1vuba2ujkn56zo' },
     everyRuns: 3, // an interstitial at most every 3rd run
     gapSeconds: 120, // and never twice within this
     freeRunsPerDay: 2, // never in the first runs of the day
+  },
+  // In-app purchases in the phone apps (DECISIONS 93, docs/purchases.md). Store
+  // product ids, the same in App Store Connect and Play Console. Packs match the
+  // zerochill.com Shards page at 100 Shards per $1, with no bonus (owner,
+  // 2026-11-26). The stores show the real local price; usd is only a fallback.
+  // No ads is also sold for Shards (the 'perk' item in supabase/migrations).
+  store: {
+    packs: [
+      { id: 'shards_500', shards: 500, usd: '4.99' },
+      { id: 'shards_1500', shards: 1500, usd: '14.99' },
+      { id: 'shards_2500', shards: 2500, usd: '24.99' },
+      { id: 'shards_5000', shards: 5000, usd: '49.99' },
+      { id: 'shards_10000', shards: 10000, usd: '99.99' },
+    ],
+    noAds: { id: 'no_ads', usd: '4.99', shards: 500 },
+    // The site's purchase check: a website route like the LevelPlay callback,
+    // since the live project takes no new edge functions (DECISIONS 86). Proposed
+    // to the site team in docs/purchases.md; not live yet.
+    verify: 'https://zerochill.com/api/public/store-purchase',
   },
 
   // --- look (P where the prototype exposed it) ----------------------------

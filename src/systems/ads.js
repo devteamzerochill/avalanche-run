@@ -22,6 +22,9 @@ export class Ads {
     this.p = plugin();
     this.on = false;
     this.bannerShown = null;
+    // The account bought No ads (DECISIONS 93): no banner and no ads between
+    // runs. Reward videos stay, since the player chooses them. Set by main.useProfile.
+    this.noAds = false;
     this.state = Object.assign({ day: '', runsToday: 0, sinceAd: 0, lastAd: 0 }, load());
     this.keys = this.p && CONFIG.ads[platform()];
     if (!this.keys) return;
@@ -85,7 +88,7 @@ export class Ads {
   interstitialDue() {
     const s = this.state;
     const a = CONFIG.ads;
-    return this.on && s.runsToday > a.freeRunsPerDay && s.sinceAd >= a.everyRuns && Date.now() - s.lastAd >= a.gapSeconds * 1000;
+    return this.on && !this.noAds && s.runsToday > a.freeRunsPerDay && s.sinceAd >= a.everyRuns && Date.now() - s.lastAd >= a.gapSeconds * 1000;
   }
 
   // Resolves once the ad has closed (or straight away if none was ready).
@@ -117,7 +120,7 @@ export class Ads {
 
   // Called every frame with whether the banner may show; talks to the plugin only on change.
   banner(want) {
-    want = !!(want && this.on);
+    want = !!(want && this.on && !this.noAds);
     if (!this.p || want === this.bannerShown) return;
     this.bannerShown = want;
     this.p.setBanner({ visible: want }).catch(() => {});
