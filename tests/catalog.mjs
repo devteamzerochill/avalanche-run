@@ -29,6 +29,11 @@ export function runCatalogTests() {
     eq(rows.sort().join(','), want.sort().join(','));
   });
 
+  test('server catalogue matches the game: No ads for Shards', () => {
+    const sql = fs.readFileSync(new URL('../supabase/migrations/20261203000000_no_ads.sql', import.meta.url), 'utf8');
+    ok(sql.includes("('perk', 'no_ads', -1, " + CONFIG.store.noAds.shards + ')'), 'No ads costs ' + CONFIG.store.noAds.shards + ' Shards');
+  });
+
   test('server catalogue matches the game: missions, in order', () => {
     const rows = [...SQL.matchAll(/\('(\w+)', (\d+), '(\w+)', (\d+), (\d+), (true|false)\)/g)].map((m) => [m[1], +m[2], m[3], +m[4], +m[5], m[6] === 'true']);
     eq(rows.length, MISSIONS.length, 'count');

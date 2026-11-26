@@ -1041,6 +1041,73 @@ export class UI {
 
   // Sign in to the real zerochill.com backend (live test mode). The password
   // goes straight to the backend's auth endpoint; nothing here keeps it.
+  // The Shop's tab row; the Shards tab (real-money packs and No ads) only in the apps.
+  shopTabs(type) {
+    const tab = (id, key) => `<button data-tab="${id}" class="${type === id ? 'on' : ''}">${esc(t(key))}</button>`;
+    return `<div class="tabs">${tab('rider', 'shop.riders')}${tab('board', 'shop.boards')}${tab('trail', 'shop.trails')}${this.hooks.purchases().available ? tab('shards', 'shop.shards') : ''}</div>`;
+  }
+
+  bindShopTabs(body) {
+    body.querySelectorAll('[data-tab]').forEach((b) =>
+      press(b, () => {
+        this.shopTab = b.getAttribute('data-tab');
+        this.storeConfirm = false;
+        this.hooks.tap('toggle');
+        this.renderPanel();
+      })
+    );
+  }
+
+  // Shop › Shards (DECISIONS 93): the five Shard packs and No ads, paid through
+  // the App Store or Google Play, plus Restore Purchases (Apple 3.1.1). The store's
+  // own sheet confirms money; spending 500 Shards on No ads asks here first.
+  storePanel(body, p) {
+    const S = CONFIG.store;
+    const store = this.hooks.purchases();
+    store.loadPrices().then(() => this.panelName === 'shop' && this.shopTab === 'shards' && !this.storePriced && ((this.storePriced = true), this.renderPanel()));
+    const shards = typeof p.shards === 'number' ? p.shards : null;
+    if (this.storeConfirm && !p.noAds) {
+      body.innerHTML =
+        `<div class="buy-confirm"><div class="item gem"><div class="swatch"><span class="pack-ico">🚫</span></div></div>` +
+        `<h3>${esc(t('shop.confirm', { item: t('store.noAds') }))}</h3><div class="cost">💎 ${S.noAds.shards}</div>` +
+        `<p class="note">${esc(t('shop.confirmShards', { n: S.noAds.shards }))}</p>` +
+        `<div class="btns"><button class="btn" id="buyNo">${esc(t('shop.cancel'))}</button><button class="btn primary" id="buyYes">${esc(t('shop.buy'))}</button></div></div>`;
+      press($('buyNo'), () => {
+        this.storeConfirm = false;
+        this.hooks.tap('toggle');
+        this.renderPanel();
+      });
+      press($('buyYes'), () => {
+        this.storeConfirm = false;
+        this.hooks.buy('perk', 'no_ads');
+        this.renderPanel();
+      });
+      return;
+    }
+    const noAds = p.noAds
+      ? `<button class="btn" disabled>${esc(t('shop.owned'))}</button>`
+      : `<button class="btn buy" data-store="${S.noAds.id}">${esc(store.price(S.noAds.id))}</button><button class="btn buy gem" id="noAdsShards" ${shards == null || shards < S.noAds.shards ? 'disabled' : ''}>💎 ${S.noAds.shards}</button>`;
+    body.innerHTML =
+      this.shopTabs('shards') +
+      `<div class="shop-wallet">${shards != null ? `<div class="chip gold shards">💎 <b>${shards}</b></div>` : `<p class="note">${esc(t('store.signIn'))}</p>`}</div>` +
+      `<div class="grid packs">` +
+      S.packs.map((it) => `<div class="item gem" data-store="${it.id}"><div class="swatch"><span class="pack-ico">💎</span></div><strong>${it.shards.toLocaleString()}</strong><small>${esc(store.price(it.id))}</small></div>`).join('') +
+      `</div>` +
+      `<div class="row no-ads"><div class="ico">🚫</div><div class="grow"><h3>${esc(t('store.noAds'))}</h3><p>${esc(t('store.noAdsText'))}</p></div><div class="no-ads-btns"><button class="btn restore" id="storeRestore">${esc(t('store.restore'))}</button>${noAds}</div></div>` +
+      `<p class="note">${esc(t('store.note'))}</p>`;
+    this.bindShopTabs(body);
+    body.querySelectorAll('[data-store]').forEach((b) => press(b, () => this.hooks.storeBuy(b.getAttribute('data-store'))));
+    const ns = $('noAdsShards');
+    if (ns)
+      press(ns, () => {
+        if (ns.disabled) return;
+        this.storeConfirm = true;
+        this.hooks.tap('toggle');
+        this.renderPanel();
+      });
+    press($('storeRestore'), () => this.hooks.storeRestore());
+  }
+
   accountPanel(body) {
     const live = this.live();
     $('panelClose').classList.toggle('hidden', this.signInGate());
@@ -1215,7 +1282,10 @@ export class UI {
         (p.missions.active.some((m) => m.done) ? `<p class="note">${esc(t('missions.new'))}</p>` : '') +
         `<div class="row"><div class="ico">🔥</div><div class="grow"><h3>${esc(t('streak.title'))} · ${Math.max(1, p.streak)}</h3><p>${esc(t('streak.next', { d: next.day, r: reward(next) }))}</p></div></div>` +
         `<div class="streak">${days}</div>`;
+    } else if (name === 'shop' && this.shopTab === 'shards' && this.hooks.purchases().available) {
+      this.storePanel(body, p);
     } else if (name === 'shop') {
+      if (this.shopTab === 'shards') this.shopTab = 'rider';
       const type = this.shopTab;
       // Trails start with "no trail", always owned.
       const list = type === 'rider' ? RIDERS : type === 'board' ? BOARDS : [{ id: 'none' }].concat(TRAILS);
@@ -1234,7 +1304,6 @@ export class UI {
             : it.id === 'none'
               ? `<i class="trail-sw none"></i>`
               : `<i class="trail-sw ${it.pulse ? 'pulse' : ''}" style="--a:${it.colors[0]};--b:${it.colors[1]};--c:${it.colors[2] || it.colors[1]};${it.rainbow ? 'background:linear-gradient(90deg,#ff4d6d,#ffd23f,#3ddc97,#35d6ff,#9b6bff,#ff4d6d);background-size:200% 100%' : ''}"></i>`;
-      const tab = (id, key) => `<button data-tab="${id}" class="${type === id ? 'on' : ''}">${esc(t(key))}</button>`;
       // Confirm before buying: what it is, what it costs, and from which wallet.
       const ask = this.shopConfirm && this.shopConfirm.type === type ? list.find((it) => it.id === this.shopConfirm.id) : null;
       if (ask) {
@@ -1270,7 +1339,7 @@ export class UI {
       const tag = (it) => (it.id === current ? '✓ ' + t('shop.inUse') : have(it) ? t('shop.owned') : it.shards ? '💎 ' + it.shards : it.cost < 0 ? t('shop.streak', { n: streakDay(it.id) || 7 }) : '❄ ' + it.cost);
       body.innerHTML =
         `<div class="try-bar"><b>${esc(t(type + '.' + pick.id))}</b>${act}</div>` +
-        `<div class="tabs">${tab('rider', 'shop.riders')}${tab('board', 'shop.boards')}${tab('trail', 'shop.trails')}</div>` +
+        this.shopTabs(type) +
         `<div class="shop-wallet"><div class="chip gold">❄ <b>${p.flakes}</b></div>${shards != null ? `<div class="chip gold shards">💎 <b>${shards}</b></div>` : ''}</div><div class="grid">` +
         list.map((it) => `<div class="item ${it.id === current ? 'sel' : ''} ${it.id === pick.id ? 'try' : ''} ${it.shards ? 'gem' : ''}" data-pick="${it.id}"><div class="swatch">${sw(it)}</div><strong>${esc(t(type + '.' + it.id))}</strong><small>${esc(tag(it))}</small></div>`).join('') +
         `</div><p class="note">${esc(t(type === 'trail' || list.some((it) => it.shards) ? 'shop.shardsNote' : 'shop.cosmetic'))}</p>`;
@@ -1283,13 +1352,7 @@ export class UI {
           this.renderPanel();
         })
       );
-      body.querySelectorAll('[data-tab]').forEach((b) =>
-        press(b, () => {
-          this.shopTab = b.getAttribute('data-tab');
-          this.hooks.tap('toggle');
-          this.renderPanel();
-        })
-      );
+      this.bindShopTabs(body);
       body.querySelectorAll('[data-use]').forEach((b) =>
         press(b, () => {
           this.tryOn[type] = undefined;
