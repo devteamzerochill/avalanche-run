@@ -80,7 +80,11 @@ Written on 2026-11-26 without a Mac, so **not compiled or run yet**. The owner c
 4. Keep playing: an interstitial should show after a run once the pacing rules allow it (see "Interstitial"; never in the first 2 runs of the day).
 5. Add the iPhone as a test device in LevelPlay and Unity first, as was done for the Android phone.
 
-**Banner fill (2026-11-26):** the banner gets 509 "No fill" on every try. The phone log shows Unity Ads loading the interstitial and rewarded but never once bidding on the banner, so LevelPlay has nobody to fill it; the setup itself is right (instance active, mapped to `BP_Banner_<platform>`). The owner chose to wait rather than add a second network such as AdMob or drop the banner. The app asks for `ACCESS_NETWORK_STATE`, which Unity reads for its bids, and debug builds turn on LevelPlay's adapter logging (`setAdaptersDebug`), so the cause can be checked again from the log.
+**Banner fill (2026-11-26):** banner demand is thin (most tries get 509 "No fill"), but it does fill now and then; Bramble Bay, with the same LevelPlay setup, showed one. Ours never could, for two reasons in our plugin, both fixed:
+- **The banner gave up after two tries per launch.** The view was hidden, and empty it had no size, until an ad arrived; LevelPlay stops retrying a banner it can't see. The view is now a fixed 320×50 box, on screen whenever the game wants a banner (empty, it's transparent and lets taps through). LevelPlay then retries about every 25 s, so we no longer call `loadAd()` again ourselves.
+- **A failed refresh dropped the game's padding.** LevelPlay keeps the last ad on screen when a refresh fails, but the plugin treated the failure as "no banner", so the ad covered the bottom buttons. Failures no longer change anything; the space stays once a banner has loaded.
+
+The app asks for `ACCESS_NETWORK_STATE`, which Unity reads for its bids, and debug builds turn on LevelPlay's adapter logging (`setAdaptersDebug`).
 
 ## How a rewarded video is credited (slice 2, DECISIONS 86)
 

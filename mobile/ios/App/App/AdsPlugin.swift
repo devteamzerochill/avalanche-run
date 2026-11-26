@@ -170,7 +170,9 @@ public class AdsPlugin: CAPPlugin, CAPBridgedPlugin {
     private func applyBanner() {
         guard let view = banner else { return }
         let show = bannerWanted && bannerLoaded
-        view.isHidden = !show
+        // On screen whenever the game wants a banner, even before one arrives:
+        // on Android, LevelPlay stopped retrying a banner it couldn't see.
+        view.isHidden = !bannerWanted
         // Only pause refresh once a banner has arrived: pausing while the first
         // load is still in flight stalls it (seen on Android).
         if bannerLoaded {
@@ -276,12 +278,9 @@ private final class BannerListener: NSObject, LPMBannerAdViewDelegate {
     }
 
     func didLoadAd(with adInfo: LPMAdInfo) { owner?.bannerResult(loaded: true) }
+    // No retry of our own: the banner view retries by itself. A failed refresh
+    // keeps the last ad on screen, so the space the game made for it stays too.
     func didFailToLoadAd(withAdUnitId adUnitId: String, error: Error) {
         NSLog("AvalancheAds: banner load failed: %@", error.localizedDescription)
-        owner?.bannerResult(loaded: false)
-        owner?.retryLoad {
-            guard let vc = self.owner?.bridge?.viewController else { return }
-            self.view.loadAd(with: vc)
-        }
     }
 }
