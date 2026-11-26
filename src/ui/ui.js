@@ -5,6 +5,7 @@ import { FRAME } from './frame.js';
 import { t, LANGS, LANG_NAMES } from '../systems/i18n.js';
 import { missionById, nextStreakReward, owns, leaderboard } from '../systems/meta.js';
 import { APP } from '../systems/live.js';
+import { privacy } from '../systems/privacy.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -87,6 +88,10 @@ export class UI {
     }, { once: true });
     this.panelName = '';
     this.shopTab = 'rider';
+    this.settingsTab = 'game';
+    // The privacy popup's buttons answer whichever question is showing.
+    press($('askYes'), () => this.answer && this.answer(true));
+    press($('askNo'), () => this.answer && this.answer(false));
     this.tryOn = {}; // shop items on the fox but not worn: { rider, board, trail } ids
     this.fx = this.el.speedfx.getContext('2d');
     this.lines = [];
@@ -883,6 +888,26 @@ export class UI {
   }
 
   // An API call in flight: block every tap and key until it answers (or 15 s).
+  // A first-launch privacy question (DECISIONS 92): 'consent' (Accept or
+  // Decline) or 'tracking' (an explainer before Apple's prompt, Continue only:
+  // Apple refuses explainers that let the player skip the prompt). Resolves true/false.
+  ask(kind) {
+    const consent = kind === 'consent';
+    $('askTitle').textContent = t(consent ? 'privacy.consentTitle' : 'privacy.trackTitle');
+    $('askText').textContent = t(consent ? 'privacy.consentText' : 'privacy.trackText');
+    $('askYes').textContent = t(consent ? 'privacy.accept' : 'privacy.continue');
+    $('askNo').textContent = t('privacy.decline');
+    $('askNo').classList.toggle('hidden', !consent);
+    $('ask').classList.remove('hidden');
+    return new Promise((resolve) => {
+      this.answer = (yes) => {
+        this.answer = null;
+        $('ask').classList.add('hidden');
+        resolve(yes);
+      };
+    });
+  }
+
   busy(key, text) {
     this.busyKey = key;
     $('busyText').textContent = text || t('ui.loading');
@@ -1119,6 +1144,7 @@ export class UI {
   // --- panels -------------------------------------------------------------
   openPanel(name) {
     this.panelName = name;
+    if (name === 'settings') this.settingsTab = 'game'; // always reopens on its Game tab
     if (name === 'ranks' && this.host()) this.hooks.refreshOnline();
     if (name === 'ranks' && this.raceClient()) this.raceClient().requestBoard();
     this.hooks.tap('panelOpen');
@@ -1301,18 +1327,50 @@ export class UI {
       const sw = (key) => `<div class="set"><span>${esc(t('settings.' + key))}</span><button class="switch ${st[key] ? 'on' : ''}" data-sw="${key}" role="switch" aria-checked="${!!st[key]}"></button></div>`;
       const range = (key, max) => `<div class="set"><span>${esc(t('settings.' + key))}</span><input type="range" min="0" max="${max}" step="0.05" value="${st[key]}" data-range="${key}"></div>`;
       const sel = (key, opts) => `<div class="set"><span>${esc(t('settings.' + key))}</span><select data-sel="${key}">${opts.map(([v, label]) => `<option value="${v}" ${st[key] === v ? 'selected' : ''}>${esc(label)}</option>`).join('')}</select></div>`;
-      body.innerHTML =
-        range('music', 1) +
-        range('sfx', 1) +
-        (CONFIG.announcer ? sw('announcer') : '') +
-        sw('haptics') +
-        sw('tapSteer') +
-        sw('colorblind') +
-        sw('reducedMotion') +
-        range('shake', 1) +
-        sel('lang', [['auto', LANG_NAMES.auto]].concat(LANGS.map((l) => [l, LANG_NAMES[l]]))) +
-        sel('theme', [['glacier', t('theme.glacier')], ['arcade', t('theme.arcade')]]) +
-        sel('quality', ['auto', 'low', 'medium', 'high'].map((q) => [q, t('quality.' + q)]));
+      // The apps add a Privacy tab (DECISIONS 92, as in Bramble Bay).
+      const ads = this.hooks.ads && this.hooks.ads();
+      const privacyTab = !!(ads && ads.available);
+      if (!privacyTab) this.settingsTab = 'game';
+      const tabs = privacyTab ? `<div class="tabs">${['game', 'privacy'].map((k) => `<button data-tab="${k}" class="${this.settingsTab === k ? 'on' : ''}">${esc(t('settings.tab.' + k))}</button>`).join('')}</div>` : '';
+      if (this.settingsTab === 'privacy') {
+        const row = (label, control) => `<div class="set privacy-row"><span>${esc(label)}</span>${control}</div>`;
+        const link = (url) => `<a class="btn" href="${url}" target="_blank" rel="noopener" data-link>${esc(t('privacy.open'))}</a>`;
+        const signedIn = this.raceSignedIn();
+        body.innerHTML =
+          tabs +
+          row(t('privacy.choices'), `<button class="btn" id="privChoices">${esc(t('privacy.change'))}</button>`) +
+          row(t('privacy.doNotSell'), `<button class="switch ${privacy.doNotSell ? 'on' : ''}" id="privSell" role="switch" aria-checked="${!!privacy.doNotSell}"></button>`) +
+          row(t('privacy.policy'), link(CONFIG.privacy.policy)) +
+          // Only while signed in: there is no account to delete otherwise.
+          (signedIn ? row(t('privacy.delete'), link(CONFIG.privacy.deleteAccount)) + `<p class="note">${esc(t('privacy.deleteNote'))}</p>` : '');
+        body.querySelectorAll('[data-link]').forEach((a) => a.addEventListener('pointerdown', (e) => e.stopPropagation()));
+        press($('privChoices'), () => this.ask('consent').then((yes) => ads.setPrivacy({ consent: yes })));
+        press($('privSell'), () => {
+          ads.setPrivacy({ doNotSell: !privacy.doNotSell });
+          $('privSell').classList.toggle('on', privacy.doNotSell);
+          $('privSell').setAttribute('aria-checked', String(privacy.doNotSell));
+        });
+      } else {
+        body.innerHTML =
+          tabs +
+          range('music', 1) +
+          range('sfx', 1) +
+          (CONFIG.announcer ? sw('announcer') : '') +
+          sw('haptics') +
+          sw('tapSteer') +
+          sw('colorblind') +
+          sw('reducedMotion') +
+          range('shake', 1) +
+          sel('lang', [['auto', LANG_NAMES.auto]].concat(LANGS.map((l) => [l, LANG_NAMES[l]]))) +
+          sel('theme', [['glacier', t('theme.glacier')], ['arcade', t('theme.arcade')]]) +
+          sel('quality', ['auto', 'low', 'medium', 'high'].map((q) => [q, t('quality.' + q)]));
+      }
+      body.querySelectorAll('[data-tab]').forEach((b) =>
+        press(b, () => {
+          this.settingsTab = b.getAttribute('data-tab');
+          this.renderPanel();
+        })
+      );
       body.querySelectorAll('[data-sw]').forEach((b) =>
         press(b, () => {
           const key = b.getAttribute('data-sw');

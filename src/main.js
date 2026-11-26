@@ -158,6 +158,7 @@ class Game {
       jumpDown: () => this.input.buttonDown(),
       jumpUp: () => this.input.buttonUp(),
       setting: (k, v) => this.setSetting(k, v),
+      ads: () => this.ads,
       buy: (type, id) => {
         if (this.host.profile) this.ui.busy('item', t('busy.buy')), this.host.buy(type, id); // the server checks the price and balance
         else if (!buy(this.profile, type, id)) this.audio.play('deny');
@@ -190,6 +191,8 @@ class Game {
         }
       },
     });
+    // The apps ask their first-launch privacy questions, then start the ads (DECISIONS 92).
+    this.ads.start((kind) => this.ui.ask(kind));
 
     // Dragging across the open space above the shop panel spins the fox.
     const panel = this.ui.el.panel;

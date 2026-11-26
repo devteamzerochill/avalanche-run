@@ -2,6 +2,7 @@
 // native Ads plugin in mobile/. Everywhere else (web, artifact, playable ad)
 // there is no plugin and every call is a no-op.
 import { CONFIG } from '../config.js';
+import { privacy, savePrivacy, consentRegion, adPrivacy } from './privacy.js';
 
 const KEY = 'avalanche-run-ads';
 const plugin = () => (typeof window !== 'undefined' && window.__APP && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Ads) || null;
@@ -22,16 +23,48 @@ export class Ads {
     this.on = false;
     this.bannerShown = null;
     this.state = Object.assign({ day: '', runsToday: 0, sinceAd: 0, lastAd: 0 }, load());
-    const keys = this.p && CONFIG.ads[platform()];
-    if (!keys) return;
+    this.keys = this.p && CONFIG.ads[platform()];
+    if (!this.keys) return;
     this.p.addListener('banner', (e) => {
       // The banner covers the bottom edge; the menus move up by its height.
       document.documentElement.style.setProperty('--ad', (e.height || 0) + 'px');
     });
+  }
+
+  // True in the apps, where the Privacy settings apply.
+  get available() {
+    return !!this.keys;
+  }
+
+  // First launch (DECISIONS 92, as in Bramble Bay): the consent question in the
+  // EEA/UK, then on iOS an explainer and Apple's tracking prompt, then LevelPlay
+  // starts with the answers. Each question is asked once. A player who declines
+  // consent isn't asked about tracking. ask(kind) shows a popup and resolves true/false.
+  async start(ask) {
+    if (!this.keys || this.starting) return;
+    this.starting = true;
+    try {
+      if (privacy.consent === null && consentRegion()) savePrivacy({ consent: await ask('consent') });
+      if (platform() === 'ios' && privacy.consent !== false) {
+        const t = await this.p.trackingStatus().catch(() => ({}));
+        if (t.status === 'notDetermined') {
+          await ask('tracking');
+          await this.p.requestTracking().catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn('privacy questions failed:', e && e.message);
+    }
     this.p
-      .start(keys)
+      .start(Object.assign({}, this.keys, adPrivacy()))
       .then(() => (this.on = true))
       .catch((e) => console.warn('ads off:', e && e.message));
+  }
+
+  // Settings' Privacy choices and Do Not Sell switch.
+  setPrivacy(changes) {
+    savePrivacy(changes);
+    if (this.p && this.keys) this.p.privacy(adPrivacy()).catch(() => {});
   }
 
   save() {

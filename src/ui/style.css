@@ -882,6 +882,14 @@ body.has-race .btn.big.rc-go small{font-size:calc(10px*var(--s))}
 
 /* An API call in flight (buy, check in, sign in, ...): covers everything and takes
    every tap until the answer comes. It shows after 0.15 s so quick answers don't flash. */
+/* First-launch privacy questions (DECISIONS 92). */
+#ask{position:absolute;inset:0;z-index:21;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(8,18,36,.6)}
+.ask-card{max-width:calc(360px*var(--s));padding:20px;border-radius:20px;background:var(--panel);border:2px solid rgba(255,255,255,.18);box-shadow:0 12px 40px rgba(0,0,0,.45)}
+.ask-card h2{margin:0 0 10px;font-style:italic;font-weight:900;font-size:calc(22px*var(--s))}
+.ask-card p{margin:0 0 16px;font-size:calc(14px*var(--s));line-height:1.45;opacity:.92}
+.ask-btns{display:flex;gap:10px}
+.ask-btns .btn{flex:1;font-style:italic;text-transform:uppercase;letter-spacing:.08em}
+.privacy-row .btn{min-height:calc(36px*var(--s));padding:0 14px;font-size:calc(13px*var(--s));display:inline-flex;align-items:center;text-decoration:none}
 #busy{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(8,18,36,.35);animation:fade .15s .15s both}
 .busy-card{display:flex;align-items:center;gap:10px;padding:12px 18px;border-radius:16px;background:var(--panel);border:2px solid rgba(255,255,255,.14);font-weight:900;font-size:calc(14px*var(--s));box-shadow:0 12px 40px rgba(0,0,0,.4)}
 .spin{width:18px;height:18px;border-radius:50%;border:3px solid rgba(255,255,255,.25);border-top-color:var(--accent);animation:spin .8s linear infinite}

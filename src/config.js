@@ -191,6 +191,12 @@ export const CONFIG = {
   // Ads in the phone apps only (DECISIONS 85 and 87, docs/ads.md). The owner's
   // LevelPlay apps (COPPA "Not directed"); app keys and ad unit ids are public,
   // not secrets. iOS has no native plugin yet, so its keys sit unused until slice 4.
+  // Settings' Privacy section in the apps (DECISIONS 92). Apple wants account
+  // deletion to start in the app; the zerochill.com page finishes it.
+  privacy: {
+    policy: 'https://zerochill.com/avalanche-run/privacy-policy',
+    deleteAccount: 'https://zerochill.com/delete-account',
+  },
   ads: {
     android: { appKey: '29e30bffd', banner: '1ejg36zjdcvyvay0', interstitial: 'rb8t4uhzod9wxlcy', rewarded: 'focit7rafbp2tmn3' },
     ios: { appKey: '29e30f985', banner: 'oentsdc1l9utv4mr', interstitial: '90hn0hta1ck4y2v6', rewarded: 'ms1vuba2ujkn56zo' },

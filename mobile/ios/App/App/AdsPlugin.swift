@@ -17,6 +17,9 @@ public class AdsPlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "start", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "isReady", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "privacy", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "trackingStatus", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "requestTracking", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showInterstitial", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showRewarded", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setBanner", returnType: CAPPluginReturnPromise),
@@ -49,16 +52,47 @@ public class AdsPlugin: CAPPlugin, CAPBridgedPlugin {
         let interstitialId = call.getString("interstitial")
         let rewardedId = call.getString("rewarded")
         let bannerId = call.getString("banner")
-        // Apple's tracking prompt, once, before the SDK starts, so the first ad
-        // requests already know the answer (owner, 2026-11-26).
+        // The game asks Apple's tracking prompt itself, after its own explainer
+        // and before calling start (DECISIONS 92), so the SDK starts knowing the answer.
+        applyPrivacy(call)
         DispatchQueue.main.async {
-            if ATTrackingManager.trackingAuthorizationStatus == .notDetermined {
-                ATTrackingManager.requestTrackingAuthorization { _ in
-                    self.initLevelPlay(call, appKey: appKey, interstitialId: interstitialId, rewardedId: rewardedId, bannerId: bannerId)
-                }
-            } else {
-                self.initLevelPlay(call, appKey: appKey, interstitialId: interstitialId, rewardedId: rewardedId, bannerId: bannerId)
+            self.initLevelPlay(call, appKey: appKey, interstitialId: interstitialId, rewardedId: rewardedId, bannerId: bannerId)
+        }
+    }
+
+    // The player's ad privacy answers (DECISIONS 92), handed over before start and
+    // again whenever Settings changes them: { consent?: boolean, doNotSell?: boolean }.
+    // LPMPrivacySettings is LevelPlay 9.5+'s API (from Unity's docs; not compiled yet).
+    @objc func privacy(_ call: CAPPluginCall) {
+        applyPrivacy(call)
+        call.resolve()
+    }
+
+    private func applyPrivacy(_ call: CAPPluginCall) {
+        if let consent = call.getBool("consent") { LPMPrivacySettings.setGDPRConsent(consent) }
+        if let doNotSell = call.getBool("doNotSell") { LPMPrivacySettings.setCCPA(doNotSell) }
+    }
+
+    // { status: "notDetermined" | "authorized" | "denied" | "restricted" }
+    @objc func trackingStatus(_ call: CAPPluginCall) {
+        call.resolve(["status": AdsPlugin.trackingName(ATTrackingManager.trackingAuthorizationStatus)])
+    }
+
+    // Apple's tracking prompt; iOS shows it only while the answer is undetermined.
+    @objc func requestTracking(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            ATTrackingManager.requestTrackingAuthorization { status in
+                call.resolve(["status": AdsPlugin.trackingName(status)])
             }
+        }
+    }
+
+    private static func trackingName(_ s: ATTrackingManager.AuthorizationStatus) -> String {
+        switch s {
+        case .authorized: return "authorized"
+        case .denied: return "denied"
+        case .restricted: return "restricted"
+        default: return "notDetermined"
         }
     }
 
