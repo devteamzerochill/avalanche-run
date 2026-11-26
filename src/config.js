@@ -256,34 +256,34 @@ export const CONFIG = {
 export const RIDERS = [
   // Every rider is the Zero Chill fox; 'nova' is the mascot's own outfit.
   { id: 'nova', cost: 0, fur: '#E8622A', cream: '#FFF3E6', hoodie: '#18191F', trim: '#FF6B1A', shorts: '#18191F', shortsTrim: '#E0262E', glove: '#18191F', gear: '#2F6BFF' },
-  { id: 'pine', cost: 150, fur: '#D9652B', cream: '#FFF3E6', hoodie: '#2FA36B', trim: '#FFD23F', shorts: '#1C2A2E', shortsTrim: '#FFD23F', glove: '#1C2A2E', gear: '#FFD23F' },
-  { id: 'blush', cost: 300, fur: '#E8642A', cream: '#FFF3E6', hoodie: '#E8457A', trim: '#3FD0F5', shorts: '#2B2140', shortsTrim: '#3FD0F5', glove: '#2B2140', gear: '#3FD0F5' },
-  { id: 'frost', cost: 500, fur: '#EEF4FA', cream: '#FFFFFF', hoodie: '#3FD0F5', trim: '#16406B', shorts: '#16406B', shortsTrim: '#F07A1E', glove: '#16406B', gear: '#F07A1E' },
+  { id: 'pine', cost: 500, fur: '#D9652B', cream: '#FFF3E6', hoodie: '#2FA36B', trim: '#FFD23F', shorts: '#1C2A2E', shortsTrim: '#FFD23F', glove: '#1C2A2E', gear: '#FFD23F' },
+  { id: 'blush', cost: 1000, fur: '#E8642A', cream: '#FFF3E6', hoodie: '#E8457A', trim: '#3FD0F5', shorts: '#2B2140', shortsTrim: '#3FD0F5', glove: '#2B2140', gear: '#3FD0F5' },
+  { id: 'frost', cost: 5000, fur: '#EEF4FA', cream: '#FFFFFF', hoodie: '#3FD0F5', trim: '#16406B', shorts: '#16406B', shortsTrim: '#F07A1E', glove: '#16406B', gear: '#F07A1E' },
   // Shards shop (DECISIONS 68): `shards` is the price in Shards (cost -1: never for snowflakes); `fx` a material effect.
-  { id: 'galaxy', cost: -1, shards: 500, fx: 'galaxy', fur: '#E8622A', cream: '#FFF3E6', hoodie: '#1A1240', trim: '#B57CFF', shorts: '#120C2E', shortsTrim: '#FF7AD9', glove: '#120C2E', gear: '#5EE7FF' },
-  { id: 'gold', cost: -1, shards: 750, fx: 'gold', fur: '#E8B530', cream: '#FFE9A8', hoodie: '#C8901E', trim: '#FFE07A', shorts: '#9A6A12', shortsTrim: '#FFE07A', glove: '#9A6A12', gear: '#FFF1B8' },
+  { id: 'galaxy', cost: -1, shards: 1500, fx: 'galaxy', fur: '#E8622A', cream: '#FFF3E6', hoodie: '#1A1240', trim: '#B57CFF', shorts: '#120C2E', shortsTrim: '#FF7AD9', glove: '#120C2E', gear: '#5EE7FF' },
+  { id: 'gold', cost: -1, shards: 1500, fx: 'gold', fur: '#E8B530', cream: '#FFE9A8', hoodie: '#C8901E', trim: '#FFE07A', shorts: '#9A6A12', shortsTrim: '#FFE07A', glove: '#9A6A12', gear: '#FFF1B8' },
   { id: 'yeti', cost: -1, fur: '#5E6B7D', cream: '#F4F7FB', hoodie: '#F4F7FB', trim: '#7A5CFF', shorts: '#DDE7F0', shortsTrim: '#7A5CFF', glove: '#7A5CFF', gear: '#7A5CFF' },
 ];
 
 export const BOARDS = [
   { id: 'classic', cost: 0, deck: '#15161A', stripe: '#1E6FE8', edge: '#E0262E' },
-  { id: 'sunrise', cost: 100, deck: '#FFD23F', stripe: '#F07A1E', edge: '#15161A' },
-  { id: 'mint', cost: 200, deck: '#F4F7FB', stripe: '#2FA36B', edge: '#16406B' },
+  { id: 'sunrise', cost: 1000, deck: '#FFD23F', stripe: '#F07A1E', edge: '#15161A' },
+  { id: 'mint', cost: 2000, deck: '#F4F7FB', stripe: '#2FA36B', edge: '#16406B' },
   { id: 'ember', cost: -1, deck: '#2B0F12', stripe: '#FF5B2E', edge: '#FFD23F' },
-  { id: 'aurora', cost: 400, deck: '#1B1740', stripe: '#3FD0F5', edge: '#7A5CFF' },
-  { id: 'galaxy', cost: -1, shards: 250, fx: 'galaxy', deck: '#160F3A', stripe: '#B57CFF', edge: '#5EE7FF' },
-  { id: 'gold', cost: -1, shards: 350, fx: 'gold', deck: '#D9A42A', stripe: '#FFE07A', edge: '#9A6A12' },
+  { id: 'aurora', cost: 2000, deck: '#1B1740', stripe: '#3FD0F5', edge: '#7A5CFF' },
+  { id: 'galaxy', cost: -1, shards: 1000, fx: 'galaxy', deck: '#160F3A', stripe: '#B57CFF', edge: '#5EE7FF' },
+  { id: 'gold', cost: -1, shards: 1000, fx: 'gold', deck: '#D9A42A', stripe: '#FFE07A', edge: '#9A6A12' },
 ];
 
 // Board trails, Shards shop only (DECISIONS 68): a ribbon off the board, worn all
 // the time, plus sparks. `colors` run along the ribbon; `rainbow` cycles hue
 // instead; `spark` picks the particles (hues 0..1, `pastel` for star-white).
 export const TRAILS = [
-  { id: 'rainbow', shards: 100, rainbow: true, colors: ['#FF4D6D', '#FFD23F', '#3DDC97'], spark: { hues: [0, 0.17, 0.33, 0.55, 0.75], rate: 22 } },
-  { id: 'aurora', shards: 100, colors: ['#3DFFB0', '#2EC8FF', '#9B6BFF'], spark: { hues: [0.42, 0.52, 0.75], rate: 14 } },
-  { id: 'ember', shards: 100, colors: ['#FFE066', '#FF7A1A', '#E0262E'], spark: { hues: [0.02, 0.07, 0.12], rate: 30, rise: true } },
-  { id: 'stardust', shards: 100, colors: ['#C9A2FF', '#6A3BFF', '#2A1A6B'], spark: { hues: [0.75, 0.8, 0.55], rate: 24, pastel: true } },
-  { id: 'neon', shards: 100, pulse: true, colors: ['#FF3EC8', '#B04BFF', '#3EF0FF'], spark: { hues: [0.9, 0.5], rate: 16 } },
+  { id: 'rainbow', shards: 500, rainbow: true, colors: ['#FF4D6D', '#FFD23F', '#3DDC97'], spark: { hues: [0, 0.17, 0.33, 0.55, 0.75], rate: 22 } },
+  { id: 'aurora', shards: 500, colors: ['#3DFFB0', '#2EC8FF', '#9B6BFF'], spark: { hues: [0.42, 0.52, 0.75], rate: 14 } },
+  { id: 'ember', shards: 500, colors: ['#FFE066', '#FF7A1A', '#E0262E'], spark: { hues: [0.02, 0.07, 0.12], rate: 30, rise: true } },
+  { id: 'stardust', shards: 500, colors: ['#C9A2FF', '#6A3BFF', '#2A1A6B'], spark: { hues: [0.75, 0.8, 0.55], rate: 24, pastel: true } },
+  { id: 'neon', shards: 500, pulse: true, colors: ['#FF3EC8', '#B04BFF', '#3EF0FF'], spark: { hues: [0.9, 0.5], rate: 16 } },
 ];
 
 // Race quick chat (DECISIONS 66): the only things riders can say to each

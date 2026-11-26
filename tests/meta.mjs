@@ -89,7 +89,7 @@ export function runMetaTests() {
 
   test('unlocks: buying costs flakes, needs enough, streak-only items cannot be bought', () => {
     const p = new Store(memory()).profile;
-    p.flakes = 160;
+    p.flakes = 510;
     ok(!buy(p, 'rider', 'blush'), 'too expensive');
     ok(buy(p, 'rider', 'pine'));
     eq(p.flakes, 10);

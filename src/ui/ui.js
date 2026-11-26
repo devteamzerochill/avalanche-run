@@ -75,6 +75,16 @@ export class UI {
     this.el = {};
     for (const id of ['hud', 'distNum', 'hudFlakes', 'hudSpeed', 'meter', 'meterFill', 'combo', 'banner', 'bannerBig', 'bannerSmall', 'ring', 'hint', 'hand', 'hintText', 'jumpBtn', 'title', 'panel', 'panelTitle', 'panelBody', 'pause', 'end', 'toasts', 'loader', 'frost', 'flash', 'speedfx', 'titleCta', 'endCta', 'navDot']) this.el[id] = $(id);
     this.cache = {};
+    // Some WebViews (BlueStacks) keep the logo as first drawn during its intro,
+    // with "RUN" squashed over its shadow, until something hides it. Hide it
+    // for one frame once the intro has played, so it is drawn again.
+    const logo = document.querySelector('.logo');
+    if (logo) logo.addEventListener('animationend', () => {
+      const svg = logo.querySelector('svg');
+      svg.style.display = 'none';
+      void svg.getBoundingClientRect();
+      requestAnimationFrame(() => { svg.style.display = ''; });
+    }, { once: true });
     this.panelName = '';
     this.shopTab = 'rider';
     this.tryOn = {}; // shop items on the fox but not worn: { rider, board, trail } ids

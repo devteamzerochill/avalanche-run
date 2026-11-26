@@ -6,19 +6,24 @@ import { test, eq, ok } from './harness.mjs';
 import { CONFIG, RIDERS, BOARDS, TRAILS, MISSIONS } from '../src/config.js';
 
 const SQL = fs.readFileSync(new URL('../supabase/migrations/20261124000000_avalanche_profiles.sql', import.meta.url), 'utf8');
+// Later price changes: (type, id, price) rows under "set cost" or "set shards".
+const BUMP = fs.readFileSync(new URL('../supabase/migrations/20261202000000_price_bump.sql', import.meta.url), 'utf8');
+const bumps = (col) => new Map([...(BUMP.split('set ' + col + ' =')[1] || '').split('where')[0].matchAll(/\('(\w+)', '(\w+)', (\d+)\)/g)].map((m) => [m[1] + ':' + m[2], m[3]]));
+const COST = bumps('cost');
+const SHARDS = bumps('shards');
 // Shards items are added across several migrations.
 const SHOP = ['20261127000000_shards_shop.sql', '20261130000000_gold_skin.sql'].map((f) => fs.readFileSync(new URL('../supabase/migrations/' + f, import.meta.url), 'utf8')).join('\n');
 
 export function runCatalogTests() {
   test('server catalogue matches the game: rider and board prices', () => {
-    const rows = [...SQL.matchAll(/\('(rider|board)', '([a-z]+)', (-?\d+)\)/g)].map((m) => m[1] + ':' + m[2] + ':' + m[3]);
+    const rows = [...SQL.matchAll(/\('(rider|board)', '([a-z]+)', (-?\d+)\)/g)].map((m) => m[1] + ':' + m[2] + ':' + (COST.get(m[1] + ':' + m[2]) || m[3]));
     const snow = (it) => !it.shards;
     const want = RIDERS.filter(snow).map((r) => 'rider:' + r.id + ':' + r.cost).concat(BOARDS.filter(snow).map((b) => 'board:' + b.id + ':' + b.cost));
     eq(rows.sort().join(','), want.sort().join(','));
   });
 
   test('server catalogue matches the game: Shards shop prices', () => {
-    const rows = [...SHOP.matchAll(/\('(rider|board|trail)', '([a-z]+)', (-?\d+), (\d+)\)/g)].map((m) => [m[1], m[2], m[3], m[4]].join(':'));
+    const rows = [...SHOP.matchAll(/\('(rider|board|trail)', '([a-z]+)', (-?\d+), (\d+)\)/g)].map((m) => [m[1], m[2], m[3], SHARDS.get(m[1] + ':' + m[2]) || m[4]].join(':'));
     const items = (type, list) => list.filter((it) => it.shards).map((it) => [type, it.id, -1, it.shards].join(':'));
     const want = items('rider', RIDERS).concat(items('board', BOARDS), items('trail', TRAILS));
     eq(rows.sort().join(','), want.sort().join(','));
