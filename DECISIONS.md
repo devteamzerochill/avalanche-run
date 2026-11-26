@@ -16,7 +16,7 @@
 ## Arcade restyle (second pass)
 
 13. **Look moved to a bright arcade racer.** Toon-shaded props (three-step ramp), saturated per-biome palettes (blue forest, cyan crystal glacier, neon purple night), a painted sky with puffy clouds, sun rays, a rainbow and neon aurora. All original art: no characters, tunes or assets from existing games.
-14. **The piste is dressed as a race track.** Red-and-white kerbs, a dashed centre line, candy-striped poles, a checkered gate at the start and every 500 m, snowmen and balloons along the sides.
+14. **The piste is dressed as a race track.** Red-and-white kerbs, a dashed centre line, candy-striped poles, a checkered gate at the start and every 500 m, snowmen along the sides (the balloons were removed, owner 2026-11-26).
 15. **Dash pads added** (the one new mechanic): arrow pads on the safe line give 1.25 s of boost. Never deadly, always optional, so fairness is untouched. Simulation version bumped to 3, which discards older ghosts.
 16. **Flakes are drawn as spinning gold coins**; they are still the same currency.
 17. **3-2-1-GO countdown** before each run. The simulation does not advance during it.
@@ -25,10 +25,10 @@
 
 ## Cohesion pass (third pass)
 
-20. **The world wears the UI's ink.** Trees, rocks, props, coins, snowmen, balloons, avalanche boulders and the rider have navy inverted-hull outlines; the snow is cel-shaded in flat bands; the mountains have white caps and colour bands.
+20. **The world wears the UI's ink.** Trees, rocks, props, coins, snowmen, avalanche boulders and the rider have navy inverted-hull outlines; the snow is cel-shaded in flat bands; the mountains have white caps and colour bands.
 21. **The avalanche is a towering wall, not a creature.** A 17–24 m cel-shaded wave of snow, drawn closer than the simulated gap (60 m of lead reads as about 33 m) so it is a presence rather than a distant ridge. It swells and its flanks reach further with danger. (A face was tried and removed.)
 22. **Rear-view mirror.** The chase camera faces downhill, so the wall was only ever felt. A small second render pass shows it chasing you; the frame flashes red above 60 % danger. It is skipped on the lowest quality level.
-23. **Weather and speed.** Snow falls in every biome, spindrift blows across the piste, debris flies past when the wall is close, and the board leaves twin light streaks that grow with speed and turn rainbow on boost.
+23. **Weather and speed.** Snow falls in every biome, spindrift blows across the piste, debris flies past when the wall is close, and the board leaves twin light streaks that grow with speed and turn rainbow on boost (streaks removed in 91).
 
 24. **Strokes are light.** 3D outlines are under half their first width and UI text strokes are about 2 px, so the ink reads as an accent rather than a heavy comic line.
 
@@ -150,3 +150,7 @@
 88. **The daily spin wheel is on the back burner** (owner, 2026-11-26). It is taken out of the ads plan and not built; the rewarded video only doubles a run's snowflakes for now. The wheel's design from 85 is kept in `docs/ads.md` for when it comes back.
 
 89. **iOS asks Apple's tracking prompt once** (owner, 2026-11-26). The ads plugin shows the "Allow tracking?" prompt (ATT) before LevelPlay starts, so iPhone ads can use the advertising ID when the player allows it. In the same before-release review the owner chose to leave the rest as is: ads stay not child-directed (87) with no age question or Families setup, and LevelPlay's ad content rating keeps its default. Details: `docs/ads.md`.
+
+90. **Higher shop prices** (owner, 2026-11-26). Snowflakes: Ranger 500, Blush 1,000, Arctic 5,000; Sunrise board 1,000, Mint 2,000, Aurora 2,000. Shards: Galaxy and Gold fox 1,500 each, Galaxy and Gold board 1,000 each, every trail 500. The Ember board and the Silver fox stay streak rewards, not sold. Items already owned stay owned. The server's prices change with migration `20261202000000_price_bump.sql`; until it is applied live, the site charges the old prices. Also in the apps: the phone's status bar is hidden for a full-screen game.
+
+91. **A trail is one thin ribbon following the board** (owner, 2026-11-26). A worn trail (68) is a single ribbon starting a little behind the board, half the board's width so it doesn't look like part of the board, see-through with soft sides, growing in from a point and fading out smoothly behind, with its colours as bands along its width (rainbow: six hue bands; neon pulses). The trail sparks are gone. The twin speed streaks from 23 are removed too, so with no trail the board draws nothing behind it. The board's snow is about half the size, fainter, shorter-lived and lower than before, for everyone, so a ribbon reads, and the coloured boost exhaust, boost-pad burst and drift sparks are gone (the boost-pad burst and the perfect-landing burst are snow; a new best keeps its confetti). In the shop a tried-on trail runs straight back from the tail of the board, closer than in a run, as if already going fast, and turns with the fox. Also: the results card's video button carries an "x2 YOUR SNOWFLAKES!!" ribbon. Boosting no longer flashes coloured streaks on the piste; white wind streaks with a pale-blue edge rush out across the screen instead, over a light navy darkening at the edges so they show against the snow (skipped with reduced motion). The falling snow's sideways drift is added up frame by frame, so it no longer lurches when the storm's wind changes. The title screen button to the shop is called Shop (Tienda, 商店) instead of Riders.

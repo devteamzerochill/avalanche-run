@@ -24,6 +24,13 @@ function utcDateKey() {
 // live, with a sign-in screen first and a session that outlasts the app.
 export const APP = typeof window !== 'undefined' && !!window.__APP;
 
+// The apps hide the phone's status bar (clock, battery) for a full-screen game
+// (owner, 2026-11-26); the navigation bar stays, since the banner sits above it.
+if (APP) {
+  const bars = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SystemBars;
+  if (bars) bars.hide({ bar: 'StatusBar' }).catch(() => {});
+}
+
 // ?live talks to zerochill.com; ?live=local to the local Supabase in supabase/.
 export function liveTarget() {
   const q = new URLSearchParams(location.search);

@@ -79,7 +79,6 @@ uniform float uFogFar;
 uniform float uShadowZ;
 uniform float uShadowAmt;
 uniform float uSparkle;
-uniform float uBoost;
 uniform vec3 uAccent;
 varying vec3 vPos;
 varying float vD;
@@ -137,9 +136,6 @@ void main() {
   // Centre dashes, like a road: a strong speed cue.
   float dash = step(ax, 0.09) * step(0.55, fract(vD / 9.0));
   col = mix(col, uAccent, dash * 0.55 * near);
-  // Boost: the whole piste flashes with streaks.
-  float st = step(0.86, hash(vec2(floor(vPos.x * 2.0), 3.0))) * step(0.3, fract(vD / 14.0 + hash(vec2(floor(vPos.x * 2.0), 9.0))));
-  col = mix(col, uAccent, st * uBoost * 0.5 * piste * near);
   // Sun sparkle.
   float sp = hash(floor(wf * 16.0) * 0.61 + 3.7);
   col += uSunCol * step(0.993, sp) * uSparkle * (0.4 + 0.6 * lit) * close * 0.9;
@@ -194,7 +190,6 @@ export class Terrain {
       uShadowZ: { value: 100 },
       uShadowAmt: { value: 0 },
       uSparkle: { value: 0.5 },
-      uBoost: { value: 0 },
       uAccent: { value: new THREE.Color('#35d6ff') },
     };
     this.mesh = new THREE.Mesh(geo, new THREE.ShaderMaterial({ uniforms: this.uniforms, vertexShader: VERT, fragmentShader: FRAG }));

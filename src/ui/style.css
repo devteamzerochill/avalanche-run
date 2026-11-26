@@ -924,4 +924,7 @@ body.has-race .btn.big.rc-go small{font-size:calc(10px*var(--s))}
 @keyframes goldsheen{from{background-position:100% 0}to{background-position:-100% 0}}
 
 /* Ads (DECISIONS 85): the rewarded-video offer on the results card. */
-.ad-btn{width:100%;background:linear-gradient(90deg,#ffd23f,#ffb13b);color:#0c1c35;font-weight:900}
+.ad-btn{width:100%;background:linear-gradient(90deg,#ffd23f,#ffb13b);color:#0c1c35;font-weight:900;position:relative;overflow:visible}
+/* The "x2" ribbon pinned to the video button's corner (owner, 2026-11-26). */
+.ad-btn[data-ribbon]::after{content:attr(data-ribbon);position:absolute;top:-11px;right:-6px;padding:3px 9px;border-radius:6px;background:#ff4d6d;color:#fff;font-size:11px;font-style:italic;font-weight:900;letter-spacing:.06em;white-space:nowrap;transform:rotate(4deg);box-shadow:0 2px 0 rgba(0,0,0,.25);animation:adRibbon 1.6s ease-in-out infinite;pointer-events:none}
+@keyframes adRibbon{0%,100%{transform:rotate(4deg) scale(1)}50%{transform:rotate(4deg) scale(1.08)}}

@@ -382,20 +382,6 @@ class Game {
     this.speedTrail.setStyle(this.trailItem);
   }
 
-  // Sparks off the tail of the board from a worn trail (Shards shop).
-  // tr: the trail item; o: who keeps the spark count (spark); x, y, d: the board.
-  trailSparks(dt, tr, o, x, y, d, v, air) {
-    if (!tr) return;
-    o.spark = (o.spark || 0) + dt * tr.spark.rate * (air ? 1.4 : 1);
-    const hues = tr.spark.hues;
-    for (; o.spark >= 1; o.spark--) {
-      const hue = tr.rainbow ? (this.time * 0.6 + Math.random() * 0.3) % 1 : hues[(Math.random() * hues.length) | 0];
-      const side = Math.random() < 0.5 ? -0.2 : 0.2;
-      const up = tr.spark.rise ? 1.6 + Math.random() * 2.2 : 0.3 + Math.random() * 1.2;
-      this.particles.emit(x + side + (Math.random() - 0.5) * 0.2, y + 0.15, d - 0.9, (Math.random() - 0.5) * 1.6, up, v * 0.88, 0.3 + Math.random() * 0.3, 0.3 + Math.random() * 0.35, 0.9, tr.spark.rise ? 0 : 2, (tr.spark.pastel ? 20 : 10) + hue);
-    }
-  }
-
   resize() {
     this.mirrorRect = null;
     this.stage.resize();
@@ -990,7 +976,7 @@ class Game {
   }
 
   // One other rider from the pool (DECISIONS 71): posed and placed in the slope
-  // frame (o.z), with its worn trail and sparks, and faded to see-through while
+  // frame (o.z), with its worn trail, and faded to see-through while
   // it would hide the fox or the slope just ahead of it.
   drawRacer(k, look, o, visDt) {
     const r = this.racers.get(k, look);
@@ -1007,8 +993,7 @@ class Game {
     if (r.trail.mesh.visible) {
       const d = sim.dist - o.z;
       r.trail.mesh.position.z = o.z;
-      r.trail.update(visDt, o.x, o.y, d, o.vx || 0, 0.35, 0, this.stage.mood.accent, true);
-      this.trailSparks(visDt, tr, r, o.x, o.y, d, o.v, o.air);
+      r.trail.update(visDt, o.x, o.y, d, true);
     } else r.trail.reset();
     return r;
   }
@@ -1314,7 +1299,7 @@ class Game {
         this.pulse.boost = 1;
         this.camera.kick(0.35);
         ui.banner('', t('hud.dash'), 'dash', 0.8);
-        for (let i = 0; i < 26; i++) P.emit(sim.x + (Math.random() - 0.5) * 2, gy + 0.2 + Math.random() * 0.8, sim.dist, (Math.random() - 0.5) * 5, 1 + Math.random() * 3, sim.v * 0.7, 0.6, 0.35, 1, 3, 1 + (i % 5));
+        for (let i = 0; i < 26; i++) P.emit(sim.x + (Math.random() - 0.5) * 2, gy + 0.2 + Math.random() * 0.8, sim.dist, (Math.random() - 0.5) * 5, 1 + Math.random() * 3, sim.v * 0.7, 0.6, 0.35 * 0.6, 0.7, 3, 0); // snow, not rainbow (owner, 2026-11-26)
         break;
       case 'jump':
         this.audio.play('jump');
@@ -1357,7 +1342,7 @@ class Game {
           this.audio.play('perfect');
           this.hype('perfect', 2, 'hype', 'crowd');
           ui.banner('', t('hud.perfect', { n: ev.pts }), 'good', 1.2);
-          for (let i = 0; i < 34; i++) P.emit(sim.x, gy + 0.6, sim.dist, (Math.random() - 0.5) * 9, 1 + Math.random() * 6, sim.v * (0.6 + Math.random() * 0.4), 0.9, 0.34, 1, 6, 1 + (i % 5));
+          for (let i = 0; i < 34; i++) P.emit(sim.x, gy + 0.6, sim.dist, (Math.random() - 0.5) * 9, 1 + Math.random() * 6, sim.v * (0.6 + Math.random() * 0.4), 0.9, 0.26, 0.8, 6, 0); // a puff of snow, not confetti (owner, 2026-11-26)
         } else if (ev.quality === 'sloppy') {
           this.audio.play('sloppy');
           this.hype('sloppy', 2, 'down');
@@ -1830,10 +1815,17 @@ class Game {
     this.shadow.material.opacity = 0.62 / (1 + hAbove * 0.35);
     this.trail.update(sim.x, sim.dist, !sim.air && !wipe && !title, 0.34 + sim.drift * 0.3 + Math.min(0.2, Math.abs(sim.vx) * 0.02), terrain, st.mood.shade);
 
-    const boost01 = clamp(sim.boostNow / CONFIG.boost.amount, 0, 1);
-    this.speedTrail.update(dt, sim.x, riderY, sim.dist, sim.vx, riding ? clamp((sim.v - 24) / 26, 0, 1) : 0, riding ? boost01 : 0, st.mood.accent, riding);
-    if (riding) this.trailSparks(dt, this.trailItem, this, sim.x, riderY, sim.dist, sim.v, sim.air);
-    else if (title && this.ui.panelName === 'shop') this.trailSparks(dt, this.trailItem, this, sim.x, riderY, sim.dist + 0.9, 0, false); // a trail being tried on
+    // In the shop the fox stands on a turntable, so a trail being tried on rides
+    // on the fox itself: run out straight back off the tail of the board, as if
+    // already going fast, and turning with it.
+    const tryOn = title && this.ui.panelName === 'shop';
+    if (tryOn !== this.trailTryOn) {
+      this.speedTrail.reset();
+      (tryOn ? this.rider.root : this.stage.world).add(this.speedTrail.mesh);
+      this.trailTryOn = tryOn;
+    }
+    if (tryOn) this.speedTrail.update(dt, 0, 0, this.time * 14, true, 0.7); // closer: the shop sees it side-on
+    else this.speedTrail.update(dt, sim.x, riderY, sim.dist, riding);
     GALAXY.uGTime.value = this.time;
     GALAXY.uGPx.value = 1 / Math.max(1, st.renderer.domElement.height);
 
@@ -1879,34 +1871,30 @@ class Game {
     const TAIL = 1.0;
     if (riding && !sim.air) {
       const P = this.particles;
-      const n = 2 + (sim.drift > 0.3 ? 3 : 0);
-      for (let i = 0; i < n; i++) P.emit(sim.x + (Math.random() - 0.5) * 0.35, groundSmooth + 0.08, sim.dist - TAIL, (Math.random() - 0.5) * 1.6, 0.8 + Math.random() * 2.2, sim.v * (0.75 + Math.random() * 0.1), 0.8 + Math.random() * 0.6, 0.35, 0.85, 1.8, 0);
+      // The snow is kept small, faint, short-lived and low so it doesn't drown a
+      // worn trail; toned down for everyone (owner, 2026-11-26).
+      const ws = 0.5; // size
+      const wa = 0.55; // opacity
+      const wl = 0.6; // life
+      const n = 1 + (sim.drift > 0.3 ? 1 : 0);
+      for (let i = 0; i < n; i++) P.emit(sim.x + (Math.random() - 0.5) * 0.35, groundSmooth + 0.08, sim.dist - TAIL, (Math.random() - 0.5) * 1.6, 0.8 + Math.random() * 2.2, sim.v * (0.75 + Math.random() * 0.1), (0.8 + Math.random() * 0.6) * wl, 0.35 * ws, 0.85 * wa, 1.8, 0);
       // A V-shaped plume of snow peeling off both edges of the board; taller with speed.
-      const lift = 1.6 + speed01 * 3.2;
+      const lift = (1.6 + speed01 * 3.2) * 0.45;
       for (const side of [-1, 1]) {
-        for (let i = 0; i < 2; i++) P.emit(sim.x + side * 0.22, groundSmooth + 0.1, sim.dist - TAIL, side * (1.6 + Math.random() * 2.6), lift * (0.6 + Math.random() * 0.7), sim.v * (0.82 + Math.random() * 0.08), 0.55 + Math.random() * 0.35, 0.5 + Math.random() * 0.45, 0.9, 9, 0);
+        P.emit(sim.x + side * 0.22, groundSmooth + 0.1, sim.dist - TAIL, side * (1.6 + Math.random() * 2.6), lift * (0.6 + Math.random() * 0.7), sim.v * (0.82 + Math.random() * 0.08), (0.55 + Math.random() * 0.35) * wl, (0.5 + Math.random() * 0.45) * ws, 0.9 * wa, 9, 0);
       }
       const avx = Math.abs(sim.vx);
       if (avx > 5) {
         const side = sim.vx > 0 ? -1 : 1;
-        for (let i = 0; i < 3; i++) P.emit(sim.x + side * 0.25, groundSmooth + 0.1, sim.dist - TAIL - Math.random() * 0.4, side * (3 + Math.random() * 4) * (1 + sim.drift), 1.5 + Math.random() * 2.2, sim.v * 0.8, 0.5, 0.36 + sim.drift * 0.2, 0.85, 5, 0);
+        for (let i = 0; i < 2; i++) P.emit(sim.x + side * 0.25, groundSmooth + 0.1, sim.dist - TAIL - Math.random() * 0.4, side * (3 + Math.random() * 4) * (1 + sim.drift), 1.5 + Math.random() * 2.2, sim.v * 0.8, 0.5 * wl, (0.36 + sim.drift * 0.2) * ws, 0.85 * wa, 5, 0);
         if (avx > 9) this.audio.play('carve', { vol: clamp(avx / 20, 0.4, 1), minGap: 0.35 });
       }
       if (sim.surface === 'mogul') this.audio.play('mogul', { minGap: 0.11 });
       if (sim.surface === 'mogul' && Math.random() < 0.5) P.burst(4, sim.x, groundSmooth + 0.1, sim.dist - TAIL, 2, 1.6, sim.v * 0.7, 0.4, 0.3, 0.8);
     }
-    if (riding && sim.boostNow > 1) {
-      // Rainbow exhaust while boosting.
-      this.rb = ((this.rb || 0) + 1) % 5;
-      for (let i = 0; i < 3; i++) this.particles.emit(sim.x + (Math.random() - 0.5) * 0.5, riderY + 0.15 + Math.random() * 0.5, sim.dist - TAIL, (Math.random() - 0.5) * 1.5, 0.3, sim.v * 0.5, 0.5, 0.42, 1, 0, 1 + ((this.rb + i) % 5));
-    }
-    if (riding && !sim.air && sim.drift > 0.3) {
-      // Drift sparks off the edge.
-      const side = sim.vx > 0 ? -1 : 1;
-      for (let i = 0; i < 2; i++) this.particles.emit(sim.x + side * 0.3, groundSmooth + 0.08, sim.dist - TAIL, side * (2 + Math.random() * 4), 1.5 + Math.random() * 3, sim.v * 0.85, 0.3, 0.16, 1, 12, Math.random() < 0.5 ? 4 : 1);
-      this.audio.play('spark', { minGap: 0.12 });
-    }
-    terrain.uniforms.uBoost.value = riding ? clamp(sim.boostNow / CONFIG.boost.amount, 0, 1) : 0;
+    // No coloured boost exhaust or drift sparks: only snow comes off the board
+    // (owner, 2026-11-26). The drift still sounds.
+    if (riding && !sim.air && sim.drift > 0.3) this.audio.play('spark', { minGap: 0.12 });
     if (wipe && sim.wipeT < 1.2 && Math.random() < 0.6) this.particles.burst(3, sim.x, groundSmooth + 0.2, sim.dist, 2.5, 1.2, sim.v * 0.5, 0.8, 0.4, 0.9);
     this.particles.update(this.fxTime, sim.dist, st.height, st.mood.snow);
     this.snowfall.update(this.fxTime, sim.dist, st.height, st.mood.snowfall * (this.snowScale == null ? 1 : Math.max(0.25, this.snowScale)), sim.wind, groundSmooth);
@@ -1975,7 +1963,9 @@ class Game {
       }
     }
     this.ui.frost(this.state === 'play' || this.state === 'end' ? clamp((danger - 0.3) * 1.5 * (sim.cause === 'caught' ? 0.5 : 1), 0, 0.95) : 0);
-    this.ui.speedLines(dt, riding && !set.reducedMotion ? clamp(0.25 + speed01 * 0.75 + sim.boostNow / 8, 0, 1) : 0);
+    // Boost blows a rush of wind across the screen instead of colouring the piste (owner, 2026-11-26).
+    const gust = riding && !set.reducedMotion ? clamp(sim.boostNow / CONFIG.boost.amount, 0, 1) : 0;
+    this.ui.speedLines(dt, riding && !set.reducedMotion ? clamp(0.25 + speed01 * 0.75, 0, 1) : 0, gust);
     this.audio.mix(speed01, danger, this.timeScale < 0.6, riding, clamp(sim.boostNow / CONFIG.boost.amount, 0, 1));
 
     this.perf.span('world', 'world');

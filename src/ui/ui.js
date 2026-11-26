@@ -75,12 +75,25 @@ export class UI {
     this.el = {};
     for (const id of ['hud', 'distNum', 'hudFlakes', 'hudSpeed', 'meter', 'meterFill', 'combo', 'banner', 'bannerBig', 'bannerSmall', 'ring', 'hint', 'hand', 'hintText', 'jumpBtn', 'title', 'panel', 'panelTitle', 'panelBody', 'pause', 'end', 'toasts', 'loader', 'frost', 'flash', 'speedfx', 'titleCta', 'endCta', 'navDot']) this.el[id] = $(id);
     this.cache = {};
+    // Some WebViews (BlueStacks) keep the logo as first drawn during its intro,
+    // with "RUN" squashed over its shadow, until something hides it. Hide it
+    // for one frame once the intro has played, so it is drawn again.
+    const logo = document.querySelector('.logo');
+    if (logo) logo.addEventListener('animationend', () => {
+      const svg = logo.querySelector('svg');
+      svg.style.display = 'none';
+      void svg.getBoundingClientRect();
+      requestAnimationFrame(() => { svg.style.display = ''; });
+    }, { once: true });
     this.panelName = '';
     this.shopTab = 'rider';
     this.tryOn = {}; // shop items on the fox but not worn: { rider, board, trail } ids
     this.fx = this.el.speedfx.getContext('2d');
     this.lines = [];
     for (let i = 0; i < 26; i++) this.lines.push({ a: Math.random() * 6.28, r: Math.random(), l: 0.05 + Math.random() * 0.08 });
+    // Extra, longer streaks that only blow while boosting.
+    this.gusts = [];
+    for (let i = 0; i < 34; i++) this.gusts.push({ a: Math.random() * 6.28, r: Math.random(), l: 0.12 + Math.random() * 0.16 });
     this.bannerUntil = 0;
 
     // While an API call is in flight, keys don't reach the game or the menus.
@@ -800,7 +813,8 @@ export class UI {
     f.style.opacity = '0';
   }
 
-  speedLines(dt, amount) {
+  // amount: speed lines (0..1); gust: the boost's wind rush (0..1).
+  speedLines(dt, amount, gust = 0) {
     const g = this.fx;
     const w = this.w;
     const h = this.h;
@@ -808,7 +822,7 @@ export class UI {
       g.clearRect(0, 0, w, h);
       this.fxDirty = false;
     }
-    if (amount <= 0.02) return;
+    if (amount <= 0.02 && gust <= 0.02) return;
     this.fxDirty = true;
     const cx = w / 2;
     const cy = h * 0.56;
@@ -829,6 +843,42 @@ export class UI {
       g.moveTo(cx + c * R * l.r, cy + s * R * l.r * 0.9);
       g.lineTo(cx + c * R * (l.r + l.l), cy + s * R * (l.r + l.l) * 0.9);
       g.stroke();
+    }
+    if (gust <= 0.02) return;
+    // A navy tunnel at the edges, so the white streaks have something darker
+    // than snow to show against (owner, 2026-11-26).
+    const vg = g.createRadialGradient(cx, cy, R * 0.22, cx, cy, R * 0.8);
+    vg.addColorStop(0, 'rgba(12,28,53,0)');
+    vg.addColorStop(1, 'rgba(12,28,53,' + (0.5 * gust).toFixed(3) + ')');
+    g.fillStyle = vg;
+    g.fillRect(0, 0, w, h);
+    // Wind: long white streaks rushing out from the middle, fading in and out
+    // along their way so they read as moving air rather than lines.
+    for (const l of this.gusts) {
+      l.r += dt * (3.2 + 2 * gust);
+      if (l.r > 1.05) {
+        l.r = 0.35 + Math.random() * 0.2;
+        l.a = Math.random() * 6.28;
+        l.l = 0.12 + Math.random() * 0.16;
+      }
+      const c = Math.cos(l.a);
+      const s = Math.sin(l.a);
+      const fade = Math.sin(Math.PI * Math.min(1, Math.max(0, (l.r - 0.35) / 0.7)));
+      const x0 = cx + c * R * l.r, y0 = cy + s * R * l.r * 0.9;
+      const x1 = cx + c * R * (l.r + l.l), y1 = cy + s * R * (l.r + l.l) * 0.9;
+      // A soft pale-blue edge under a white core, so it reads on white snow too.
+      const k = gust * fade;
+      for (const [rgb, alpha, width] of [['90,150,215', 0.35, 7], ['255,255,255', 0.9, 2.5]]) {
+        const grad = g.createLinearGradient(x0, y0, x1, y1);
+        grad.addColorStop(0, 'rgba(' + rgb + ',0)');
+        grad.addColorStop(1, 'rgba(' + rgb + ',' + (alpha * k).toFixed(3) + ')');
+        g.strokeStyle = grad;
+        g.lineWidth = width * (0.6 + 0.4 * gust);
+        g.beginPath();
+        g.moveTo(x0, y0);
+        g.lineTo(x1, y1);
+        g.stroke();
+      }
     }
   }
 
@@ -905,7 +955,7 @@ export class UI {
     const n = this.hooks.doubleFlakes ? this.hooks.doubleFlakes() : 0;
     if (!n || !this.hooks.adReady) return;
     this.hooks.adReady().then((ok) => {
-      if (ok && this.endShown && this.hooks.doubleFlakes() === n) (dbl.textContent = t('ads.double', { n })), dbl.classList.remove('hidden');
+      if (ok && this.endShown && this.hooks.doubleFlakes() === n) (dbl.textContent = t('ads.double', { n })), (dbl.dataset.ribbon = t('ads.ribbon')), dbl.classList.remove('hidden');
     });
   }
 

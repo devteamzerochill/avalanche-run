@@ -124,14 +124,14 @@ const S_VERT = /* glsl */ `
 attribute vec3 aSeed;
 uniform float uTime;
 uniform float uDist;
-uniform float uWind;
+uniform float uWindX;
 uniform float uScale;
 uniform float uAmount;
 varying float vAlpha;
 void main() {
   vec3 box = vec3(60.0, 26.0, 80.0);
   vec3 p = aSeed * box;
-  p.x += uWind * uTime * 6.0 + sin(uTime * 0.7 + aSeed.y * 20.0) * 1.2;
+  p.x += uWindX + sin(uTime * 0.7 + aSeed.y * 20.0) * 1.2;
   p.y -= uTime * (3.0 + aSeed.x * 3.5);
   p.z += uDist * 0.9;
   p = mod(p, box) - vec3(30.0, 3.0, 70.0);
@@ -159,7 +159,8 @@ export class Snowfall {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
     geo.setAttribute('aSeed', new THREE.BufferAttribute(seed, 3));
-    this.uniforms = { uTime: { value: 0 }, uDist: { value: 0 }, uWind: { value: 0 }, uScale: { value: 600 }, uAmount: { value: 0.2 } };
+    this.uniforms = { uTime: { value: 0 }, uDist: { value: 0 }, uWindX: { value: 0 }, uScale: { value: 600 }, uAmount: { value: 0.2 } };
+    this.lastTime = 0;
     this.points = new THREE.Points(geo, new THREE.ShaderMaterial({ uniforms: this.uniforms, vertexShader: S_VERT, fragmentShader: S_FRAG, transparent: true, depthWrite: false }));
     this.points.frustumCulled = false;
     this.points.renderOrder = 6;
@@ -169,11 +170,15 @@ export class Snowfall {
 
   update(time, dist, height, amount, wind, groundY) {
     const u = this.uniforms;
+    // The drift is added up frame by frame: wind × total time made the whole
+    // snowfield lurch whenever the wind changed (owner, 2026-11-26).
+    const dt = Math.min(0.1, Math.max(0, time - this.lastTime));
+    this.lastTime = time;
+    u.uWindX.value = (u.uWindX.value + wind * dt * 6) % 600;
     u.uTime.value = time;
     u.uDist.value = dist;
     u.uScale.value = height * 0.9;
     u.uAmount.value = amount;
-    u.uWind.value = wind;
     this.points.position.y = groundY;
     this.points.visible = amount > 0.01;
   }
@@ -274,31 +279,30 @@ export function makeBlobShadow() {
   return mesh;
 }
 
-// Speed trail: two light streaks off the board that grow with speed and turn
-// rainbow while boosting. Unlike the carve trail it follows the rider in the air.
+// Worn trail (Shards shop): one solid ribbon following the board, its colours
+// in bands across its width (owner, 2026-11-26). It follows the rider in the
+// air too. With no trail worn the board leaves nothing; the owner removed the
+// twin speed streaks it used to draw at speed.
 const SPEED_N = 64;
 export class SpeedTrail {
   constructor(stage) {
     const geo = new THREE.BufferGeometry();
-    const verts = SPEED_N * 4;
+    const verts = SPEED_N * 2;
     this.pos = new THREE.BufferAttribute(new Float32Array(verts * 3), 3);
     this.alpha = new THREE.BufferAttribute(new Float32Array(verts), 1);
     this.hue = new THREE.BufferAttribute(new Float32Array(verts), 1);
+    // 0 on one edge, 1 on the other: where the colour bands sit.
+    const across = new Float32Array(verts);
+    for (let v = 1; v < verts; v += 2) across[v] = 1;
     geo.setAttribute('position', this.pos);
     geo.setAttribute('alpha', this.alpha);
     geo.setAttribute('hue', this.hue);
+    geo.setAttribute('across', new THREE.BufferAttribute(across, 1));
     const idx = [];
-    for (let r = 0; r < 2; r++) {
-      const o = r * SPEED_N * 2;
-      for (let i = 0; i < SPEED_N - 1; i++) idx.push(o + i * 2, o + i * 2 + 1, o + i * 2 + 2, o + i * 2 + 1, o + i * 2 + 3, o + i * 2 + 2);
-    }
+    for (let i = 0; i < SPEED_N - 1; i++) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
     geo.setIndex(idx);
     this.uniforms = {
-      uColor: { value: new THREE.Color('#35d6ff') },
       uRainbow: { value: 0 },
-      // A worn trail (Shards shop): a flowing three-colour gradient, rainbow, or a neon pulse.
-      uStyle: { value: 0 },
-      uRainbowOn: { value: 0 },
       uPulse: { value: 0 },
       uT: { value: 0 },
       uC0: { value: new THREE.Color() },
@@ -312,14 +316,16 @@ export class SpeedTrail {
         transparent: true,
         depthWrite: false,
         side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending,
-        vertexShader: 'attribute float alpha; attribute float hue; varying float vA; varying float vH; void main(){ vA = alpha; vH = hue; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        vertexShader: 'attribute float alpha; attribute float hue; attribute float across; varying float vA; varying float vH; varying float vX; void main(){ vA = alpha; vH = hue; vX = across; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        // Blended hues for rainbow, else the three colours mirrored
+        // edge-middle-edge; the sides feather out so it isn't a hard strip.
         fragmentShader:
-          'uniform vec3 uColor; uniform float uRainbow; uniform float uStyle; uniform float uRainbowOn; uniform float uPulse; uniform float uT; uniform vec3 uC0; uniform vec3 uC1; uniform vec3 uC2; varying float vA; varying float vH; void main(){ vec3 rb = 0.5 + 0.5 * cos(6.2832 * (vH + vec3(0.0, 0.33, 0.67))); float g = abs(fract(vH * 0.4) * 2.0 - 1.0); vec3 grad = g < 0.5 ? mix(uC0, uC1, g * 2.0) : mix(uC1, uC2, g * 2.0 - 1.0); vec3 base = mix(uColor, grad, uStyle); float glow = 1.0 + uPulse * (0.35 + 0.45 * sin(uT * 7.0 - vH * 5.0)); gl_FragColor = vec4(mix(base, rb, max(uRainbow, uRainbowOn)) * vA * glow, vA); \n#include <colorspace_fragment>\n }',
+          'uniform float uRainbow; uniform float uPulse; uniform float uT; uniform vec3 uC0; uniform vec3 uC1; uniform vec3 uC2; varying float vA; varying float vH; varying float vX; void main(){ float m = abs(vX * 2.0 - 1.0); vec3 band = m > 0.5 ? mix(uC1, uC0, m * 2.0 - 1.0) : mix(uC2, uC1, m * 2.0); vec3 rb = 0.5 + 0.5 * cos(6.2832 * (vX * 0.83 + vec3(0.0, 0.33, 0.67))); vec3 col = mix(band, rb, uRainbow); col *= 1.0 + uPulse * (0.25 + 0.35 * sin(uT * 7.0 - vH * 5.0)); float edge = 1.0 - smoothstep(0.45, 1.0, m); gl_FragColor = vec4(col, vA * edge); \n#include <colorspace_fragment>\n }',
       })
     );
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 7;
+    this.mesh.visible = false;
     stage.world.add(this.mesh);
     this.pts = [];
     this.t = 0;
@@ -329,45 +335,41 @@ export class SpeedTrail {
     this.pts.length = 0;
   }
 
-  // The worn trail (an item of TRAILS), or null for the plain speed streaks.
+  // The worn trail (an item of TRAILS), or null for none.
   setStyle(trail) {
     const u = this.uniforms;
-    this.worn = !!trail;
-    u.uStyle.value = trail ? 1 : 0;
-    u.uRainbowOn.value = trail && trail.rainbow ? 1 : 0;
+    this.mesh.visible = !!trail;
+    u.uRainbow.value = trail && trail.rainbow ? 1 : 0;
     u.uPulse.value = trail && trail.pulse ? 1 : 0;
     if (trail) [u.uC0, u.uC1, u.uC2].forEach((c, i) => c.value.set(trail.colors[Math.min(i, trail.colors.length - 1)]));
   }
 
-  // strength 0..1 (speed), boost 0..1; on: riding (a worn trail always shows then)
-  update(dt, x, y, dist, lean, strength, boost, accent, on) {
+  // on: riding (the ribbon hides otherwise)
+  // gap: metres between the rider and the start of the ribbon.
+  update(dt, x, y, dist, on, gap = 1.3) {
     this.t += dt;
-    this.pts.unshift({ x, y, d: dist, lean });
+    this.pts.unshift({ x, y, d: dist });
     if (this.pts.length > SPEED_N) this.pts.pop();
-    this.uniforms.uColor.value.copy(accent);
     this.uniforms.uT.value = this.t;
-    if (this.worn && on) strength = Math.max(strength, 0.35);
-    this.uniforms.uRainbow.value = boost;
     const n = this.pts.length;
-    const len = 0.45 + 0.55 * Math.max(strength, boost);
-    for (let r = 0; r < 2; r++) {
-      const side = r ? 0.2 : -0.2;
-      for (let i = 0; i < SPEED_N; i++) {
-        const p = this.pts[Math.min(i, n - 1)];
-        const u = i / (SPEED_N - 1);
-        const w = (0.09 + 0.1 * strength + 0.12 * boost) * (1 - u * 0.6);
-        const cx = p.x + side;
-        const z = -(p.d - dist) + 0.9;
-        const v = (r * SPEED_N + i) * 2;
-        this.pos.setXYZ(v, cx - w, p.y + 0.16, z);
-        this.pos.setXYZ(v + 1, cx + w, p.y + 0.16, z);
-        const a = i < n ? Math.max(0, 1 - u / len) * (0.12 + 0.6 * strength + 0.4 * boost) : 0;
-        this.alpha.setX(v, a);
-        this.alpha.setX(v + 1, a);
-        const h = u * 1.5 - this.t * 1.2;
-        this.hue.setX(v, h);
-        this.hue.setX(v + 1, h);
-      }
+    for (let i = 0; i < SPEED_N; i++) {
+      const p = this.pts[Math.min(i, n - 1)];
+      const u = i / (SPEED_N - 1);
+      // Grows out of nothing at the start, then tapers to a point.
+      const w = 0.11 * (0.35 + 0.65 * Math.min(1, u / 0.12)) * (1 - u * 0.75);
+      const z = -(p.d - dist) + gap; // starts a little behind the board (owner, 2026-11-26)
+      const v = i * 2;
+      this.pos.setXYZ(v, p.x - w, p.y + 0.04, z);
+      this.pos.setXYZ(v + 1, p.x + w, p.y + 0.04, z);
+      // See-through (owner, 2026-11-26); fades in over the first stretch and out
+      // smoothly towards the end, so neither end is a hard cut.
+      const fadeIn = Math.min(1, u / 0.12), fadeOut = 1 - Math.max(0, (u - 0.35) / 0.65);
+      const a = !on || i >= n ? 0 : fadeIn * fadeIn * (3 - 2 * fadeIn) * fadeOut * fadeOut * (3 - 2 * fadeOut) * 0.85;
+      this.alpha.setX(v, a);
+      this.alpha.setX(v + 1, a);
+      const h = u * 1.5 - this.t * 1.2;
+      this.hue.setX(v, h);
+      this.hue.setX(v + 1, h);
     }
     this.pos.needsUpdate = true;
     this.alpha.needsUpdate = true;
