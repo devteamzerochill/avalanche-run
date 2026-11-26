@@ -12,7 +12,7 @@ Agreed with the owner on 2026-11-25 (DECISIONS 85). Anything marked **Proposal**
 ## Audience and privacy
 
 - **Not child-directed, for now (DECISIONS 87, replacing the child-directed rule in 85).** The app sends no COPPA flag and no device-ID opt-out, and keeps the advertising ID permission, so more networks fill.
-- Both LevelPlay apps still show COPPA "Directed" (the dashboard locks it after creation). The owner is asking LevelPlay support to change it to "Not directed" and to block gambling ads.
+- LevelPlay locks COPPA when an app is created, so two new apps were made with COPPA "Not directed" (Android `29e30bffd`, iOS `29e30f985`). The first two ("Directed") are renamed "Avalanche Run (old)" and unused.
 - **Known risk, accepted by the owner:** the players include kids, so COPPA and Google Play's Families rules apply whatever the setting says. **Revisit before release**, together with any age question, consent prompt or iOS tracking prompt, and the store audience declaration.
 
 ## Rewarded video
@@ -57,7 +57,7 @@ Players choose to watch, and get one of two rewards:
 - Load failures are logged to logcat under the tag `AvalancheAds` (for example 509, "Mediation No fill").
 - **The game side is `src/systems/ads.js`.** It does nothing outside the apps. It holds the pacing rules, kept in their own localStorage key so restarting the app doesn't reset them.
 - **The banner's height goes to the CSS variable `--ad`.** The title screen and the results card pad by it.
-- **Keys:** `CONFIG.ads` holds the owner's own LevelPlay app keys and ad unit ids (created 2026-11-26), for Android and iOS. The apps are "Not live yet". Their COPPA setting is "Directed", until LevelPlay support changes it (DECISIONS 87). The ad units use the dashboard defaults with no capping or pacing, because the game paces itself. The rewarded units' reward ("Snowflakes", 1) is a placeholder, because the server decides the amount.
+- **Keys:** `CONFIG.ads` holds the owner's own LevelPlay app keys and ad unit ids (created 2026-11-26), for Android and iOS. The apps are "Not live yet", with COPPA "Not directed" (DECISIONS 87). The ad units use the dashboard defaults with no capping or pacing, because the game paces itself. The rewarded units' reward ("Snowflakes", 1) is a placeholder, because the server decides the amount.
 
 ## How a rewarded video is credited (slice 2, DECISIONS 86)
 
@@ -85,7 +85,7 @@ The dashboard's callback test (enter a ticket id as the User ID) checks the firs
 
 - **Use the owner's own keys** (done). Unity's demo key serves ordinary live campaigns that aren't child-directed. A test showed a game ad rated 16+ that opened the Play Store on its own.
 - **In the owner's LevelPlay dashboard:**
-  - COPPA: changed to "Not directed" by LevelPlay support (asked for, DECISIONS 87), and gambling ads blocked;
+  - COPPA: "Not directed" (done, DECISIONS 87); block gambling ads;
   - choose only certified networks for families;
   - set the ad content rating.
 - **Set up the server-to-server rewarded callback:**
