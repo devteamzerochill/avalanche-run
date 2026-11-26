@@ -58,6 +58,7 @@ Players choose to watch, and get one of two rewards:
 - **The game side is `src/systems/ads.js`.** It does nothing outside the apps. It holds the pacing rules, kept in their own localStorage key so restarting the app doesn't reset them.
 - **The banner's height goes to the CSS variable `--ad`.** The title screen and the results card pad by it.
 - **Keys:** `CONFIG.ads` holds the owner's own LevelPlay app keys and ad unit ids (created 2026-11-26), for Android and iOS. The apps are "Not live yet", with COPPA "Not directed" (DECISIONS 87). The ad units use the dashboard defaults with no capping or pacing, because the game paces itself. The rewarded units' reward ("Snowflakes", 1) is a placeholder, because the server decides the amount.
+- **Networks:** Unity Ads is the main demand. ironSource Ads stopped serving its own ads on 2026-04-30, leaving only its exchange, so with ironSource alone every format got 509 "No fill". Unity Ads was set up on 2026-11-26 as a bidder on both LevelPlay apps. The Unity projects are `avalanche-run-android` (Game ID `800453933`) and `avalanche-run-ios` (Game ID `800453938`), both "not directed to children", with placements `BP_Rewarded_<platform>`, `BP_Interstitial_<platform>` and `BP_Banner_<platform>`. The app already ships the Unity Ads adapter.
 
 ## How a rewarded video is credited (slice 2, DECISIONS 86)
 
