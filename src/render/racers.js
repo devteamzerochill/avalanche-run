@@ -34,7 +34,7 @@ export class Racers {
       this.stage.world.add(rider.root);
       const trail = new SpeedTrail(this.stage);
       trail.mesh.visible = false;
-      this.list.push({ rider, trail, key: null, items: null, alpha: 1, used: false, spark: 0, hop: 0 });
+      this.list.push({ rider, trail, key: null, items: null, alpha: 1, used: false, hop: 0 });
     }
     const r = this.list[k];
     const key = look ? [look.rider, look.board, look.trail].join('/') : '';

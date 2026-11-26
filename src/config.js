@@ -275,15 +275,15 @@ export const BOARDS = [
   { id: 'gold', cost: -1, shards: 1000, fx: 'gold', deck: '#D9A42A', stripe: '#FFE07A', edge: '#9A6A12' },
 ];
 
-// Board trails, Shards shop only (DECISIONS 68): a ribbon off the board, worn all
-// the time, plus sparks. `colors` run along the ribbon; `rainbow` cycles hue
-// instead; `spark` picks the particles (hues 0..1, `pastel` for star-white).
+// Board trails, Shards shop only (DECISIONS 68, 91): one ribbon following the
+// board, worn all the time. `colors` are bands across it (edge, middle, centre);
+// `rainbow` blends hues across it instead; `pulse` makes it throb.
 export const TRAILS = [
-  { id: 'rainbow', shards: 500, rainbow: true, colors: ['#FF4D6D', '#FFD23F', '#3DDC97'], spark: { hues: [0, 0.17, 0.33, 0.55, 0.75], rate: 22 } },
-  { id: 'aurora', shards: 500, colors: ['#3DFFB0', '#2EC8FF', '#9B6BFF'], spark: { hues: [0.42, 0.52, 0.75], rate: 14 } },
-  { id: 'ember', shards: 500, colors: ['#FFE066', '#FF7A1A', '#E0262E'], spark: { hues: [0.02, 0.07, 0.12], rate: 30, rise: true } },
-  { id: 'stardust', shards: 500, colors: ['#C9A2FF', '#6A3BFF', '#2A1A6B'], spark: { hues: [0.75, 0.8, 0.55], rate: 24, pastel: true } },
-  { id: 'neon', shards: 500, pulse: true, colors: ['#FF3EC8', '#B04BFF', '#3EF0FF'], spark: { hues: [0.9, 0.5], rate: 16 } },
+  { id: 'rainbow', shards: 500, rainbow: true, colors: ['#FF4D6D', '#FFD23F', '#3DDC97'] },
+  { id: 'aurora', shards: 500, colors: ['#3DFFB0', '#2EC8FF', '#9B6BFF'] },
+  { id: 'ember', shards: 500, colors: ['#FFE066', '#FF7A1A', '#E0262E'] },
+  { id: 'stardust', shards: 500, colors: ['#C9A2FF', '#6A3BFF', '#2A1A6B'] },
+  { id: 'neon', shards: 500, pulse: true, colors: ['#FF3EC8', '#B04BFF', '#3EF0FF'] },
 ];
 
 // Race quick chat (DECISIONS 66): the only things riders can say to each

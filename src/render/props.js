@@ -347,13 +347,6 @@ function snowmanGeo() {
   ]);
 }
 
-function balloonGeo() {
-  const g = new THREE.SphereGeometry(0.8, 10, 8).scale(1, 1.2, 1).translate(0, 1, 0);
-  const knot = new THREE.ConeGeometry(0.14, 0.25, 5).translate(0, -0.05, 0);
-  const string = new THREE.CylinderGeometry(0.02, 0.02, 2.4, 3).translate(0, -1.3, 0);
-  return merge([paint(g, (c, x, y, z, nx, ny) => c.set(ny > 0.5 ? '#ffffff' : '#e6e6e6')), paint(knot, (c) => c.set('#dddddd')), paint(string, (c) => c.set('#8899aa'))]);
-}
-
 function canvasTexture(w, h, draw) {
   const cv = document.createElement('canvas');
   cv.width = w;
@@ -533,11 +526,8 @@ export class Props {
     add('sRock', rockGeo(5, '#59626d'), lambert(), 60, 0, 0.021);
     add('sSerac', seracGeo(), iceMat, 70, 0, 0.025);
     add('sSnowman', snowmanGeo(), lambert(), 26, 0, 0.021);
-    add('sBalloon', balloonGeo(), lambert(), 44, 0, 0.021);
-    const palette = ['#ff3355', '#ffd23f', '#35d6ff', '#7a5cff', '#3ddc84', '#ff8a1e'];
-    const tmpC = new THREE.Color();
-    for (let i = 0; i < 44; i++) this.sets.sBalloon.mesh.setColorAt(i, tmpC.set(palette[i % palette.length]));
-    this.scenery = { sPine: [], sRock: [], sSerac: [], sSnowman: [], sBalloon: [] };
+    // No balloons (owner, 2026-11-26).
+    this.scenery = { sPine: [], sRock: [], sSerac: [], sSnowman: [] };
     this.rng = mulberry32(99);
     this.resetScenery(0);
   }
@@ -557,7 +547,6 @@ export class Props {
   sceneryVisible(kind, d) {
     const b = biomeAt(d).id;
     if (kind === 'sSnowman') return this.rng() < (b === 'forest' ? 0.9 : 0.4);
-    if (kind === 'sBalloon') return this.rng() < (b === 'storm' ? 0.9 : 0.75);
     const share = kind === 'sPine' ? { forest: 1, glacier: 0.12, storm: 0.6 } : kind === 'sSerac' ? { forest: 0, glacier: 1, storm: 0.45 } : { forest: 0.6, glacier: 0.8, storm: 0.8 };
     return this.rng() < share[b];
   }
@@ -578,10 +567,6 @@ export class Props {
       item.x = sideSign * (10.2 + r() * 2.6);
       item.s = 0.9 + r() * 0.5;
       item.yaw = sideSign > 0 ? -1.2 : 1.2;
-    } else if (kind === 'sBalloon') {
-      item.x = sideSign * (10 + r() * 14);
-      item.s = 0.9 + r() * 0.8;
-      item.h = 4 + r() * 7;
     } else {
       item.x = sideSign * (12 + r() * 46);
       item.s = 1.6 + r() * 3.4;
@@ -609,17 +594,11 @@ export class Props {
     for (const kind of Object.keys(this.scenery)) {
       const list = this.scenery[kind];
       const use = Math.floor(list.length * this.sceneryShare);
-      if (!this.time) this.time = 0;
       for (let i = 0; i < use; i++) {
         const it = list[i];
         if (it.d < dist - 50) this.placeScenery(kind, it, it.d + span);
         if (!it.on) continue;
         const y = terrain.heightAt(it.x, it.d);
-        if (kind === 'sBalloon') {
-          const bob = Math.sin(this.time * 1.4 + i) * 0.5;
-          this.put(kind, it.x + Math.sin(this.time * 0.7 + i * 2) * 0.4, y + it.h + bob, -(it.d - dist), it.s, it.s, it.s, it.yaw, 0, Math.sin(this.time + i) * 0.12);
-          continue;
-        }
         if (kind === 'sSnowman') {
           this.put(kind, it.x, y - 0.1, -(it.d - dist), it.s, it.s, it.s, it.yaw);
           continue;
