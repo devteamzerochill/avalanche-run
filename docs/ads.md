@@ -60,6 +60,31 @@ Players choose to watch, and get one of two rewards:
 - **Keys:** `CONFIG.ads` holds the owner's own LevelPlay app keys and ad unit ids (created 2026-11-26), for Android and iOS. The apps are "Not live yet", with COPPA "Not directed" (DECISIONS 87). The ad units use the dashboard defaults with no capping or pacing, because the game paces itself. The rewarded units' reward ("Snowflakes", 1) is a placeholder, because the server decides the amount.
 - **Networks:** Unity Ads is the main demand. ironSource Ads stopped serving its own ads on 2026-04-30, leaving only its exchange, so with ironSource alone every format got 509 "No fill". Unity Ads was set up on 2026-11-26 as a bidder on both LevelPlay apps. The Unity projects are `avalanche-run-android` (Game ID `800453933`) and `avalanche-run-ios` (Game ID `800453938`), both "not directed to children", with placements `BP_Rewarded_<platform>`, `BP_Interstitial_<platform>` and `BP_Banner_<platform>`. The app already ships the Unity Ads adapter.
 
+## iOS (slice 4)
+
+Written on 2026-11-26 without a Mac, so **not compiled or run yet**. The owner chose to write it now and test it later.
+
+- **Native plugin:** `mobile/ios/App/App/AdsPlugin.swift`, the same five methods as Android (`start`, `isReady`, `showInterstitial`, `showRewarded`, `setBanner`) and the same events (`loaded`, `banner`), so `src/systems/ads.js` runs unchanged. The method is `start`, not `init`, on both platforms: Objective-C treats any `init…` method as a constructor.
+- **Registration:** `MainViewController.swift` subclasses Capacitor's bridge view controller and registers the plugin in `capacitorDidLoad()`. `Main.storyboard` now uses it.
+- **SDK:** Swift packages added to the app target in `App.xcodeproj` (by hand, so Xcode may rewrite the entries on first open):
+  - `LevelPlay-Swift-Package` 9.8.0, product `UnityMediationSDK` (module `IronSource`);
+  - `LevelPlay-UnityAds-Adapter-Swift-Package` 5.14.0, product `UnityAdsAdapter`;
+  - `-ObjC` in Other Linker Flags, as LevelPlay's package README asks.
+- **Info.plist:** SKAdNetwork ids for LevelPlay (`su67r6k2v3`) and Unity Ads (`4dzt52r2t5`), and `NSAllowsArbitraryLoads` as LevelPlay's docs ask. No tracking (ATT) prompt yet; revisit before release with the rest of "Audience and privacy".
+- **Needs Xcode 26 or newer** (LevelPlay 9.5.0 and later).
+
+**Not checked against the real SDK** (the docs show the calls but not every type name). If Xcode complains, look here first:
+- the delegate protocol names `LPMInterstitialAdDelegate`, `LPMRewardedAdDelegate` and `LPMBannerAdViewDelegate`, and their method signatures;
+- `LPMBannerAdViewConfigBuilder().build()` giving the 320×50 banner, and `loadAd(with:)`;
+- whether `LevelPlay.initWith` calls back on the main thread (the plugin hops to it anyway).
+
+**First test on a Mac:**
+1. Run `node build-apps.mjs` on the PC, open `xcode/ios/App/App.xcodeproj` from the zip, let Xcode resolve the packages, choose the team, build.
+2. Run on an iPhone; the Xcode console should show no `AvalancheAds:` load failures after a minute (509 "No fill" is a fill problem, not a code one).
+3. Finish a solo run that pays snowflakes and watch the rewarded video: "+N ❄ added" should show within about 10 seconds.
+4. Keep playing: an interstitial should show after a run once the pacing rules allow it (see "Interstitial"; never in the first 2 runs of the day).
+5. Add the iPhone as a test device in LevelPlay and Unity first, as was done for the Android phone.
+
 ## How a rewarded video is credited (slice 2, DECISIONS 86)
 
 1. The results card offers **"Watch a video: +N ❄"** only once the server has counted the run, with N the snowflakes the server counted for it.

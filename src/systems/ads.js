@@ -29,7 +29,7 @@ export class Ads {
       document.documentElement.style.setProperty('--ad', (e.height || 0) + 'px');
     });
     this.p
-      .init(keys)
+      .start(keys)
       .then(() => (this.on = true))
       .catch((e) => console.warn('ads off:', e && e.message));
   }

@@ -51,8 +51,9 @@ public class AdsPlugin extends Plugin {
     private PluginCall showing; // the interstitial or rewarded call waiting for its ad to close
     private boolean earned;
 
+    // "start", not "init", to match iOS, where Objective-C treats init… methods as constructors.
     @PluginMethod
-    public void init(PluginCall call) {
+    public void start(PluginCall call) {
         String appKey = call.getString("appKey");
         if (appKey == null || appKey.isEmpty()) {
             call.reject("appKey missing");
