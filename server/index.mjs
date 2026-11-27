@@ -17,6 +17,7 @@ import { CONFIG } from '../src/config.js';
 import { EnduranceRoom } from './race-room.mjs';
 import { Supabase, supabaseSettings } from './supabase.mjs';
 import { runCheckRoute } from './run-check.mjs';
+import { benchRoute } from './bench.mjs';
 
 // dist/web/ only: the rest of the project (server/.env included) is never served.
 const web = path.resolve(fileURLToPath(new URL('../dist/web/', import.meta.url)));
@@ -61,6 +62,7 @@ export async function startRaceServer(opts = {}) {
     greet: false,
     express: (app) => {
       runCheckRoute(app, db, EnduranceRoom.settings.log); // solo scores checked by replay (DECISIONS 72)
+      benchRoute(app, EnduranceRoom.settings.log); // ?bench reports from players' phones (DECISIONS 94)
       if (process.env.SERVE_GAME === '1') serveGame(app);
     },
   });

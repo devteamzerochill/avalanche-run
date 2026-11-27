@@ -28,6 +28,11 @@ export function runCheckUrl() {
   return raceServer().replace(/^ws/, 'http') + '/run-check';
 }
 
+// ?bench reports go to the same server (DECISIONS 94).
+export function benchUrl() {
+  return raceServer().replace(/^ws/, 'http') + '/bench';
+}
+
 function loadSdk() {
   if (window.Colyseus) return Promise.resolve(window.Colyseus);
   return new Promise((resolve, reject) => {

@@ -1,7 +1,9 @@
 // Performance probe: an on-screen readout (?fps) and a scripted benchmark
 // (?bench) that plays a bot run in real time and reports frame statistics.
-// Results are shown on screen and, when the page is served by tools/bench.py,
-// posted back to it so runs from different browsers can be compared.
+// Results are shown on screen and posted to the race server's /bench
+// (server/bench.mjs), so a report from a player's own phone reaches us without
+// a cable (DECISIONS 94).
+import { benchUrl } from './race.js';
 
 function stats(list) {
   const a = list.slice().sort((x, y) => x - y);
@@ -108,13 +110,17 @@ export class Perf {
         const dbg = gl.getExtension('WEBGL_debug_renderer_info');
         return dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
       })(),
+      // Safari can hold a page at 30 fps (Low Power Mode, or a frame from another site), which looks like a slow phone.
+      framed: window.self !== window.top,
+      page: location.host + location.pathname + ' ' + [...new URLSearchParams(location.search).keys()].join('&'), // flag names only, never values
     };
     this.status = `bench: ${result.fps} fps avg, p95 ${result.frameMs.p95} ms, ${result.longFrames} long`;
     window.__BENCH = result;
     try {
-      await fetch('/bench', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(result) });
+      const res = await fetch(benchUrl(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(result), signal: AbortSignal.timeout(10000) });
+      this.status += res.ok ? '\nreport sent' : '\nreport not sent (' + res.status + ')';
     } catch (err) {
-      /* not served by tools/bench.py */
+      this.status += '\nreport not sent (offline?)';
     }
     return result;
   }
