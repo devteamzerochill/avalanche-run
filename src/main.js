@@ -278,7 +278,8 @@ class Game {
     this.ui.hideLoader();
     track('boot');
     requestAnimationFrame((ts) => this.loop(ts));
-    if (query.has('bench')) this.perf.runBench(+query.get('bench') || 20);
+    if (query.get('bench') === 'parts') this.perf.runParts();
+    else if (query.has('bench')) this.perf.runBench(+query.get('bench') || 20);
   }
 
   makeBot() {
