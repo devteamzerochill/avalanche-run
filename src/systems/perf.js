@@ -120,10 +120,19 @@ export class Perf {
     const st = g.stage;
     const hullOf = (m) => st.world.children.find((c) => c !== m && c.instanceMatrix && c.instanceMatrix === m.instanceMatrix);
     const app = [...document.querySelectorAll('#app > *')].filter((el) => el.id !== 'game');
+    const hideEls = (els) => ({ on: () => els.forEach((el) => (el.style.visibility = 'hidden')), off: () => els.forEach((el) => (el.style.visibility = '')) });
+    const byId = (id) => document.getElementById(id);
+    // The title screen as it was before DECISIONS 96: faded out but still painted, its animations running.
+    const old = document.createElement('style');
+    old.textContent = '#title.bench-old,#title.bench-old *{visibility:visible!important;animation-play-state:running!important}';
     // Each variant: objects hidden from the main camera, or a setup step and its undo.
+    // `high` runs first and last: the gap between the two is how much the phone slowed as it warmed up.
     const variants = [
       { name: 'high' },
-      { name: 'no-ui', on: () => app.forEach((el) => (el.style.visibility = 'hidden')), off: () => app.forEach((el) => (el.style.visibility = '')) },
+      { name: 'title-as-before', on: () => (document.head.appendChild(old), byId('title').classList.add('bench-old')), off: () => (byId('title').classList.remove('bench-old'), old.remove()) },
+      { name: 'no-ui', ...hideEls(app) },
+      { name: 'no-hud', ...hideEls([byId('hud')]) },
+      { name: 'no-speedfx', ...hideEls([byId('speedfx')]) },
       { name: 'no-css-filters', on: () => document.body.classList.add('q-low'), off: () => document.body.classList.remove('q-low') },
       { name: 'no-ink', on: () => setInk(false), off: () => setInk(true) },
       { name: 'no-terrain', hide: () => [st.terrain.mesh] },
@@ -136,6 +145,7 @@ export class Perf {
       { name: 'no-draw', skip: true },
       { name: 'quarter-res', on: () => st.resize(0.25), off: () => st.resize(1) },
       { name: 'low', on: () => g.setQuality(0), off: () => g.setQuality(2) },
+      { name: 'high-again' },
     ];
     const auto = g.q.auto;
     g.q.auto = false;
