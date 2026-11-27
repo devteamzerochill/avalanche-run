@@ -32,10 +32,12 @@ export function benchRoute(app, log) {
     const addr = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
     if (!allowed(addr, now)) return res.status(429).json({ error: 'too many' });
     const r = await readJson(req, MAX_BODY);
-    if (!r || typeof r !== 'object' || Array.isArray(r) || typeof r.fps !== 'number') return res.status(400).json({ error: 'bad report' });
+    // A single run has an fps; a ?bench=parts run has one per variant.
+    const parts = r && Array.isArray(r.variants) && r.variants.length > 0 && r.variants.every((v) => v && typeof v.fps === 'number');
+    if (!r || typeof r !== 'object' || Array.isArray(r) || (typeof r.fps !== 'number' && !parts)) return res.status(400).json({ error: 'bad report' });
     reports.unshift({ at: new Date(now).toISOString(), ...r });
     reports.length = Math.min(reports.length, KEEP);
-    log('bench report', r.browser, r.fps + ' fps', r.quality);
+    log('bench report', r.browser, parts ? r.variants.length + ' variants' : r.fps + ' fps', r.quality || '');
     res.json({ ok: true });
   });
 }

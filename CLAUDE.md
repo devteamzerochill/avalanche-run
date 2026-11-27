@@ -1,6 +1,6 @@
 # Avalanche Run: working notes
 
-A mobile-first arcade snowboard runner (three.js r160, vendored) rebuilt from a minified playable-ad prototype. You ride as the **Zero Chill fox** (the owner's company mascot) and outrun an avalanche down a seeded daily mountain. The owner directs the look and feel; read `DECISIONS.md` (94 numbered entries; 93 is on the in-app purchases branch) before changing anything. It records why each choice was made.
+A mobile-first arcade snowboard runner (three.js r160, vendored) rebuilt from a minified playable-ad prototype. You ride as the **Zero Chill fox** (the owner's company mascot) and outrun an avalanche down a seeded daily mountain. The owner directs the look and feel; read `DECISIONS.md` (95 numbered entries; 93 is on the in-app purchases branch) before changing anything. It records why each choice was made.
 
 ## Commands
 
@@ -51,7 +51,7 @@ Build outputs in `dist/`:
 - `avalanche-run.html`: single-file web player (no ad layer, portrait lock).
 - `avalanche-run-artifact.html`: the player without `<html>/<head>/<body>`, for the claude.ai artifact.
 
-Useful query flags: `?bot=1`, `?seed=123`, `?test`, `?ad`, `?portrait`, `?fps`, `?bench=20` (posts its report to the race server; read them at `<server>/bench`, DECISIONS 94), `?record`. Debug hook: `window.__GAME` (`info()`, `begin()`, `back()`, `bot(on, { human: true })`, `step(n)`, `game`).
+Useful query flags: `?bot=1`, `?seed=123`, `?test`, `?ad`, `?portrait`, `?fps`, `?bench=20` and `?bench=parts` (post their report to the race server; read them at `<server>/bench`, DECISIONS 94, 95), `?record`. Debug hook: `window.__GAME` (`info()`, `begin()`, `back()`, `bot(on, { human: true })`, `step(n)`, `game`).
 
 ## zerochill.com integration
 
