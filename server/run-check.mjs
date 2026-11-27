@@ -11,13 +11,13 @@ import { judgeRide } from './scripted.mjs';
 
 const MAX_BODY = 1 << 20; // a 5-minute run is well under 100 KB of inputs
 
-function readJson(req) {
+export function readJson(req, max = MAX_BODY) {
   return new Promise((resolve) => {
     let size = 0;
     const parts = [];
     req.on('data', (c) => {
       size += c.length;
-      if (size > MAX_BODY) {
+      if (size > max) {
         resolve(null);
         req.destroy();
       } else parts.push(c);
