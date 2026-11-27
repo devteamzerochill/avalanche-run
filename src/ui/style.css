@@ -13,9 +13,9 @@ button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer
 b{font-weight:800}
 
 /* ---------- HUD ---------- */
-#hud{position:absolute;inset:0;pointer-events:none;transition:opacity .25s;
+#hud{position:absolute;inset:0;pointer-events:none;transition:opacity .25s,visibility 0s;
   padding:calc(env(safe-area-inset-top,0px) + 10px) calc(env(safe-area-inset-right,0px) + 12px) calc(env(safe-area-inset-bottom,0px) + 12px) calc(env(safe-area-inset-left,0px) + 12px)}
-#hud.off{opacity:0}
+#hud.off{opacity:0;visibility:hidden;transition:opacity .25s,visibility 0s .25s}
 #hud [data-ui]{pointer-events:auto}
 #hud.off [data-ui]{pointer-events:none}
 .hud-tl{position:absolute;left:calc(env(safe-area-inset-left,0px) + 14px);top:calc(env(safe-area-inset-top,0px) + 10px);text-shadow:0 2px 8px rgba(12,28,53,.55)}
@@ -76,8 +76,11 @@ body.tapsteer #jumpBtn{display:block}
 /* ---------- screens ---------- */
 .screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;text-align:center;gap:calc(10px*var(--s));
   padding:calc(env(safe-area-inset-top,0px) + 14px) 18px calc(env(safe-area-inset-bottom,0px) + 18px + var(--ad,0px));
-  background:linear-gradient(180deg,rgba(12,28,53,.55) 0%,rgba(12,28,53,0) 26%,rgba(12,28,53,0) 46%,rgba(12,28,53,.82) 80%);transition:opacity .3s}
-.screen.out{opacity:0;pointer-events:none}
+  background:linear-gradient(180deg,rgba(12,28,53,.55) 0%,rgba(12,28,53,0) 26%,rgba(12,28,53,0) 46%,rgba(12,28,53,.82) 80%);transition:opacity .3s,visibility 0s}
+/* A faded-out screen is also hidden once the fade ends, and its looping animations pause: Safari otherwise
+   repaints the invisible stripes, glows and blurs every frame (iPhone: 31 fps, 46 without them; DECISIONS 96). */
+.screen.out{opacity:0;pointer-events:none;visibility:hidden;transition:opacity .3s,visibility 0s .3s}
+.screen.out *,#hud.off *{animation-play-state:paused!important}
 .title-top{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);left:14px;right:14px;display:flex;justify-content:space-between;gap:8px}
 .chip{font-size:calc(12px*var(--s));font-weight:800;padding:6px 12px;border-radius:999px;background:rgba(12,28,53,.6);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);white-space:nowrap}
 .chip.gold{color:var(--reward)}
